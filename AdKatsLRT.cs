@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.0.0
- * 18-NOV-2014
+ * Version 1.0.0.5
+ * 21-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.0.0</version_code>
+ * <version_code>1.0.0.5</version_code>
  */
 
 using System;
@@ -40,7 +40,7 @@ using MySql.Data.MySqlClient;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.0.0";
+        private const String PluginVersion = "1.0.0.5";
 
         public enum ConsoleMessageType {
             Normal,
@@ -160,6 +160,10 @@ namespace PRoConEvents {
         private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
         private Dictionary<String, String> _WARSAWDeniedIDMessages = new Dictionary<String, String>();
 
+        //Tokens
+        private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
+        private String _TokenStringLoadout = "AB0Lk8jgbZj04WEZGxmdrzwPOy6LlKKzks5Ud2ygwA%3D%3D";
+
         public AdKatsLRT() {
             //Set defaults for webclient
             System.Net.ServicePointManager.Expect100Continue = false;
@@ -202,6 +206,8 @@ namespace PRoConEvents {
             try {
                 var lstReturn = new List<CPluginVariable>();
                 const string separator = " | ";
+                lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof(String), _TokenStringWARSAW));
+                lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof(String), _TokenStringLoadout));
                 if (!_WARSAWLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
@@ -278,6 +284,8 @@ namespace PRoConEvents {
         public List<CPluginVariable> GetPluginVariables() {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
+            lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof(String), _TokenStringWARSAW));
+            lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof(String), _TokenStringLoadout));
             foreach (var pair in _WARSAWDeniedIDMessages)
             {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof(String), pair.Value));
@@ -292,6 +300,28 @@ namespace PRoConEvents {
             try {
                 if (strVariable == "UpdateSettings") {
                     //Do nothing. Settings page will be updated after return.
+                }
+                else if (Regex.Match(strVariable, @"WARSAW Token").Success)
+                {
+                    if (!String.IsNullOrEmpty(strValue)) 
+                    {
+                        _TokenStringWARSAW = strValue;
+                    }
+                    else 
+                    {
+                        ConsoleError("Token cannot be empty.");
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Loadout Token").Success)
+                {
+                    if (!String.IsNullOrEmpty(strValue)) 
+                    {
+                        _TokenStringLoadout = strValue;
+                    }
+                    else
+                    {
+                        ConsoleError("Token cannot be empty.");
+                    }
                 }
                 else if (strVariable.StartsWith("ALW"))
                 {
@@ -833,7 +863,10 @@ namespace PRoConEvents {
                 AdKatsSubscribedPlayer aPlayer;
                 if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer))
                 {
-                    if ((aPlayer.player_reported && aPlayer.player_reputation < 15) || aPlayer.player_punished || aPlayer.player_marked || aPlayer.player_infractionPoints > 5)
+                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || 
+                        aPlayer.player_punished || 
+                        aPlayer.player_marked ||
+                        (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60))
                     {
                         //Start a delay thread
                         StartAndLogThread(new Thread(new ThreadStart(delegate
@@ -1001,7 +1034,7 @@ namespace PRoConEvents {
                                     reason = "[marked] ";
                                 }
                                 AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
-                                if (((aPlayer.player_infractionPoints > 5 || aPlayer.player_reported) && aPlayer.player_reputation < 0) ||
+                                if ((((aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || aPlayer.player_reported) && aPlayer.player_reputation < 0) ||
                                     aPlayer.player_punished || 
                                     aPlayer.player_marked)
                                 {
@@ -1097,6 +1130,21 @@ namespace PRoConEvents {
                         aPlayer.player_reported = (Boolean)soldierHashtable["player_reported"];
                         aPlayer.player_punished = (Boolean)soldierHashtable["player_punished"];
                         aPlayer.player_marked = (Boolean)soldierHashtable["player_marked"];
+                        Double lastPunishment = (Double)soldierHashtable["player_lastPunishment"];
+                        if (lastPunishment > 0)
+                        {
+                            aPlayer.player_lastPunishment = TimeSpan.FromSeconds(lastPunishment);
+                        }
+                        Double lastForgive = (Double)soldierHashtable["player_lastForgive"];
+                        if (lastPunishment > 0)
+                        {
+                            aPlayer.player_lastForgive = TimeSpan.FromSeconds(lastForgive);
+                        }
+                        Double lastAction = (Double)soldierHashtable["player_lastAction"];
+                        if (lastPunishment > 0)
+                        {
+                            aPlayer.player_lastAction = TimeSpan.FromSeconds(lastAction);
+                        }
                         aPlayer.player_spawnedOnce = (Boolean)soldierHashtable["player_spawnedOnce"];
                         aPlayer.player_conversationPartner = (String)soldierHashtable["player_conversationPartner"];
                         aPlayer.player_kills = Convert.ToInt32((Double)soldierHashtable["player_kills"]);
@@ -1122,7 +1170,8 @@ namespace PRoConEvents {
                             dPlayer.player_isAdmin = aPlayer.player_isAdmin;
                             Boolean action = false;
                             //Check player loadout if they've been reported and have low rep
-                            if (!dPlayer.player_reported && aPlayer.player_reported && dPlayer.player_reputation < 15) {
+                            if (!dPlayer.player_reported && aPlayer.player_reported && 
+                                dPlayer.player_reputation < 0) {
                                 action = true;
                             }
                             dPlayer.player_reported = aPlayer.player_reported;
@@ -1150,7 +1199,9 @@ namespace PRoConEvents {
                             dPlayer.player_team = aPlayer.player_team;
                         }
                         else {
-                            if (aPlayer.player_infractionPoints > 5 && aPlayer.player_spawnedOnce) {
+                            if (aPlayer.player_infractionPoints > 5 &&
+                                aPlayer.player_lastPunishment.TotalDays < 60)
+                            {
                                 QueuePlayerForProcessing(aPlayer);
                             }
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
@@ -1708,13 +1759,14 @@ namespace PRoConEvents {
             {
                 using (var client = new WebClient())
                 {
-                    try
-                    {
-                        String response = client.DownloadString("https://raw.githubusercontent.com/AdKats/AdKats-LRT/test/WarsawCodeBook.json?token=AB0Lkwfvlgjp3-4U8T4rrKUrhrYnXYOGks5UbN3HwA%3D%3D");
+                    try {
+                        String downloadURL = "https://raw.githubusercontent.com/AdKats/AdKats-LRT/test/WarsawCodeBook.json?token=" + _TokenStringWARSAW;
+                        ConsoleInfo(downloadURL);
+                        String response = client.DownloadString(downloadURL);
                         library = (Hashtable) JSON.JsonDecode(response);
                     }
                     catch (Exception e) {
-                        HandleException(new AdKatsException("Error while loading WARSAW library raw.", e));
+                        HandleException(new AdKatsException("Error while downloading raw WARSAW library.", e));
                     }
                 }
             }
@@ -1824,12 +1876,16 @@ namespace PRoConEvents {
                     }
                     String selectedKit = currentLoadoutHashtable["selectedKit"].ToString();
                     List<String> selectedKitItems = new List<String>();
+                    Int32 addedKitItems = 0;
                     switch (selectedKit) {
                         case "0":
                             loadout.SelectedKit = AdKatsLoadout.KitType.Assault;
                             foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[0]) {
                                 //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
                                 selectedKitItems.Add(element.ToString());
+                                if (++addedKitItems >= 6) {
+                                    break;
+                                }
                             }
                             break;
                         case "1":
@@ -1837,6 +1893,10 @@ namespace PRoConEvents {
                             foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[1]) {
                                 //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
                                 selectedKitItems.Add(element.ToString());
+                                if (++addedKitItems >= 6)
+                                {
+                                    break;
+                                }
                             }
                             break;
                         case "2":
@@ -1844,6 +1904,10 @@ namespace PRoConEvents {
                             foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[2]) {
                                 //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
                                 selectedKitItems.Add(element.ToString());
+                                if (++addedKitItems >= 6)
+                                {
+                                    break;
+                                }
                             }
                             break;
                         case "3":
@@ -1851,6 +1915,10 @@ namespace PRoConEvents {
                             foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[3]) {
                                 //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
                                 selectedKitItems.Add(element.ToString());
+                                if (++addedKitItems >= 6)
+                                {
+                                    break;
+                                }
                             }
                             break;
                         default:
@@ -2451,6 +2519,9 @@ namespace PRoConEvents {
             public Boolean player_reported;
             public Boolean player_punished;
             public Boolean player_marked;
+            public TimeSpan player_lastPunishment = TimeSpan.Zero;
+            public TimeSpan player_lastForgive = TimeSpan.Zero;
+            public TimeSpan player_lastAction = TimeSpan.Zero;
             public Boolean player_spawnedOnce;
             public String player_conversationPartner;
             public Int32 player_kills;
