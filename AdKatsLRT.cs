@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.0.5
+ * Version 1.0.0.8
  * 21-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.0.5</version_code>
+ * <version_code>1.0.0.8</version_code>
  */
 
 using System;
@@ -40,7 +40,7 @@ using MySql.Data.MySqlClient;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.0.5";
+        private const String PluginVersion = "1.0.0.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -213,18 +213,11 @@ namespace PRoConEvents {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
-                if (_WARSAWLibrary.Weapons.Any())
+                if (_WARSAWLibrary.Items.Any())
                 {
-                    foreach (var weapon in _WARSAWLibrary.Weapons.Values.OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
+                    foreach (var weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
                     {
-                        lstReturn.Add(new CPluginVariable("3. Weapons|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
-                    }
-                }
-                if (_WARSAWLibrary.KitItems.Any())
-                {
-                    foreach (var kitItem in _WARSAWLibrary.KitItems.Values.OrderBy(kitItem => kitItem.category).ThenBy(kitItem => kitItem.slug))
-                    {
-                        lstReturn.Add(new CPluginVariable("4. Kit Items|ALW" + kitItem.warsawID + separator + kitItem.category + separator + kitItem.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(kitItem.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("3. WARSAW Items|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
                 if (_WARSAWLibrary.VehicleUnlocks.Any())
@@ -234,43 +227,35 @@ namespace PRoConEvents {
                         lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALW" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
-                if (_WARSAWLibrary.WeaponAccessories.Any())
+                if (_WARSAWLibrary.ItemAccessories.Any())
                 {
-                    foreach (var weaponAccessory in _WARSAWLibrary.WeaponAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
+                    foreach (var weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
                     {
                         lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALW" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.Weapons.ContainsKey(denied.Key)))
+                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key)))
                 {
-                    WarsawWeapon deniedWeapon;
-                    if (_WARSAWLibrary.Weapons.TryGetValue(pair.Key, out deniedWeapon))
+                    WarsawItem deniedItem;
+                    if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem))
                     {
-                        lstReturn.Add(new CPluginVariable("7A. Denied Weapon Kill Messages|MSG" + deniedWeapon.warsawID + separator + deniedWeapon.slug + separator + "Kill Message", typeof(String), pair.Value));
-                    }
-                }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.KitItems.ContainsKey(denied.Key)))
-                {
-                    WarsawKitItem deniedKitItem;
-                    if (_WARSAWLibrary.KitItems.TryGetValue(pair.Key, out deniedKitItem))
-                    {
-                        lstReturn.Add(new CPluginVariable("7B. Denied Kit Item Kill Messages|MSG" + deniedKitItem.warsawID + separator + deniedKitItem.slug + separator + "Kill Message", typeof(String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
                 foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key)))
                 {
-                    WarsawVehicleUnlock deniedVehicleUnlock;
+                    WarsawItem deniedVehicleUnlock;
                     if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock))
                     {
                         lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.WeaponAccessories.ContainsKey(denied.Key)))
+                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key)))
                 {
-                    WarsawWeaponAccessory deniedWeaponAccessory;
-                    if (_WARSAWLibrary.WeaponAccessories.TryGetValue(pair.Key, out deniedWeaponAccessory))
+                    WarsawItemAccessory deniedItemAccessory;
+                    if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory))
                     {
-                        lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedWeaponAccessory.warsawID + separator + deniedWeaponAccessory.slug + separator + "Kill Message", typeof(String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
                 return lstReturn;
@@ -435,7 +420,7 @@ namespace PRoConEvents {
                                 {
                                     return;
                                 }
-                                ConsoleSuccess("WARSAW library loaded. " + _WARSAWLibrary.Weapons.Count + " weapons, " + _WARSAWLibrary.KitItems.Count + " kit items, " + _WARSAWLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _WARSAWLibrary.WeaponAccessories.Count + " accessories.");
+                                ConsoleSuccess("WARSAW library loaded. " + _WARSAWLibrary.Items.Count + " items, " + _WARSAWLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _WARSAWLibrary.ItemAccessories.Count + " accessories.");
                                 UpdateSettingPage();
 
                                 //Subscribe to online soldiers from AdKats
@@ -969,26 +954,29 @@ namespace PRoConEvents {
                             aPlayer = _LoadoutProcessingQueue.Dequeue();
                             //Fetch the loadout
                             AdKatsLoadout loadout = GetPlayerLoadout(aPlayer.player_personaID);
+                            if (loadout == null) {
+                                continue;
+                            }
                             //Process the loadout
-                            String message = "Player " + loadout.Name + " processed as " + loadout.SelectedKit.ToString() + " with weapons (";
-                            String weapons = loadout.KitWeapons.Values.Aggregate("", (current, weapon) => current + (weapon.slug + " [" + weapon.WeaponAccessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "], ")).Trim().TrimEnd(',');
-                            if (String.IsNullOrEmpty(weapons))
-                            {
-                                weapons = "none";
-                            }
-                            message += weapons + ") and kit items (";
-                            String kitItems = loadout.KitItems.Values.Aggregate("", (current, kitItem) => current + (kitItem.slug + ", "));
-                            kitItems = kitItems.Trim().TrimEnd(',');
-                            if (String.IsNullOrEmpty(kitItems))
-                            {
-                                kitItems = "none";
-                            }
-                            message += kitItems + ")";
+                            String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
+                            String sidearmMessage = loadout.KitItemSidearm.slug + " [" + loadout.KitItemSidearm.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
+                            String gadgetMessage = "[" + loadout.KitGadget1.slug + ", " + loadout.KitGadget2.slug + "]";
+                            String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
+                            String knifeMessage = "[" + loadout.KitKnife.slug + "]";
+
+                            String message = 
+                                "Player " + loadout.Name + 
+                                " processed as " + loadout.SelectedKitType.ToString() + 
+                                " with primary " + primaryMessage + 
+                                " sidearm " + sidearmMessage + 
+                                " gadgets " + gadgetMessage + 
+                                " grenade " + grenadeMessage + 
+                                " and knife " + knifeMessage;
                             ConsoleInfo(message);
                             Boolean loadoutValid = true;
                             foreach (var warsawDeniedIDMessage in _WARSAWDeniedIDMessages) 
                             {
-                                if (loadout.AllKitIDs.Contains(warsawDeniedIDMessage.Key))
+                                if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                 {
                                     loadoutValid = false;
                                     PlayerTellMessage(loadout.Name, warsawDeniedIDMessage.Value);
@@ -1013,13 +1001,27 @@ namespace PRoConEvents {
                             if (!loadoutValid) {
                                 //Tell them any other items that are invalid in their loadout
                                 String deniedWeapons = String.Empty;
-                                foreach (WarsawWeapon weapon in loadout.KitWeapons.Values) {
-                                    if (_WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID)) {
-                                        deniedWeapons += weapon.slug.ToUpper() + ", ";
-                                    }
-                                    deniedWeapons = weapon.WeaponAccessories.Values.Where(weaponAccessory => _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID)) {
+                                    deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
                                 }
-                                deniedWeapons = loadout.KitItems.Values.Where(kitItem => _WARSAWDeniedIDMessages.ContainsKey(kitItem.warsawID)).Aggregate(deniedWeapons, (current, kitItem) => current + (kitItem.slug.ToUpper() + ", ")).Trim().TrimEnd(',');
+                                deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitItemSidearm.warsawID)) {
+                                    deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
+                                }
+                                deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGadget1.warsawID)) {
+                                    deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGadget2.warsawID)) {
+                                    deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGrenade.warsawID)) {
+                                    deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitKnife.warsawID)) {
+                                    deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                }
+                                deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
                                 String reason = "";
                                 if (aPlayer.player_infractionPoints > 5) {
                                     reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
@@ -1028,7 +1030,7 @@ namespace PRoConEvents {
                                     reason = "[reported] ";
                                 }
                                 if (aPlayer.player_punished) {
-                                    reason = "[punished recently] ";
+                                    reason = "[recently punished] ";
                                 }
                                 if (aPlayer.player_marked) {
                                     reason = "[marked] ";
@@ -1040,6 +1042,7 @@ namespace PRoConEvents {
                                 {
                                     aPlayer.player_loadoutKilled = true;
                                     Thread.Sleep(2000);
+                                    ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
                                     ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
                                 }
                             }
@@ -1059,7 +1062,7 @@ namespace PRoConEvents {
                             Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0, 2);
                             Double percentFixed = Math.Round(countFixed / countKilled * 100.0, 2);
                             Double percentRaged = Math.Round(countRaged / countKilled * 100.0, 2);
-                            ConsoleInfo("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% ragequit without fixing.");
+                            ConsoleInfo("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
                         }
                         else
                         {
@@ -1415,7 +1418,7 @@ namespace PRoConEvents {
                     //Pause for effect, nothing else
                     Thread.Sleep(500);
 
-                    Dictionary<String, WarsawWeapon> weaponDictionary = new Dictionary<String, WarsawWeapon>();
+                    Dictionary<String, WarsawItem> itemDictionary = new Dictionary<String, WarsawItem>();
                     foreach (DictionaryEntry entry in weapons)
                     {
                         //Try to parse the entry key as an integer, only accept the entry on success
@@ -1426,12 +1429,12 @@ namespace PRoConEvents {
                             //ConsoleError("Rejecting weapon element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawWeapon weapon = new WarsawWeapon();
-                        weapon.warsawID = warsawID.ToString();
+                        WarsawItem item = new WarsawItem();
+                        item.warsawID = warsawID.ToString();
                         Boolean debug = false;
                         if (false) {
                             debug = true;
-                            ConsoleInfo("Loading debug warsaw ID " + weapon.warsawID);
+                            ConsoleInfo("Loading debug warsaw ID " + item.warsawID);
                         }
 
                         //Grab the contents
@@ -1443,15 +1446,15 @@ namespace PRoConEvents {
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
-                        weapon.category = (String)weaponData["category"];
-                        if (String.IsNullOrEmpty(weapon.category))
+                        item.category = (String)weaponData["category"];
+                        if (String.IsNullOrEmpty(item.category))
                         {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
-                        weapon.category = weapon.category.Split('_').Last().Replace('_', ' ').ToUpper();
+                        item.category = item.category.Split('_').Last().Replace('_', ' ').ToUpper();
                         //weapon.category = weapon.category.TrimStart("WARSAW_ID_P_CAT_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab name------------------------------------------------------------------------------
@@ -1461,15 +1464,15 @@ namespace PRoConEvents {
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
-                        weapon.name = (String)weaponData["name"];
-                        if (String.IsNullOrEmpty(weapon.name))
+                        item.name = (String)weaponData["name"];
+                        if (String.IsNullOrEmpty(item.name))
                         {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
                         //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
-                        weapon.name = weapon.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
+                        item.name = item.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab categoryType------------------------------------------------------------------------------
                         if (!weaponData.ContainsKey("categoryType"))
@@ -1478,8 +1481,8 @@ namespace PRoConEvents {
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'categoryType'.");
                             continue;
                         }
-                        weapon.categoryType = (String)weaponData["categoryType"];
-                        if (String.IsNullOrEmpty(weapon.category))
+                        item.categoryType = (String)weaponData["categoryType"];
+                        if (String.IsNullOrEmpty(item.category))
                         {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'categoryType' was invalid.");
@@ -1494,93 +1497,21 @@ namespace PRoConEvents {
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
-                        weapon.slug = (String)weaponData["slug"];
-                        if (String.IsNullOrEmpty(weapon.slug))
+                        item.slug = (String)weaponData["slug"];
+                        if (String.IsNullOrEmpty(item.slug))
                         {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
                         //Parsed slug replaces "_" with " ", replaces "-" with " ", and upper cases the rest
-                        weapon.slug = weapon.slug.Replace('_', ' ').Replace('-', ' ').ToUpper();
+                        item.slug = item.slug.Replace('_', ' ').Replace('-', ' ').ToUpper();
 
                         //Assign the weapon
-                        weaponDictionary[weapon.warsawID] = weapon;
+                        itemDictionary[item.warsawID] = item;
                         if(debug)
-                            ConsoleSuccess("Weapon " + weapon.warsawID + " added. " + weaponDictionary.ContainsKey(weapon.warsawID));
+                            ConsoleSuccess("Weapon " + item.warsawID + " added. " + itemDictionary.ContainsKey(item.warsawID));
                     }
-                    //Assign the new built dictionary
-                    library.Weapons = weaponDictionary;
-                    ConsoleInfo("WARSAW weapons parsed.");
-                    //Pause for effect, nothing else
-                    Thread.Sleep(500);
-
-                    Hashtable weaponaccessory = (Hashtable) compact["weaponaccessory"];
-                    if (weaponaccessory == null) {
-                        ConsoleError("Weapon accessory section of WARSAW library failed parse, unable to generate library.");
-                        return false;
-                    }
-                    Dictionary<String, WarsawWeaponAccessory> weaponAccessoryDictionary = new Dictionary<String, WarsawWeaponAccessory>();
-                    foreach (DictionaryEntry entry in weaponaccessory) {
-                        //Try to parse the entry key as an integer, only accept the entry on success
-                        Int64 warsawID;
-                        if (!Int64.TryParse((String) entry.Key, out warsawID)) {
-                            //Reject the entry
-                            //ConsoleError("Rejecting weapon accessory element '" + entry.Key + "', key not numeric.");
-                            continue;
-                        }
-                        WarsawWeaponAccessory weaponAccessory = new WarsawWeaponAccessory();
-                        weaponAccessory.warsawID = warsawID.ToString();
-
-                        //Grab the contents
-                        Hashtable weaponAccessoryData = (Hashtable) entry.Value;
-                        //Grab category------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("category")) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'category'.");
-                            continue;
-                        }
-                        weaponAccessory.category = (String) weaponAccessoryData["category"];
-                        if (String.IsNullOrEmpty(weaponAccessory.category)) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'category' was invalid.");
-                            continue;
-                        }
-                        //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
-                        weaponAccessory.category = weaponAccessory.category.Split('_').Last().Replace('_', ' ').ToUpper();
-                        //weaponAccessory.category = weaponAccessory.category.Substring(15, weaponAccessory.category.Length - 15).Replace('_', ' ').ToLower();
-
-                        //Grab name------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("name")) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'name'.");
-                            continue;
-                        }
-                        weaponAccessory.name = (String) weaponAccessoryData["name"];
-                        if (String.IsNullOrEmpty(weaponAccessory.name)) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'name' was invalid.");
-                            continue;
-                        }
-                        //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
-                        weaponAccessory.name = weaponAccessory.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
-
-                        //Grab slug------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("slug")) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'slug'.");
-                            continue;
-                        }
-                        weaponAccessory.slug = (String) weaponAccessoryData["slug"];
-                        if (String.IsNullOrEmpty(weaponAccessory.slug)) {
-                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'slug' was invalid.");
-                            continue;
-                        }
-                        //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
-                        weaponAccessory.slug = weaponAccessory.slug.TrimEnd('1').TrimEnd('2').TrimEnd('2').Replace('_', ' ').Replace('-', ' ').ToUpper();
-
-                        //Assign the weapon
-                        weaponAccessoryDictionary[weaponAccessory.warsawID] = weaponAccessory;
-                    }
-                    library.WeaponAccessories = weaponAccessoryDictionary;
-                    ConsoleInfo("WARSAW weapon accessories parsed.");
-                    //Pause for effect, nothing else
-                    Thread.Sleep(500);
 
                     Hashtable kititems = (Hashtable)compact["kititems"];
                     if (kititems == null)
@@ -1588,7 +1519,6 @@ namespace PRoConEvents {
                         ConsoleError("Kit items section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
-                    Dictionary<String, WarsawKitItem> kitItemsDictionary = new Dictionary<String, WarsawKitItem>();
                     foreach (DictionaryEntry entry in kititems)
                     {
                         //Try to parse the entry key as an integer, only accept the entry on success
@@ -1599,7 +1529,7 @@ namespace PRoConEvents {
                             //ConsoleError("Rejecting kit item element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawKitItem kitItem = new WarsawKitItem();
+                        WarsawItem kitItem = new WarsawItem();
                         kitItem.warsawID = warsawID.ToString();
 
                         //Grab the contents
@@ -1655,11 +1585,79 @@ namespace PRoConEvents {
                         //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
                         kitItem.slug = kitItem.slug.TrimEnd('1').TrimEnd('2').TrimEnd('2').Replace('_', ' ').Replace('-', ' ').ToUpper();
 
-                        //Assign the weapon
-                        kitItemsDictionary[kitItem.warsawID] = kitItem;
+                        //Assign the item
+                        itemDictionary[kitItem.warsawID] = kitItem;
                     }
-                    library.KitItems = kitItemsDictionary;
-                    ConsoleInfo("WARSAW kit items parsed.");
+                    //Assign the new built dictionary
+                    library.Items = itemDictionary;
+                    ConsoleInfo("WARSAW items parsed.");
+                    //Pause for effect, nothing else
+                    Thread.Sleep(500);
+
+                    Hashtable weaponaccessory = (Hashtable) compact["weaponaccessory"];
+                    if (weaponaccessory == null) {
+                        ConsoleError("Weapon accessory section of WARSAW library failed parse, unable to generate library.");
+                        return false;
+                    }
+                    Dictionary<String, WarsawItemAccessory> weaponAccessoryDictionary = new Dictionary<String, WarsawItemAccessory>();
+                    foreach (DictionaryEntry entry in weaponaccessory) {
+                        //Try to parse the entry key as an integer, only accept the entry on success
+                        Int64 warsawID;
+                        if (!Int64.TryParse((String) entry.Key, out warsawID)) {
+                            //Reject the entry
+                            //ConsoleError("Rejecting weapon accessory element '" + entry.Key + "', key not numeric.");
+                            continue;
+                        }
+                        WarsawItemAccessory itemAccessory = new WarsawItemAccessory();
+                        itemAccessory.warsawID = warsawID.ToString();
+
+                        //Grab the contents
+                        Hashtable weaponAccessoryData = (Hashtable) entry.Value;
+                        //Grab category------------------------------------------------------------------------------
+                        if (!weaponAccessoryData.ContainsKey("category")) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'category'.");
+                            continue;
+                        }
+                        itemAccessory.category = (String) weaponAccessoryData["category"];
+                        if (String.IsNullOrEmpty(itemAccessory.category)) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'category' was invalid.");
+                            continue;
+                        }
+                        //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
+                        itemAccessory.category = itemAccessory.category.Split('_').Last().Replace('_', ' ').ToUpper();
+                        //weaponAccessory.category = weaponAccessory.category.Substring(15, weaponAccessory.category.Length - 15).Replace('_', ' ').ToLower();
+
+                        //Grab name------------------------------------------------------------------------------
+                        if (!weaponAccessoryData.ContainsKey("name")) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'name'.");
+                            continue;
+                        }
+                        itemAccessory.name = (String) weaponAccessoryData["name"];
+                        if (String.IsNullOrEmpty(itemAccessory.name)) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'name' was invalid.");
+                            continue;
+                        }
+                        //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
+                        itemAccessory.name = itemAccessory.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
+
+                        //Grab slug------------------------------------------------------------------------------
+                        if (!weaponAccessoryData.ContainsKey("slug")) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'slug'.");
+                            continue;
+                        }
+                        itemAccessory.slug = (String) weaponAccessoryData["slug"];
+                        if (String.IsNullOrEmpty(itemAccessory.slug)) {
+                            //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'slug' was invalid.");
+                            continue;
+                        }
+                        //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
+                        itemAccessory.slug = itemAccessory.slug.TrimEnd('1').TrimEnd('2').TrimEnd('2').Replace('_', ' ').Replace('-', ' ').ToUpper();
+
+                        //Assign the weapon
+                        weaponAccessoryDictionary[itemAccessory.warsawID] = itemAccessory;
+                    }
+                    library.ItemAccessories = weaponAccessoryDictionary;
+                    ConsoleInfo("WARSAW accessories parsed.");
                     //Pause for effect, nothing else
                     Thread.Sleep(500);
 
@@ -1669,7 +1667,7 @@ namespace PRoConEvents {
                         ConsoleError("Vehicle unlocks section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
-                    Dictionary<String, WarsawVehicleUnlock> vehicleUnlockDictionary = new Dictionary<String, WarsawVehicleUnlock>();
+                    Dictionary<String, WarsawItem> vehicleUnlockDictionary = new Dictionary<String, WarsawItem>();
                     foreach (DictionaryEntry entry in vehicleunlocks)
                     {
                         //Try to parse the entry key as an integer, only accept the entry on success
@@ -1680,7 +1678,7 @@ namespace PRoConEvents {
                             //ConsoleError("Rejecting vehicle unlock element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawVehicleUnlock vehicleUnlock = new WarsawVehicleUnlock();
+                        WarsawItem vehicleUnlock = new WarsawItem();
                         vehicleUnlock.warsawID = warsawID.ToString();
 
                         //Grab the contents
@@ -1843,29 +1841,29 @@ namespace PRoConEvents {
                     foreach (DictionaryEntry weaponEntry in currentLoadoutWeapons) {
                         if (weaponEntry.Key.ToString() != "0")
                         {
-                            WarsawWeapon warsawWeapon;
-                            if (_WARSAWLibrary.Weapons.TryGetValue(weaponEntry.Key.ToString(), out warsawWeapon))
+                            WarsawItem warsawItem;
+                            if (_WARSAWLibrary.Items.TryGetValue(weaponEntry.Key.ToString(), out warsawItem))
                             {
                                 //Create new instance of the weapon for this player
-                                WarsawWeapon loadoutWeapon = new WarsawWeapon() {
-                                    warsawID = warsawWeapon.warsawID,
-                                    category = warsawWeapon.category,
-                                    categoryType = warsawWeapon.categoryType,
-                                    name = warsawWeapon.name,
-                                    slug = warsawWeapon.slug
+                                WarsawItem loadoutItem = new WarsawItem() {
+                                    warsawID = warsawItem.warsawID,
+                                    category = warsawItem.category,
+                                    categoryType = warsawItem.categoryType,
+                                    name = warsawItem.name,
+                                    slug = warsawItem.slug
                                 };
                                 foreach (String accessoryID in (ArrayList)weaponEntry.Value)
                                 {
                                     if (accessoryID != "0")
                                     {
-                                        WarsawWeaponAccessory warsawWeaponAccessory;
-                                        if (_WARSAWLibrary.WeaponAccessories.TryGetValue(accessoryID, out warsawWeaponAccessory))
+                                        WarsawItemAccessory warsawItemAccessory;
+                                        if (_WARSAWLibrary.ItemAccessories.TryGetValue(accessoryID, out warsawItemAccessory))
                                         {
-                                            loadoutWeapon.WeaponAccessories[warsawWeaponAccessory.warsawID] = warsawWeaponAccessory;
+                                            loadoutItem.Accessories[warsawItemAccessory.warsawID] = warsawItemAccessory;
                                         }
                                     }
                                 }
-                                loadout.LoadoutWeapons[loadoutWeapon.warsawID] = loadoutWeapon;
+                                loadout.LoadoutItems[loadoutItem.warsawID] = loadoutItem;
                             }
                         }
                     }
@@ -1875,112 +1873,353 @@ namespace PRoConEvents {
                         return null;
                     }
                     String selectedKit = currentLoadoutHashtable["selectedKit"].ToString();
-                    List<String> selectedKitItems = new List<String>();
+                    ArrayList currentLoadoutList;
+                    String loadoutPrimaryID, loadoutSidearmID, loadoutGadget1ID, loadoutGadget2ID, loadoutGrenadeID, loadoutKnifeID;
                     Int32 addedKitItems = 0;
                     switch (selectedKit) {
                         case "0":
-                            loadout.SelectedKit = AdKatsLoadout.KitType.Assault;
-                            foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[0]) {
-                                //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
-                                selectedKitItems.Add(element.ToString());
-                                if (++addedKitItems >= 6) {
-                                    break;
-                                }
-                            }
+                            loadout.SelectedKitType = AdKatsLoadout.KitType.Assault;
+                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[0];
                             break;
                         case "1":
-                            loadout.SelectedKit = AdKatsLoadout.KitType.Engineer;
-                            foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[1]) {
-                                //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
-                                selectedKitItems.Add(element.ToString());
-                                if (++addedKitItems >= 6)
-                                {
-                                    break;
-                                }
-                            }
+                            loadout.SelectedKitType = AdKatsLoadout.KitType.Engineer;
+                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[1];
                             break;
                         case "2":
-                            loadout.SelectedKit = AdKatsLoadout.KitType.Support;
-                            foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[2]) {
-                                //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
-                                selectedKitItems.Add(element.ToString());
-                                if (++addedKitItems >= 6)
-                                {
-                                    break;
-                                }
-                            }
+                            loadout.SelectedKitType = AdKatsLoadout.KitType.Support;
+                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[2];
                             break;
                         case "3":
-                            loadout.SelectedKit = AdKatsLoadout.KitType.Recon;
-                            foreach (var element in (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[3]) {
-                                //ConsoleWrite(loadout.Name + " | " + loadout.SelectedKit.ToString() + " | " + element.ToString());
-                                selectedKitItems.Add(element.ToString());
-                                if (++addedKitItems >= 6)
-                                {
-                                    break;
-                                }
-                            }
+                            loadout.SelectedKitType = AdKatsLoadout.KitType.Recon;
+                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[3];
                             break;
                         default:
                             ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
                             return null;
                     }
-                    foreach (String itemID in selectedKitItems) {
-                        //Check if ID is a loadout weapon
-                        WarsawWeapon loadoutWeapon;
-                        if (loadout.LoadoutWeapons.TryGetValue(itemID, out loadoutWeapon)) {
-                            //ConsoleSuccess("Found " + itemID + " as loadout weapon " + loadoutWeapon.slug + " for " + loadout.Name);
-                            //Loadout weapon found, assign it to the kit.
-                            loadout.KitWeapons[loadoutWeapon.warsawID] = loadoutWeapon;
+                    if (currentLoadoutList.Count < 6)
+                    {
+                        ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
+                        return null;
+                    }
+                    //Pull the specifics
+                    loadoutPrimaryID = currentLoadoutList[0].ToString();
+                    String defaultAssaultPrimary = "3590299697"; //ak-12
+                    String defaultEngineerPrimary = "2021343793"; //mx4
+                    String defaultSupportPrimary = "3179658801"; //u-100-mk5
+                    String defaultReconPrimary = "3458855537"; //cs-lr4
+
+                    loadoutSidearmID = currentLoadoutList[1].ToString();
+                    String defaultSidearm = "944904529"; //p226
+
+                    loadoutGadget1ID = currentLoadoutList[2].ToString();
+                    String defaultGadget1 = "1694579111"; //nogadget1
+
+                    loadoutGadget2ID = currentLoadoutList[3].ToString();
+                    String defaultGadget2 = "3260690101"; //nogadget2
+
+                    loadoutGrenadeID = currentLoadoutList[4].ToString();
+                    String defaultGrenade = "2670747868"; //m67-frag
+
+                    loadoutKnifeID = currentLoadoutList[5].ToString();
+                    String defaultKnife = "3214146841"; //bayonett
+
+                    //PRIMARY
+                    WarsawItem loadoutPrimary;
+                    String specificDefault;
+                    switch (loadout.SelectedKitType)
+                    {
+                        case AdKatsLoadout.KitType.Assault:
+                            specificDefault = defaultAssaultPrimary;
+                            break;
+                        case AdKatsLoadout.KitType.Engineer:
+                            specificDefault = defaultEngineerPrimary;
+                            break;
+                        case AdKatsLoadout.KitType.Support:
+                            specificDefault = defaultSupportPrimary;
+                            break;
+                        case AdKatsLoadout.KitType.Recon:
+                            specificDefault = defaultReconPrimary;
+                            break;
+                        default:
+                            ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
+                            return null;
+                    }
+                    if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary))
+                    {
+                        if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
+                        {
+                            ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
                         }
                         else
                         {
-                            //Check if ID is a kit item
-                            WarsawKitItem kitItem;
-                            if (_WARSAWLibrary.KitItems.TryGetValue(itemID, out kitItem))
+                            ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    switch (loadout.SelectedKitType)
+                    {
+                        case AdKatsLoadout.KitType.Assault:
+                            if (loadoutPrimary.category != "ASSAULTRIFLE" && 
+                                loadoutPrimary.category != "CARBINE" && 
+                                loadoutPrimary.category != "SHOTGUN" &&
+                                loadoutPrimary.category != "DMR")
                             {
-                                //ConsoleSuccess("Found " + itemID + " as loadout weapon accessory " + kitItem.slug + " for " + loadout.Name);
-                                //Kit item found, assign it to the kit.
-                                loadout.KitItems[kitItem.warsawID] = kitItem;
-                            }
-                            else
-                            {
-                                //Check if ID is a library weapon
-                                WarsawWeapon libraryWeapon;
-                                if (_WARSAWLibrary.Weapons.TryGetValue(itemID, out libraryWeapon))
+                                WarsawItem originalItem = loadoutPrimary;
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
                                 {
-                                    //ConsoleSuccess("Found " + itemID + " as library weapon " + libraryWeapon.slug + " for " + loadout.Name);
-                                    //Library weapon found, assign it to the kit.
-                                    loadout.KitWeapons[libraryWeapon.warsawID] = libraryWeapon;
+                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else
                                 {
-                                    //ConsoleWarn("Unable to find " + itemID + " as a valid weapon or accessory for " + loadout.Name);
+                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    return null;
                                 }
                             }
-                        }
-                    }
-                    //Fill the kit ID listings
-                    foreach (WarsawWeapon weapon in loadout.KitWeapons.Values)
-                    {
-                        if (!loadout.AllKitIDs.Contains(weapon.warsawID))
-                        {
-                            loadout.AllKitIDs.Add(weapon.warsawID);
-                        }
-                        foreach (WarsawWeaponAccessory accessory in weapon.WeaponAccessories.Values)
-                        {
-                            if (!loadout.AllKitIDs.Contains(accessory.warsawID))
+                            break;
+                        case AdKatsLoadout.KitType.Engineer:
+                            if (loadoutPrimary.category != "PDW" &&
+                                loadoutPrimary.category != "CARBINE" &&
+                                loadoutPrimary.category != "SHOTGUN" &&
+                                loadoutPrimary.category != "DMR")
                             {
-                                loadout.AllKitIDs.Add(accessory.warsawID);
+                                WarsawItem originalItem = loadoutPrimary;
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
+                                {
+                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                }
+                                else
+                                {
+                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    return null;
+                                }
                             }
+                            break;
+                        case AdKatsLoadout.KitType.Support:
+                            if (loadoutPrimary.category != "LMG" &&
+                                loadoutPrimary.category != "CARBINE" &&
+                                loadoutPrimary.category != "SHOTGUN" &&
+                                loadoutPrimary.category != "DMR")
+                            {
+                                WarsawItem originalItem = loadoutPrimary;
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
+                                {
+                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                }
+                                else
+                                {
+                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    return null;
+                                }
+                            }
+                            break;
+                        case AdKatsLoadout.KitType.Recon:
+                            if (loadoutPrimary.category != "SNIPER" &&
+                                loadoutPrimary.category != "CARBINE" &&
+                                loadoutPrimary.category != "SHOTGUN" &&
+                                loadoutPrimary.category != "DMR")
+                            {
+                                WarsawItem originalItem = loadoutPrimary;
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
+                                {
+                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                }
+                                else
+                                {
+                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    return null;
+                                }
+                            }
+                            break;
+                        default:
+                            ConsoleError("Specific kit type not set while confirming primary weapon type. Unable to parse player loadout.");
+                            return null;
+                    }
+                    loadout.KitItemPrimary = loadoutPrimary;
+
+                    //SIDEARM
+                    WarsawItem loadoutSidearm;
+                    if (!loadout.LoadoutItems.TryGetValue(loadoutSidearmID, out loadoutSidearm))
+                    {
+                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
+                        {
+                            ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
                         }
                     }
-                    foreach (WarsawKitItem kitItem in loadout.KitItems.Values)
+                    if (loadoutSidearm.category != "SIDEARM")
                     {
-                        if (!loadout.AllKitIDs.Contains(kitItem.warsawID))
+                        WarsawItem originalItem = loadoutSidearm;
+                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
                         {
-                            loadout.AllKitIDs.Add(kitItem.warsawID);
+                            ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
                         }
+                        else
+                        {
+                            ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    loadout.KitItemSidearm = loadoutSidearm;
+
+                    //GADGET1
+                    WarsawItem loadoutGadget1;
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget1ID, out loadoutGadget1))
+                    {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
+                        {
+                            ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    if (loadoutGadget1.category != "GADGET")
+                    {
+                        WarsawItem originalItem = loadoutGadget1;
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
+                        {
+                            ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    loadout.KitGadget1 = loadoutGadget1;
+
+                    //GADGET2
+                    WarsawItem loadoutGadget2;
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget2ID, out loadoutGadget2))
+                    {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
+                        {
+                            ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    if (loadoutGadget2.category != "GADGET")
+                    {
+                        WarsawItem originalItem = loadoutGadget2;
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
+                        {
+                            ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    loadout.KitGadget2 = loadoutGadget2;
+
+                    //GRENADE
+                    WarsawItem loadoutGrenade;
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGrenadeID, out loadoutGrenade))
+                    {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
+                        {
+                            ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    if (loadoutGrenade.category != "GRENADE") 
+                    {
+                        WarsawItem originalItem = loadoutGrenade;
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
+                        {
+                            ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    loadout.KitGrenade = loadoutGrenade;
+
+                    //KNIFE
+                    WarsawItem loadoutKnife;
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutKnifeID, out loadoutKnife))
+                    {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
+                        {
+                            ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    if (loadoutKnife.category != "KNIFE")
+                    {
+                        WarsawItem originalItem = loadoutKnife;
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
+                        {
+                            ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
+                        }
+                        else
+                        {
+                            ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            return null;
+                        }
+                    }
+                    loadout.KitKnife = loadoutKnife;
+
+                    //Fill the kit ID listings
+                    if (!loadout.AllKitItemIDs.Contains(loadoutPrimary.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutPrimary.warsawID);
+                    }
+                    foreach (WarsawItemAccessory accessory in loadoutPrimary.Accessories.Values)
+                    {
+                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID))
+                        {
+                            loadout.AllKitItemIDs.Add(accessory.warsawID);
+                        }
+                    }
+                    if (!loadout.AllKitItemIDs.Contains(loadoutSidearm.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutSidearm.warsawID);
+                    }
+                    foreach (WarsawItemAccessory accessory in loadoutSidearm.Accessories.Values)
+                    {
+                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID))
+                        {
+                            loadout.AllKitItemIDs.Add(accessory.warsawID);
+                        }
+                    }
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget1.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutGadget1.warsawID);
+                    }
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget2.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutGadget2.warsawID);
+                    }
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGrenade.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutGrenade.warsawID);
+                    }
+                    if (!loadout.AllKitItemIDs.Contains(loadoutKnife.warsawID))
+                    {
+                        loadout.AllKitItemIDs.Add(loadoutKnife.warsawID);
                     }
                     return loadout;
                 }
@@ -2538,21 +2777,21 @@ namespace PRoConEvents {
         }
 
 
-        public class WarsawLibrary {
-            public Dictionary<String, WarsawWeapon> Weapons;
-            public Dictionary<String, WarsawWeaponAccessory> WeaponAccessories;
-            public Dictionary<String, WarsawKitItem> KitItems;
-            public Dictionary<String, WarsawVehicleUnlock> VehicleUnlocks;
+        public class WarsawLibrary
+        {
+            public Dictionary<String, WarsawItem> Items;
+            public Dictionary<String, WarsawItem> VehicleUnlocks;
+            public Dictionary<String, WarsawItemAccessory> ItemAccessories;
 
-            public WarsawLibrary() {
-                Weapons = new Dictionary<string, WarsawWeapon>();
-                WeaponAccessories = new Dictionary<string, WarsawWeaponAccessory>();
-                KitItems = new Dictionary<string, WarsawKitItem>();
-                VehicleUnlocks = new Dictionary<string, WarsawVehicleUnlock>();
+            public WarsawLibrary()
+            {
+                Items = new Dictionary<String, WarsawItem>();
+                VehicleUnlocks = new Dictionary<String, WarsawItem>();
+                ItemAccessories = new Dictionary<String, WarsawItemAccessory>();
             }
         }
 
-        public class WarsawWeapon
+        public class WarsawItem
         {
             //only take entries with numeric IDs
             //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
@@ -2565,14 +2804,15 @@ namespace PRoConEvents {
             public String name;
             public String categoryType;
             public String slug;
-            public Dictionary<String, WarsawWeaponAccessory> WeaponAccessories;
+            public String desc;
+            public Dictionary<String, WarsawItemAccessory> Accessories;
 
-            public WarsawWeapon() {
-                WeaponAccessories = new Dictionary<string, WarsawWeaponAccessory>();
+            public WarsawItem() {
+                Accessories = new Dictionary<string, WarsawItemAccessory>();
             }
         }
 
-        public class WarsawWeaponAccessory
+        public class WarsawItemAccessory
         {
             //only take entries with numeric IDs
             //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
@@ -2587,27 +2827,6 @@ namespace PRoConEvents {
             public String name;
         }
 
-        public class WarsawVehicleUnlock
-        {
-            public String warsawID;
-            public String category;
-            public String slug;
-        }
-
-        public class WarsawKitItem
-        {
-            //only take entries with numeric IDs
-            //Reject parsing of kit items for categories not gadget, or grenade
-            //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
-            //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
-            //Parsed slug removes ending digits, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
-            public String warsawID;
-            public String category;
-            public String name;
-            public String slug;
-            public String desc;
-        }
-
         public class AdKatsLoadout {
             public enum KitType {
                 Assault,
@@ -2618,19 +2837,20 @@ namespace PRoConEvents {
 
             public String Name;
             public String PersonaID;
-            public Dictionary<String, WarsawWeapon> LoadoutWeapons;
-            public Dictionary<String, WarsawVehicleUnlock> VehicleUnlocks; 
-            public KitType SelectedKit;
-            public Dictionary<String, WarsawWeapon> KitWeapons;
-            public Dictionary<String, WarsawKitItem> KitItems;
-            public HashSet<String> AllKitIDs; 
+            public Dictionary<String, WarsawItem> LoadoutItems;
+            public KitType SelectedKitType;
+            public WarsawItem KitItemPrimary;
+            public WarsawItem KitItemSidearm;
+            public WarsawItem KitGadget1;
+            public WarsawItem KitGadget2;
+            public WarsawItem KitGrenade;
+            public WarsawItem KitKnife;
+            public HashSet<String> AllKitItemIDs;
 
-            public AdKatsLoadout() {
-                LoadoutWeapons = new Dictionary<String, WarsawWeapon>();
-                VehicleUnlocks = new Dictionary<String, WarsawVehicleUnlock>();
-                KitWeapons = new Dictionary<String, WarsawWeapon>();
-                KitItems = new Dictionary<String, WarsawKitItem>();
-                AllKitIDs = new HashSet<String>();
+            public AdKatsLoadout()
+            {
+                LoadoutItems = new Dictionary<String, WarsawItem>();
+                AllKitItemIDs = new HashSet<String>();
             }
         }
 
