@@ -10,37 +10,29 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.0.8
- * 21-NOV-2014
+ * Version 1.0.0.9
+ * 23-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.0.8</version_code>
+ * <version_code>1.0.0.9</version_code>
  */
 
 using System;
-using System.ComponentModel;
-using System.IO;
-using System.Net;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Collections;
 using System.Collections.Generic;
-using System.Windows.Forms;
-using System.CodeDom.Compiler;
-using System.Linq;
-using System.Threading;
 using System.Diagnostics;
-using System.Reflection;
-using PRoCon.Core;
-using PRoCon.Core.Plugin;
-using PRoCon.Core.Players;
-using Microsoft.CSharp;
+using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading;
 using MySql.Data.MySqlClient;
+using PRoCon.Core;
+using PRoCon.Core.Players;
+using PRoCon.Core.Plugin;
 
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.0.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -56,127 +48,62 @@ namespace PRoConEvents {
             BF4
         };
 
-        //Metabans Ref
-        internal enum SupportedGames
-        {
-            BF_3,
-            BF_4
-        }
+        private const String PluginVersion = "1.0.0.9";
 
-        public enum RoundState {
-            Loaded,
-            Playing,
-            Ended
-        }
-
-        public enum PopulationState {
-            Unknown,
-            Low,
-            Medium,
-            High,
-        }
-
-        public enum PlayerType {
-            Player,
-            Spectator,
-            CommanderPC,
-            CommanderMobile
-        }
-
-        public enum VersionStatus {
-            OutdatedBuild,
-            StableBuild,
-            TestBuild,
-            UnknownBuild,
-            UnfetchedBuild
-        }
-
-        public enum MessageType {
-            Say,
-            Yell,
-            Tell
-        }
-        
         //State
         private const Boolean FullDebug = false;
         private const Boolean SlowMoOnException = false;
-        private Boolean _slowmo;
-        private volatile String _pluginChangelog;
-        private volatile String _pluginDescription;
-        private volatile String _pluginLinks;
-        private volatile Boolean _pluginEnabled;
-        private volatile Boolean _threadsReady;
-        private volatile String _latestPluginVersion;
-        private volatile Int32 _latestPluginVersionInt;
-        private volatile Int32 _currentPluginVersionInt;
-        private volatile String _pluginVersionStatusString;
-        private volatile VersionStatus _pluginVersionStatus = VersionStatus.UnfetchedBuild;
-        private volatile Boolean _pluginUpdateServerInfoChecked;
-        private volatile Boolean _pluginUpdatePatched;
-        private volatile String _pluginPatchedVersion;
-        private volatile Int32 _pluginPatchedVersionInt;
-        private volatile String _pluginUpdateProgress = "NotStarted";
-        private volatile String _pluginDescFetchProgress = "NotStarted";
-        private volatile Boolean _fetchedPluginInformation;
-        private DateTime _LastPluginDescFetch = DateTime.UtcNow;
+        private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(1);
+        private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
+        private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
+        private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>();
+        private readonly Dictionary<String, String> _WARSAWDeniedIDMessages = new Dictionary<String, String>();
         private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
-        private Boolean _firstPlayerListComplete;
-        private GameVersion _gameVersion = GameVersion.BF3;
 
-        //Messaging
+        //Timing
+        private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+
+        //Threads
+        private Thread _Activator;
+        private Thread _Finalizer;
+        private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private EventWaitHandle _LoadoutProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle _PlayerProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle _PluginDescriptionWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private Thread _SpawnProcessingThread;
+        private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+
+        //Players
+        private String _TokenStringLoadout = "AB0Lk8jgbZj04WEZGxmdrzwPOy6LlKKzks5Ud2ygwA%3D%3D";
+        private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
+        private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
+        private Boolean _WARSAWLibraryLoaded;
         private Int32 _YellDuration = 5;
 
         //Debug
         private volatile Int32 _debugLevel;
         private String _debugSoldierName = "ColColonCleaner";
-        private Boolean _toldCol;
-
-        //Timing
-        private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(1);
-
-        //Threads
-        private Thread _Activator;
-        private Thread _Finalizer;
-        private Thread _SpawnProcessingThread;
-
-        //Threading queues
-        private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
-
-        //Threading wait handles
+        private Boolean _firstPlayerListComplete;
+        private GameVersion _gameVersion = GameVersion.BF3;
+        private volatile String _pluginChangelog;
+        private volatile String _pluginDescription;
+        private volatile Boolean _pluginEnabled;
+        private volatile String _pluginLinks;
+        private Boolean _slowmo;
         private EventWaitHandle _threadMasterWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        private EventWaitHandle _LoadoutProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        private EventWaitHandle _PlayerProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        private EventWaitHandle _PluginDescriptionWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-
-        //Players
-        private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>(); 
-        private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>(); 
-
-        //WARSAW
-        private Boolean _WARSAWLibraryLoaded;
-        private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
-        private Dictionary<String, String> _WARSAWDeniedIDMessages = new Dictionary<String, String>();
-
-        //Tokens
-        private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
-        private String _TokenStringLoadout = "AB0Lk8jgbZj04WEZGxmdrzwPOy6LlKKzks5Ud2ygwA%3D%3D";
+        private volatile Boolean _threadsReady;
+        private Boolean _toldCol;
 
         public AdKatsLRT() {
             //Set defaults for webclient
-            System.Net.ServicePointManager.Expect100Continue = false;
+            ServicePointManager.Expect100Continue = false;
 
             //By default plugin is not enabled or ready
             _pluginEnabled = false;
             _threadsReady = false;
-            
+
             //Debug level is 0 by default
             _debugLevel = 0;
-
-            //Fetch the plugin description and changelog
-            FetchPluginDocumentation();
 
             //Prepare the keep-alive
             SetupStatusMonitor();
@@ -206,56 +133,48 @@ namespace PRoConEvents {
             try {
                 var lstReturn = new List<CPluginVariable>();
                 const string separator = " | ";
-                lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof(String), _TokenStringWARSAW));
-                lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof(String), _TokenStringLoadout));
-                if (!_WARSAWLibraryLoaded)
-                {
-                    lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
+                lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
+                lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof (String), _TokenStringLoadout));
+                if (!_WARSAWLibraryLoaded) {
+                    lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof (String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
-                if (_WARSAWLibrary.Items.Any())
-                {
-                    foreach (var weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
-                    {
-                        lstReturn.Add(new CPluginVariable("3. WARSAW Items|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                if (_WARSAWLibrary.Items.Any()) {
+                    foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
+                        lstReturn.Add(new CPluginVariable("3. Weapons|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
-                if (_WARSAWLibrary.VehicleUnlocks.Any())
-                {
-                    foreach (var unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug))
-                    {
+                if (_WARSAWLibrary.Items.Any()) {
+                    foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category == "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
+                        lstReturn.Add(new CPluginVariable("3. Gadgets|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                    }
+                }
+                if (_WARSAWLibrary.VehicleUnlocks.Any()) {
+                    foreach (WarsawItem unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug)) {
                         lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALW" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
-                if (_WARSAWLibrary.ItemAccessories.Any())
-                {
-                    foreach (var weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
-                    {
+                if (_WARSAWLibrary.ItemAccessories.Any()) {
+                    foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category)) {
                         lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALW" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key)))
-                {
+                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key))) {
                     WarsawItem deniedItem;
-                    if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem))
-                    {
-                        lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof(String), pair.Value));
+                    if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem)) {
+                        lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key)))
-                {
+                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
                     WarsawItem deniedVehicleUnlock;
-                    if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock))
-                    {
-                        lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof(String), pair.Value));
+                    if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock)) {
+                        lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key)))
-                {
+                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key))) {
                     WarsawItemAccessory deniedItemAccessory;
-                    if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory))
-                    {
-                        lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof(String), pair.Value));
+                    if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory)) {
+                        lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
                 return lstReturn;
@@ -269,11 +188,10 @@ namespace PRoConEvents {
         public List<CPluginVariable> GetPluginVariables() {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
-            lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof(String), _TokenStringWARSAW));
-            lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof(String), _TokenStringLoadout));
-            foreach (var pair in _WARSAWDeniedIDMessages)
-            {
-                lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof(String), pair.Value));
+            lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
+            lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof (String), _TokenStringLoadout));
+            foreach (var pair in _WARSAWDeniedIDMessages) {
+                lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
             }
             return lstReturn;
         }
@@ -286,37 +204,29 @@ namespace PRoConEvents {
                 if (strVariable == "UpdateSettings") {
                     //Do nothing. Settings page will be updated after return.
                 }
-                else if (Regex.Match(strVariable, @"WARSAW Token").Success)
-                {
-                    if (!String.IsNullOrEmpty(strValue)) 
-                    {
+                else if (Regex.Match(strVariable, @"WARSAW Token").Success) {
+                    if (!String.IsNullOrEmpty(strValue)) {
                         _TokenStringWARSAW = strValue;
                     }
-                    else 
-                    {
+                    else {
                         ConsoleError("Token cannot be empty.");
                     }
                 }
-                else if (Regex.Match(strVariable, @"Loadout Token").Success)
-                {
-                    if (!String.IsNullOrEmpty(strValue)) 
-                    {
+                else if (Regex.Match(strVariable, @"Loadout Token").Success) {
+                    if (!String.IsNullOrEmpty(strValue)) {
                         _TokenStringLoadout = strValue;
                     }
-                    else
-                    {
+                    else {
                         ConsoleError("Token cannot be empty.");
                     }
                 }
-                else if (strVariable.StartsWith("ALW"))
-                {
+                else if (strVariable.StartsWith("ALW")) {
                     //Trim off all but the warsaw ID
                     //ALW3495820391
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
                     String warsawID = commandSplit[0].TrimStart("ALW".ToCharArray()).Trim();
                     //Fetch needed role
-                    switch (strValue.ToLower())
-                    {
+                    switch (strValue.ToLower()) {
                         case "allow":
                             //parse allow
                             ConsoleWarn("id " + warsawID + " removed");
@@ -331,8 +241,7 @@ namespace PRoConEvents {
                             return;
                     }
                 }
-                else if (strVariable.StartsWith("MSG"))
-                {
+                else if (strVariable.StartsWith("MSG")) {
                     //Trim off all but the warsaw ID
                     //MSG3495820391
                     if (String.IsNullOrEmpty(strValue)) {
@@ -356,10 +265,7 @@ namespace PRoConEvents {
             DebugWrite("Entering OnPluginLoaded", 7);
             try {
                 //Register all events
-                RegisterEvents(GetType().Name, 
-                    "OnVersion", 
-                    "OnPlayerSpawned",
-                    "OnListPlayers");
+                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnListPlayers");
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("FATAL ERROR on plugin load.", e));
@@ -392,39 +298,32 @@ namespace PRoConEvents {
                         if ((DateTime.UtcNow - _proconStartTime).TotalSeconds <= 20) {
                             ConsoleWrite("Waiting a few seconds for requirements and other plugins to initialize, please wait...");
                             //Wait on all settings to be imported by procon for initial start, and for all other plugins to start and register.
-                            for (Int32 index = 20 - (Int32)(DateTime.UtcNow - _proconStartTime).TotalSeconds; index > 0; index--)
-                            {
+                            for (Int32 index = 20 - (Int32) (DateTime.UtcNow - _proconStartTime).TotalSeconds; index > 0; index--) {
                                 ConsoleWrite(index + "...");
                                 _threadMasterWaitHandle.WaitOne(1000);
                             }
                         }
-                        if (!_pluginEnabled) 
-                        {
+                        if (!_pluginEnabled) {
                             return;
                         }
-                        if (GetRegisteredCommands().Any(command => 
-                            command.RegisteredClassname == "AdKats" && 
-                            command.RegisteredMethodName == "PluginEnabled")) {
+                        if (GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled")) {
                             _StartTime = DateTime.UtcNow;
                             //Set the enabled variable
                             _PlayerProcessingWaitHandle.Reset();
 
-                            if (!_pluginEnabled)
-                            {
+                            if (!_pluginEnabled) {
                                 return;
                             }
                             //Fetch all weapon names
-                            if (LoadWarsawLibrary())
-                            {
-                                if (!_pluginEnabled)
-                                {
+                            if (LoadWarsawLibrary()) {
+                                if (!_pluginEnabled) {
                                     return;
                                 }
                                 ConsoleSuccess("WARSAW library loaded. " + _WARSAWLibrary.Items.Count + " items, " + _WARSAWLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _WARSAWLibrary.ItemAccessories.Count + " accessories.");
                                 UpdateSettingPage();
 
                                 //Subscribe to online soldiers from AdKats
-                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable{
+                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                                     {"caller_identity", "AdKatsLRT"},
                                     {"response_requested", false},
                                     {"subscription_group", "OnlineSoldiers"},
@@ -434,8 +333,7 @@ namespace PRoConEvents {
 
                                 ConsoleInfo("Waiting for player listing response from AdKats.");
                                 _PlayerProcessingWaitHandle.WaitOne(Timeout.Infinite);
-                                if (!_pluginEnabled)
-                                {
+                                if (!_pluginEnabled) {
                                     return;
                                 }
 
@@ -452,8 +350,7 @@ namespace PRoConEvents {
                                 Disable();
                             }
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("AdKats not installed or enabled. AdKatsLRT cannot be started.");
                             Disable();
                         }
@@ -488,7 +385,7 @@ namespace PRoConEvents {
                         _threadsReady = false;
 
                         //Unsubscribe from online soldiers through AdKats
-                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable{
+                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                             {"caller_identity", "AdKatsLRT"},
                             {"response_requested", false},
                             {"subscription_group", "OnlineSoldiers"},
@@ -547,153 +444,6 @@ namespace PRoConEvents {
             }
         }
 
-        private void FetchPluginDocumentation() {
-            if (_aliveThreads.Values.Any(aThread => aThread.Name == "descfetching")) {
-                return;
-            }
-            _PluginDescriptionWaitHandle.Reset();
-            //Create a new thread to fetch the plugin description and changelog
-            var descFetcher = new Thread(new ThreadStart(delegate {
-                try {
-                    Thread.CurrentThread.Name = "descfetching";
-                    _pluginDescFetchProgress = "Started";
-                    //Create web client
-                    var client = new WebClient();
-                    //Download the readme and changelog
-                    DebugWrite("Fetching plugin links...", 2);
-                    try
-                    {
-                        _pluginLinks = client.DownloadString("https://raw.github.com/AdKats/AdKats/master/LINKS.md");
-                        DebugWrite("Plugin links fetched.", 1);
-                    }
-                    catch (Exception)
-                    {
-                        try
-                        {
-                            _pluginLinks = client.DownloadString("http://api.gamerethos.net/adkats/fetch/links");
-                            DebugWrite("Plugin links fetched from backup location.", 1);
-                        }
-                        catch (Exception)
-                        {
-                            ConsoleError("Failed to fetch plugin links.");
-                        }
-                    }
-                    _pluginDescFetchProgress = "LinksFetched";
-                    DebugWrite("Fetching plugin readme...", 2);
-                    try
-                    {
-                        _pluginDescription = client.DownloadString("https://raw.github.com/AdKats/AdKats/master/README.md");
-                        DebugWrite("Plugin readme fetched.", 1);
-                    }
-                    catch (Exception)
-                    {
-                        try
-                        {
-                            _pluginDescription = client.DownloadString("http://api.gamerethos.net/adkats/fetch/readme");
-                            DebugWrite("Plugin readme fetched from backup location.", 1);
-                        }
-                        catch (Exception)
-                        {
-                            ConsoleError("Failed to fetch plugin readme.");
-                        }
-                    }
-                    _pluginDescFetchProgress = "DescFetched";
-                    DebugWrite("Fetching plugin changelog...", 2);
-                    try
-                    {
-                        _pluginChangelog = client.DownloadString("https://raw.github.com/AdKats/AdKats/master/CHANGELOG.md");
-                        DebugWrite("Plugin changelog fetched.", 1);
-                    }
-                    catch (Exception)
-                    {
-                        try
-                        {
-                            _pluginChangelog = client.DownloadString("http://api.gamerethos.net/adkats/fetch/changelog");
-                            DebugWrite("Plugin changelog fetched from backup location.", 1);
-                        }
-                        catch (Exception)
-                        {
-                            ConsoleError("Failed to fetch plugin changelog.");
-                        }
-                    }
-                    _pluginDescFetchProgress = "ChangeFetched";
-                    if (!String.IsNullOrEmpty(_pluginDescription)) {
-                        //Extract the latest stable version
-                        String latestStableVersion = ExtractString(_pluginDescription, "latest_stable_release");
-                        if (!String.IsNullOrEmpty(latestStableVersion)) {
-                            //Convert it to an integer
-                            String trimmedLatestStableVersion = latestStableVersion.Replace(".", "");
-                            _latestPluginVersion = latestStableVersion;
-                            _latestPluginVersionInt = Int32.Parse(trimmedLatestStableVersion);
-                            //Get current plugin version
-                            _currentPluginVersionInt = Int32.Parse(PluginVersion.Replace(".", ""));
-
-                            String versionStatus = String.Empty;
-                            //Add the appropriate message to plugin description
-                            if (_latestPluginVersionInt > _currentPluginVersionInt) {
-                                if (_pluginUpdatePatched) {
-                                    versionStatus = @"
-                                    <h2 style='color:#DF0101;'>
-                                        You are running an outdated version! The update has been patched, reboot PRoCon to run version " + latestStableVersion + @"!
-                                    </h2>";
-                                }
-                                else {
-                                    versionStatus = @"
-                                    <h2 style='color:#DF0101;'>
-                                        You are running an outdated version! Version " + latestStableVersion + @" is available for download!
-                                    </h2>
-                                    <a href='https://sourceforge.net/projects/adkats/files/latest/download' target='_blank'>
-                                        Download Version " + latestStableVersion + @"!
-                                    </a><br/>
-                                    Download link below.";
-                                }
-                                _pluginVersionStatus = VersionStatus.OutdatedBuild;
-                            }
-                            else if (_latestPluginVersionInt == _currentPluginVersionInt) {
-                                versionStatus = @"
-                                <h2 style='color:#01DF01;'>
-                                    Congrats! You are running the latest stable version!
-                                </h2>";
-                                _pluginVersionStatus = VersionStatus.StableBuild;
-                            }
-                            else if (_latestPluginVersionInt < _currentPluginVersionInt) {
-                                versionStatus = @"
-                                <h2 style='color:#FF8000;'>
-                                    CAUTION! You are running a TEST version! Functionality might not be completely tested.
-                                </h2>";
-                                _pluginVersionStatus = VersionStatus.TestBuild;
-                            }
-                            else {
-                                _pluginVersionStatus = VersionStatus.UnknownBuild;
-                            }
-                            //Prepend the message
-                            _pluginVersionStatusString = versionStatus;
-                            _pluginDescFetchProgress = "VersionStatusSet";
-                            //Check for plugin updates
-                            CheckForPluginUpdates();
-                            _pluginDescFetchProgress = "UpdateChecked";
-                        }
-                    }
-                    else if (!_fetchedPluginInformation) {
-                        ConsoleError("Unable to fetch required documentation files. AdKatsLRT cannot be started.");
-                        Disable();
-                        return;
-                    }
-                    DebugWrite("Setting desc fetch handle.", 1);
-                    _fetchedPluginInformation = true;
-                    _LastPluginDescFetch = DateTime.UtcNow;
-                    _PluginDescriptionWaitHandle.Set();
-                    _pluginDescFetchProgress = "Completed";
-                }
-                catch (Exception e) {
-                    HandleException(new AdKatsException("Error while fetching plugin description and changelog.", e));
-                }
-                LogThreadExit();
-            }));
-            //Start the thread
-            StartAndLogThread(descFetcher);
-        }
-
         private void SetupStatusMonitor() {
             //Create a new thread to handle status monitoring
             //This thread will remain running for the duration the layer is online
@@ -702,33 +452,19 @@ namespace PRoConEvents {
                     Thread.CurrentThread.Name = "StatusMonitor";
                     DateTime lastKeepAliveCheck = DateTime.UtcNow;
                     DateTime lastServerInfoRequest = DateTime.UtcNow;
-                    while (true)
-                    {
-                        try
-                        {
-                            //Check for plugin updates at interval
-                            if ((DateTime.UtcNow - _LastPluginDescFetch).TotalMinutes > 20)
-                            {
-                                FetchPluginDocumentation();
-                            }
-
+                    while (true) {
+                        try {
                             //Check for thread warning every 30 seconds
-                            if ((DateTime.UtcNow - lastKeepAliveCheck).TotalSeconds > 30)
-                            {
-                                if (_pluginEnabled && 
-                                    !GetRegisteredCommands().Any(command => 
-                                        command.RegisteredClassname == "AdKats" && 
-                                        command.RegisteredMethodName == "PluginEnabled")) {
+                            if ((DateTime.UtcNow - lastKeepAliveCheck).TotalSeconds > 30) {
+                                if (_pluginEnabled && !GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled")) {
                                     ConsoleSuccess("AdKats was disabled. The AdKatsLRT extension requires that plugin to function.");
                                     Disable();
                                 }
                                 lastKeepAliveCheck = DateTime.UtcNow;
 
-                                if (_aliveThreads.Count() >= 20)
-                                {
+                                if (_aliveThreads.Count() >= 20) {
                                     String aliveThreads = "";
-                                    lock (_aliveThreads)
-                                    {
+                                    lock (_aliveThreads) {
                                         foreach (Thread value in _aliveThreads.Values.ToList())
                                             aliveThreads = aliveThreads + (value.Name + "[" + value.ManagedThreadId + "] ");
                                     }
@@ -738,8 +474,7 @@ namespace PRoConEvents {
                             //Sleep 1 second between loops
                             _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
                         }
-                        catch (Exception e)
-                        {
+                        catch (Exception e) {
                             HandleException(new AdKatsException("Error in keep-alive. Skipping current loop.", e));
                         }
                     }
@@ -801,8 +536,7 @@ namespace PRoConEvents {
         }
 
         private void Enable() {
-            if (Thread.CurrentThread.Name == "finalizer")
-            {
+            if (Thread.CurrentThread.Name == "finalizer") {
                 var pluginRebootThread = new Thread(new ThreadStart(delegate {
                     DebugWrite("Starting a reboot thread.", 5);
                     try {
@@ -819,8 +553,7 @@ namespace PRoConEvents {
                 }));
                 StartAndLogThread(pluginRebootThread);
             }
-            else
-            {
+            else {
                 //Call Enable
                 ExecuteCommand("procon.protected.plugins.enable", "AdKatsLRT", "True");
             }
@@ -841,21 +574,13 @@ namespace PRoConEvents {
             DebugWrite("^1Game Version: " + _gameVersion, 1);
         }
 
-        public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
-        {
-            if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
-            {
+        public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory) {
+            if (_threadsReady && _pluginEnabled && _firstPlayerListComplete) {
                 AdKatsSubscribedPlayer aPlayer;
-                if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer))
-                {
-                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || 
-                        aPlayer.player_punished || 
-                        aPlayer.player_marked ||
-                        (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60))
-                    {
+                if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online) {
+                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60)) {
                         //Start a delay thread
-                        StartAndLogThread(new Thread(new ThreadStart(delegate
-                        {
+                        StartAndLogThread(new Thread(new ThreadStart(delegate {
                             Thread.CurrentThread.Name = "LoadoutCheckDelay";
                             Thread.Sleep(5000);
                             QueuePlayerForProcessing(aPlayer);
@@ -863,58 +588,47 @@ namespace PRoConEvents {
                         })));
                     }
                 }
-                else
-                {
+                else {
                     ConsoleError("Attempted to process spawn of " + soldierName + " without their player object loaded.");
                 }
             }
         }
 
-        public void CallLoadoutCheckOnPlayer(params String[] parameters)
-        {
+        public void CallLoadoutCheckOnPlayer(params String[] parameters) {
             DebugWrite("CallLoadoutCheckOnPlayer starting!", 6);
-            try
-            {
-                if (parameters.Length != 2)
-                {
+            try {
+                if (parameters.Length != 2) {
                     ConsoleError("Call loadout check canceled. Parameters invalid.");
                     return;
                 }
                 String source = parameters[0];
                 String unparsedCommandJSON = parameters[1];
 
-                Hashtable decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJSON);
+                var decodedCommand = (Hashtable) JSON.JsonDecode(unparsedCommandJSON);
 
-                String playerName = (String)decodedCommand["player_name"];
+                var playerName = (String) decodedCommand["player_name"];
 
-                if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
-                {
+                if (_threadsReady && _pluginEnabled && _firstPlayerListComplete) {
                     AdKatsSubscribedPlayer aPlayer;
-                    if (_PlayerDictionary.TryGetValue(playerName, out aPlayer))
-                    {
+                    if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                         ConsoleWrite("Loadout check manually called on " + playerName + ".");
                         QueuePlayerForProcessing(aPlayer);
                     }
-                    else
-                    {
-                        ConsoleError("Attempted to call loadout check on " + playerName + " without their player object loaded.");
+                    else {
+                        ConsoleError("Attempted to call MANUAL loadout check on " + playerName + " without their player object loaded.");
                     }
                 }
-                
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error while calling loadout check on player.", e));
             }
             DebugWrite("CallLoadoutCheckOnPlayer finished!", 6);
         }
 
-        private void QueuePlayerForProcessing(AdKatsSubscribedPlayer aPlayer)
-        {
+        private void QueuePlayerForProcessing(AdKatsSubscribedPlayer aPlayer) {
             DebugWrite("Entering QueuePlayerForProcessing", 7);
             try {
-                if (_LoadoutProcessingQueue.All(pPlayer => pPlayer.player_id != aPlayer.player_id))
-                {
+                if (_LoadoutProcessingQueue.All(pPlayer => pPlayer.player_id != aPlayer.player_id)) {
                     _LoadoutProcessingQueue.Enqueue(aPlayer);
                     _LoadoutProcessingWaitHandle.Set();
                     DebugWrite(aPlayer.player_name + " queued for processing", 6);
@@ -929,34 +643,35 @@ namespace PRoConEvents {
             DebugWrite("Exiting QueuePlayerForProcessing", 7);
         }
 
-        public void SpawnProcessingThreadLoop()
-        {
-            try
-            {
+        public void SpawnProcessingThreadLoop() {
+            try {
                 DebugWrite("SPROC: Starting Spawn Processing Thread", 1);
                 Thread.CurrentThread.Name = "SpawnProcessing";
                 DateTime loopStart = DateTime.UtcNow;
-                while (true)
-                {
-                    try
-                    {
+                while (true) {
+                    try {
                         DebugWrite("SPROC: Entering Spawn Processing Thread Loop", 7);
-                        if (!_pluginEnabled)
-                        {
+                        if (!_pluginEnabled) {
                             DebugWrite("SPROC: Detected AdKatsLRT not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                             break;
                         }
 
-                        if (_LoadoutProcessingQueue.Count > 0)
-                        {
+                        if (_LoadoutProcessingQueue.Count > 0) {
                             AdKatsSubscribedPlayer aPlayer;
+
                             //Dequeue the next player
                             aPlayer = _LoadoutProcessingQueue.Dequeue();
+
+                            if (!aPlayer.player_online) {
+                                continue;
+                            }
+
                             //Fetch the loadout
                             AdKatsLoadout loadout = GetPlayerLoadout(aPlayer.player_personaID);
                             if (loadout == null) {
                                 continue;
                             }
+
                             //Process the loadout
                             String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
                             String sidearmMessage = loadout.KitItemSidearm.slug + " [" + loadout.KitItemSidearm.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
@@ -964,31 +679,21 @@ namespace PRoConEvents {
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
 
-                            String message = 
-                                "Player " + loadout.Name + 
-                                " processed as " + loadout.SelectedKitType.ToString() + 
-                                " with primary " + primaryMessage + 
-                                " sidearm " + sidearmMessage + 
-                                " gadgets " + gadgetMessage + 
-                                " grenade " + grenadeMessage + 
-                                " and knife " + knifeMessage;
+                            String message = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             ConsoleInfo(message);
                             Boolean loadoutValid = true;
-                            foreach (var warsawDeniedIDMessage in _WARSAWDeniedIDMessages) 
-                            {
-                                if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
-                                {
+                            foreach (var warsawDeniedIDMessage in _WARSAWDeniedIDMessages) {
+                                if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key)) {
                                     loadoutValid = false;
                                     PlayerTellMessage(loadout.Name, warsawDeniedIDMessage.Value);
                                     break;
                                 }
                             }
                             //Inform AdKats of the loadout
-                            StartAndLogThread(new Thread(new ThreadStart(delegate
-                            {
+                            StartAndLogThread(new Thread(new ThreadStart(delegate {
                                 Thread.CurrentThread.Name = "AdKatsInformThread";
                                 Thread.Sleep(100);
-                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable{
+                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                                     {"caller_identity", "AdKatsLRT"},
                                     {"response_requested", false},
                                     {"loadout_player", loadout.Name},
@@ -1022,24 +727,26 @@ namespace PRoConEvents {
                                     deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
                                 }
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
+                                Boolean manual = false;
                                 String reason = "";
-                                if (aPlayer.player_infractionPoints > 5) {
-                                    reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
-                                }
-                                if (aPlayer.player_reported) {
-                                    reason = "[reported] ";
-                                }
-                                if (aPlayer.player_punished) {
-                                    reason = "[recently punished] ";
-                                }
                                 if (aPlayer.player_marked) {
                                     reason = "[marked] ";
                                 }
-                                AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
-                                if ((((aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || aPlayer.player_reported) && aPlayer.player_reputation < 0) ||
-                                    aPlayer.player_punished || 
-                                    aPlayer.player_marked)
-                                {
+                                else if (aPlayer.player_punished) {
+                                    reason = "[recently punished] ";
+                                }
+                                else if (aPlayer.player_reported) {
+                                    reason = "[reported] ";
+                                }
+                                else if (aPlayer.player_infractionPoints > 5) {
+                                    reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
+                                }
+                                else {
+                                    reason = "[manual] ";
+                                    manual = true;
+                                }
+                                if ((((aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || aPlayer.player_reported) && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || manual) {
+                                    AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
                                     aPlayer.player_loadoutKilled = true;
                                     Thread.Sleep(2000);
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
@@ -1047,8 +754,7 @@ namespace PRoConEvents {
                                 }
                             }
                             else {
-                                if (!aPlayer.player_loadoutValid)
-                                {
+                                if (!aPlayer.player_loadoutValid) {
                                     AdminSayMessage(aPlayer.player_name + " thank you for fixing your loadout.");
                                 }
                             }
@@ -1064,20 +770,17 @@ namespace PRoConEvents {
                             Double percentRaged = Math.Round(countRaged / countKilled * 100.0, 2);
                             ConsoleInfo("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
                         }
-                        else
-                        {
+                        else {
                             //Wait for input
                             if ((DateTime.UtcNow - loopStart).TotalMilliseconds > 1000)
-                                DebugWrite("Warning. " + Thread.CurrentThread.Name + " thread processing completed in " + ((int)((DateTime.UtcNow - loopStart).TotalMilliseconds)) + "ms", 4);
+                                DebugWrite("Warning. " + Thread.CurrentThread.Name + " thread processing completed in " + ((int) ((DateTime.UtcNow - loopStart).TotalMilliseconds)) + "ms", 4);
                             _LoadoutProcessingWaitHandle.Reset();
                             _LoadoutProcessingWaitHandle.WaitOne(Timeout.Infinite);
                             loopStart = DateTime.UtcNow;
                         }
                     }
-                    catch (Exception e)
-                    {
-                        if (e is ThreadAbortException)
-                        {
+                    catch (Exception e) {
+                        if (e is ThreadAbortException) {
                             HandleException(new AdKatsException("Spawn processing thread aborted. Exiting."));
                             break;
                         }
@@ -1087,8 +790,7 @@ namespace PRoConEvents {
                 DebugWrite("SPROC: Ending Spawn Processing Thread", 1);
                 LogThreadExit();
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error occured in kill processing thread.", e));
             }
         }
@@ -1103,60 +805,55 @@ namespace PRoConEvents {
                 String source = parameters[0];
                 String unparsedResponseJSON = parameters[1];
 
-                Hashtable decodedResponse = (Hashtable)JSON.JsonDecode(unparsedResponseJSON);
+                var decodedResponse = (Hashtable) JSON.JsonDecode(unparsedResponseJSON);
 
-                ArrayList decodedSoldierList = (ArrayList)decodedResponse["response_value"];
-                if (decodedSoldierList == null)
-                {
+                var decodedSoldierList = (ArrayList) decodedResponse["response_value"];
+                if (decodedSoldierList == null) {
                     ConsoleError("Soldier params could not be properly converted from JSON. Unable to continue.");
                     return;
                 }
-                lock (_PlayerDictionary)
-                {
-                    List<String> validPlayers = new List<String>();
-                    foreach (Hashtable soldierHashtable in decodedSoldierList)
-                    {
-                        AdKatsSubscribedPlayer aPlayer = new AdKatsSubscribedPlayer();
-                        aPlayer.player_id = Convert.ToInt64((Double)soldierHashtable["player_id"]);
-                        aPlayer.player_guid = (String)soldierHashtable["player_guid"];
-                        aPlayer.player_pbguid = (String)soldierHashtable["player_pbguid"];
-                        aPlayer.player_ip = (String)soldierHashtable["player_ip"];
-                        aPlayer.player_name = (String)soldierHashtable["player_name"];
-                        aPlayer.player_personaID = (String)soldierHashtable["player_personaID"];
-                        aPlayer.player_aa = (Boolean)soldierHashtable["player_aa"];
-                        aPlayer.player_ping = (Double)soldierHashtable["player_ping"];
-                        aPlayer.player_reputation = (Double)soldierHashtable["player_reputation"];
-                        aPlayer.player_infractionPoints = Convert.ToInt32((Double)soldierHashtable["player_infractionPoints"]);
-                        aPlayer.player_role = (String)soldierHashtable["player_role"];
-                        aPlayer.player_type = (String)soldierHashtable["player_type"];
-                        aPlayer.player_isAdmin = (Boolean)soldierHashtable["player_isAdmin"];
-                        aPlayer.player_reported = (Boolean)soldierHashtable["player_reported"];
-                        aPlayer.player_punished = (Boolean)soldierHashtable["player_punished"];
-                        aPlayer.player_marked = (Boolean)soldierHashtable["player_marked"];
-                        Double lastPunishment = (Double)soldierHashtable["player_lastPunishment"];
-                        if (lastPunishment > 0)
-                        {
+                lock (_PlayerDictionary) {
+                    var validPlayers = new List<String>();
+                    foreach (Hashtable soldierHashtable in decodedSoldierList) {
+                        var aPlayer = new AdKatsSubscribedPlayer();
+                        aPlayer.player_id = Convert.ToInt64((Double) soldierHashtable["player_id"]);
+                        aPlayer.player_guid = (String) soldierHashtable["player_guid"];
+                        aPlayer.player_pbguid = (String) soldierHashtable["player_pbguid"];
+                        aPlayer.player_ip = (String) soldierHashtable["player_ip"];
+                        aPlayer.player_name = (String) soldierHashtable["player_name"];
+                        aPlayer.player_personaID = (String) soldierHashtable["player_personaID"];
+                        aPlayer.player_online = (Boolean) soldierHashtable["player_online"];
+                        aPlayer.player_aa = (Boolean) soldierHashtable["player_aa"];
+                        aPlayer.player_ping = (Double) soldierHashtable["player_ping"];
+                        aPlayer.player_reputation = (Double) soldierHashtable["player_reputation"];
+                        aPlayer.player_infractionPoints = Convert.ToInt32((Double) soldierHashtable["player_infractionPoints"]);
+                        aPlayer.player_role = (String) soldierHashtable["player_role"];
+                        aPlayer.player_type = (String) soldierHashtable["player_type"];
+                        aPlayer.player_isAdmin = (Boolean) soldierHashtable["player_isAdmin"];
+                        aPlayer.player_reported = (Boolean) soldierHashtable["player_reported"];
+                        aPlayer.player_punished = (Boolean) soldierHashtable["player_punished"];
+                        aPlayer.player_marked = (Boolean) soldierHashtable["player_marked"];
+                        var lastPunishment = (Double) soldierHashtable["player_lastPunishment"];
+                        if (lastPunishment > 0) {
                             aPlayer.player_lastPunishment = TimeSpan.FromSeconds(lastPunishment);
                         }
-                        Double lastForgive = (Double)soldierHashtable["player_lastForgive"];
-                        if (lastPunishment > 0)
-                        {
+                        var lastForgive = (Double) soldierHashtable["player_lastForgive"];
+                        if (lastPunishment > 0) {
                             aPlayer.player_lastForgive = TimeSpan.FromSeconds(lastForgive);
                         }
-                        Double lastAction = (Double)soldierHashtable["player_lastAction"];
-                        if (lastPunishment > 0)
-                        {
+                        var lastAction = (Double) soldierHashtable["player_lastAction"];
+                        if (lastPunishment > 0) {
                             aPlayer.player_lastAction = TimeSpan.FromSeconds(lastAction);
                         }
-                        aPlayer.player_spawnedOnce = (Boolean)soldierHashtable["player_spawnedOnce"];
-                        aPlayer.player_conversationPartner = (String)soldierHashtable["player_conversationPartner"];
-                        aPlayer.player_kills = Convert.ToInt32((Double)soldierHashtable["player_kills"]);
-                        aPlayer.player_deaths = Convert.ToInt32((Double)soldierHashtable["player_deaths"]);
+                        aPlayer.player_spawnedOnce = (Boolean) soldierHashtable["player_spawnedOnce"];
+                        aPlayer.player_conversationPartner = (String) soldierHashtable["player_conversationPartner"];
+                        aPlayer.player_kills = Convert.ToInt32((Double) soldierHashtable["player_kills"]);
+                        aPlayer.player_deaths = Convert.ToInt32((Double) soldierHashtable["player_deaths"]);
                         aPlayer.player_kdr = (Double) soldierHashtable["player_kdr"];
-                        aPlayer.player_rank = Convert.ToInt32((Double)soldierHashtable["player_rank"]);
-                        aPlayer.player_score = Convert.ToInt32((Double)soldierHashtable["player_score"]);
-                        aPlayer.player_squad = Convert.ToInt32((Double)soldierHashtable["player_squad"]);
-                        aPlayer.player_team = Convert.ToInt32((Double)soldierHashtable["player_team"]);
+                        aPlayer.player_rank = Convert.ToInt32((Double) soldierHashtable["player_rank"]);
+                        aPlayer.player_score = Convert.ToInt32((Double) soldierHashtable["player_score"]);
+                        aPlayer.player_squad = Convert.ToInt32((Double) soldierHashtable["player_squad"]);
+                        aPlayer.player_team = Convert.ToInt32((Double) soldierHashtable["player_team"]);
 
                         validPlayers.Add(aPlayer.player_name);
 
@@ -1165,6 +862,7 @@ namespace PRoConEvents {
                             //Player already exists, update the model
                             dPlayer.player_ip = aPlayer.player_ip;
                             dPlayer.player_aa = aPlayer.player_aa;
+                            dPlayer.player_online = aPlayer.player_online;
                             dPlayer.player_ping = aPlayer.player_ping;
                             dPlayer.player_reputation = aPlayer.player_reputation;
                             dPlayer.player_infractionPoints = aPlayer.player_infractionPoints;
@@ -1173,18 +871,15 @@ namespace PRoConEvents {
                             dPlayer.player_isAdmin = aPlayer.player_isAdmin;
                             Boolean action = false;
                             //Check player loadout if they've been reported and have low rep
-                            if (!dPlayer.player_reported && aPlayer.player_reported && 
-                                dPlayer.player_reputation < 0) {
+                            if (!dPlayer.player_reported && aPlayer.player_reported && dPlayer.player_reputation < 0) {
                                 action = true;
                             }
                             dPlayer.player_reported = aPlayer.player_reported;
-                            if (!dPlayer.player_punished && aPlayer.player_punished)
-                            {
+                            if (!dPlayer.player_punished && aPlayer.player_punished) {
                                 action = true;
                             }
                             dPlayer.player_punished = aPlayer.player_punished;
-                            if (!dPlayer.player_marked && aPlayer.player_marked)
-                            {
+                            if (!dPlayer.player_marked && aPlayer.player_marked) {
                                 action = true;
                             }
                             dPlayer.player_marked = aPlayer.player_marked;
@@ -1202,9 +897,7 @@ namespace PRoConEvents {
                             dPlayer.player_team = aPlayer.player_team;
                         }
                         else {
-                            if (aPlayer.player_infractionPoints > 5 &&
-                                aPlayer.player_lastPunishment.TotalDays < 60)
-                            {
+                            if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) {
                                 QueuePlayerForProcessing(aPlayer);
                             }
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
@@ -1213,8 +906,7 @@ namespace PRoConEvents {
                     }
                     foreach (string playerName in _PlayerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList()) {
                         AdKatsSubscribedPlayer aPlayer;
-                        if (_PlayerDictionary.TryGetValue(playerName, out aPlayer))
-                        {
+                        if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                             _PlayerDictionary.Remove(aPlayer.player_name);
                             _PlayerLeftDictionary[aPlayer.player_id] = aPlayer;
                         }
@@ -1235,27 +927,22 @@ namespace PRoConEvents {
             AdminSayMessage(message, true);
         }
 
-        public void AdminSayMessage(String message, Boolean displayProconChat)
-        {
+        public void AdminSayMessage(String message, Boolean displayProconChat) {
             DebugWrite("Entering adminSay", 7);
-            try
-            {
-                if (String.IsNullOrEmpty(message))
-                {
+            try {
+                if (String.IsNullOrEmpty(message)) {
                     ConsoleError("message null in adminSay");
                     return;
                 }
-                if (displayProconChat)
-                {
+                if (displayProconChat) {
                     ProconChatWrite("Say > " + message);
                 }
-                var lineSplit = message.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                string[] lineSplit = message.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
                 foreach (String line in lineSplit) {
                     ExecuteCommand("procon.protected.send", "admin.say", line, "all");
                 }
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error while sending admin say.", e));
             }
             DebugWrite("Exiting adminSay", 7);
@@ -1272,14 +959,13 @@ namespace PRoConEvents {
                     ConsoleError("target or message null in playerSayMessage");
                     return;
                 }
-                if (displayProconChat)
-                {
+                if (displayProconChat) {
                     ProconChatWrite("Say > " + target + " > " + message);
                 }
                 for (int count = 0; count < spamCount; count++) {
-                    var lineSplit = message.Split(new string[] { System.Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] lineSplit = message.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
                     foreach (String line in lineSplit) {
-                        ExecuteCommand("procon.protected.send", "admin.say", line, "player", target); 
+                        ExecuteCommand("procon.protected.send", "admin.say", line, "player", target);
                     }
                     _threadMasterWaitHandle.WaitOne(50);
                 }
@@ -1294,24 +980,19 @@ namespace PRoConEvents {
             AdminYellMessage(message, true);
         }
 
-        public void AdminYellMessage(String message, Boolean displayProconChat)
-        {
+        public void AdminYellMessage(String message, Boolean displayProconChat) {
             DebugWrite("Entering adminYell", 7);
-            try
-            {
-                if (String.IsNullOrEmpty(message))
-                {
+            try {
+                if (String.IsNullOrEmpty(message)) {
                     ConsoleError("message null in adminYell");
                     return;
                 }
-                if (displayProconChat)
-                {
+                if (displayProconChat) {
                     ProconChatWrite("Yell[" + _YellDuration + "s] > " + message);
                 }
                 ExecuteCommand("procon.protected.send", "admin.yell", message.ToUpper(), _YellDuration + "", "all");
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error while sending admin yell.", e));
             }
             DebugWrite("Exiting adminYell", 7);
@@ -1321,28 +1002,22 @@ namespace PRoConEvents {
             PlayerYellMessage(target, message, true, 1);
         }
 
-        public void PlayerYellMessage(String target, String message, Boolean displayProconChat, Int32 spamCount)
-        {
+        public void PlayerYellMessage(String target, String message, Boolean displayProconChat, Int32 spamCount) {
             DebugWrite("Entering PlayerYellMessage", 7);
-            try
-            {
-                if (String.IsNullOrEmpty(message))
-                {
+            try {
+                if (String.IsNullOrEmpty(message)) {
                     ConsoleError("message null in PlayerYellMessage");
                     return;
                 }
-                if (displayProconChat)
-                {
+                if (displayProconChat) {
                     ProconChatWrite("Yell[" + _YellDuration + "s] > " + target + " > " + message);
                 }
-                for (int count = 0; count < spamCount; count++)
-                {
-                    ExecuteCommand("procon.protected.send", "admin.yell", ((_gameVersion == GameVersion.BF4) ? (System.Environment.NewLine) : ("")) + message.ToUpper(), _YellDuration + "", "player", target);
+                for (int count = 0; count < spamCount; count++) {
+                    ExecuteCommand("procon.protected.send", "admin.yell", ((_gameVersion == GameVersion.BF4) ? (Environment.NewLine) : ("")) + message.ToUpper(), _YellDuration + "", "player", target);
                     _threadMasterWaitHandle.WaitOne(50);
                 }
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error while sending admin yell.", e));
             }
             DebugWrite("Exiting PlayerYellMessage", 7);
@@ -1352,10 +1027,8 @@ namespace PRoConEvents {
             AdminTellMessage(message, true);
         }
 
-        public void AdminTellMessage(String message, Boolean displayProconChat)
-        {
-            if (displayProconChat)
-            {
+        public void AdminTellMessage(String message, Boolean displayProconChat) {
+            if (displayProconChat) {
                 ProconChatWrite("Tell[" + _YellDuration + "s] > " + message);
             }
             AdminSayMessage(message, false);
@@ -1366,10 +1039,8 @@ namespace PRoConEvents {
             PlayerTellMessage(target, message, true, 1);
         }
 
-        public void PlayerTellMessage(String target, String message, Boolean displayProconChat, Int32 spamCount)
-        {
-            if (displayProconChat)
-            {
+        public void PlayerTellMessage(String target, String message, Boolean displayProconChat, Int32 spamCount) {
+            if (displayProconChat) {
                 ProconChatWrite("Tell[" + _YellDuration + "s] > " + target + " > " + message);
             }
             PlayerSayMessage(target, message, false, spamCount);
@@ -1381,7 +1052,7 @@ namespace PRoConEvents {
             try {
                 Hashtable responseData = null;
                 if (_gameVersion == GameVersion.BF4) {
-                    WarsawLibrary library = new WarsawLibrary();
+                    var library = new WarsawLibrary();
                     ConsoleInfo("Downloading WARSAW library.");
                     responseData = FetchWarsawLibrary();
                     if (responseData == null) {
@@ -1392,7 +1063,7 @@ namespace PRoConEvents {
                         ConsoleError("WARSAW library fetch did not contain 'compact' element, unable to generate library.");
                         return false;
                     }
-                    Hashtable compact = (Hashtable) responseData["compact"];
+                    var compact = (Hashtable) responseData["compact"];
                     if (compact == null) {
                         ConsoleError("Compact section of WARSAW library failed parse, unable to generate library.");
                         return false;
@@ -1409,7 +1080,7 @@ namespace PRoConEvents {
                         ConsoleError("Warsaw compact section did not contain 'kititems' element, unable to generate library.");
                         return false;
                     }
-                    Hashtable weapons = (Hashtable) compact["weapons"];
+                    var weapons = (Hashtable) compact["weapons"];
                     if (weapons == null) {
                         ConsoleError("Weapons section of WARSAW library failed parse, unable to generate library.");
                         return false;
@@ -1418,18 +1089,16 @@ namespace PRoConEvents {
                     //Pause for effect, nothing else
                     Thread.Sleep(500);
 
-                    Dictionary<String, WarsawItem> itemDictionary = new Dictionary<String, WarsawItem>();
-                    foreach (DictionaryEntry entry in weapons)
-                    {
+                    var itemDictionary = new Dictionary<String, WarsawItem>();
+                    foreach (DictionaryEntry entry in weapons) {
                         //Try to parse the entry key as an integer, only accept the entry on success
                         Int64 warsawID;
-                        if (!Int64.TryParse((String)entry.Key, out warsawID))
-                        {
+                        if (!Int64.TryParse((String) entry.Key, out warsawID)) {
                             //Reject the entry
                             //ConsoleError("Rejecting weapon element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawItem item = new WarsawItem();
+                        var item = new WarsawItem();
                         item.warsawID = warsawID.ToString();
                         Boolean debug = false;
                         if (false) {
@@ -1438,17 +1107,15 @@ namespace PRoConEvents {
                         }
 
                         //Grab the contents
-                        Hashtable weaponData = (Hashtable)entry.Value;
+                        var weaponData = (Hashtable) entry.Value;
                         //Grab category------------------------------------------------------------------------------
-                        if (!weaponData.ContainsKey("category"))
-                        {
-                            if(debug)
+                        if (!weaponData.ContainsKey("category")) {
+                            if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
-                        item.category = (String)weaponData["category"];
-                        if (String.IsNullOrEmpty(item.category))
-                        {
+                        item.category = (String) weaponData["category"];
+                        if (String.IsNullOrEmpty(item.category)) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'category' was invalid.");
                             continue;
@@ -1458,15 +1125,13 @@ namespace PRoConEvents {
                         //weapon.category = weapon.category.TrimStart("WARSAW_ID_P_CAT_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab name------------------------------------------------------------------------------
-                        if (!weaponData.ContainsKey("name"))
-                        {
+                        if (!weaponData.ContainsKey("name")) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
-                        item.name = (String)weaponData["name"];
-                        if (String.IsNullOrEmpty(item.name))
-                        {
+                        item.name = (String) weaponData["name"];
+                        if (String.IsNullOrEmpty(item.name)) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'name' was invalid.");
                             continue;
@@ -1475,15 +1140,13 @@ namespace PRoConEvents {
                         item.name = item.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab categoryType------------------------------------------------------------------------------
-                        if (!weaponData.ContainsKey("categoryType"))
-                        {
+                        if (!weaponData.ContainsKey("categoryType")) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'categoryType'.");
                             continue;
                         }
-                        item.categoryType = (String)weaponData["categoryType"];
-                        if (String.IsNullOrEmpty(item.category))
-                        {
+                        item.categoryType = (String) weaponData["categoryType"];
+                        if (String.IsNullOrEmpty(item.category)) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'categoryType' was invalid.");
                             continue;
@@ -1491,15 +1154,13 @@ namespace PRoConEvents {
                         //Parsed categoryType does not require any modifications
 
                         //Grab slug------------------------------------------------------------------------------
-                        if (!weaponData.ContainsKey("slug"))
-                        {
+                        if (!weaponData.ContainsKey("slug")) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
-                        item.slug = (String)weaponData["slug"];
-                        if (String.IsNullOrEmpty(item.slug))
-                        {
+                        item.slug = (String) weaponData["slug"];
+                        if (String.IsNullOrEmpty(item.slug)) {
                             if (debug)
                                 ConsoleError("Rejecting weapon '" + warsawID + "'. 'slug' was invalid.");
                             continue;
@@ -1509,61 +1170,64 @@ namespace PRoConEvents {
 
                         //Assign the weapon
                         itemDictionary[item.warsawID] = item;
-                        if(debug)
+                        if (debug)
                             ConsoleSuccess("Weapon " + item.warsawID + " added. " + itemDictionary.ContainsKey(item.warsawID));
+
+                        if (String.IsNullOrEmpty(item.category) && String.IsNullOrEmpty(item.categoryType)) {
+                            item.category = "UNKNOWN";
+                            item.categoryType = "Unknown";
+                        }
+                        else if (String.IsNullOrEmpty(item.category)) {
+                            item.category = item.categoryType;
+                        }
+                        else {
+                            item.categoryType = item.category;
+                        }
                     }
 
-                    Hashtable kititems = (Hashtable)compact["kititems"];
-                    if (kititems == null)
-                    {
+                    var kititems = (Hashtable) compact["kititems"];
+                    if (kititems == null) {
                         ConsoleError("Kit items section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
-                    foreach (DictionaryEntry entry in kititems)
-                    {
+                    foreach (DictionaryEntry entry in kititems) {
                         //Try to parse the entry key as an integer, only accept the entry on success
                         Int64 warsawID;
-                        if (!Int64.TryParse((String)entry.Key, out warsawID))
-                        {
+                        if (!Int64.TryParse((String) entry.Key, out warsawID)) {
                             //Reject the entry
                             //ConsoleError("Rejecting kit item element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawItem kitItem = new WarsawItem();
+                        var kitItem = new WarsawItem();
                         kitItem.warsawID = warsawID.ToString();
 
                         //Grab the contents
-                        Hashtable weaponAccessoryData = (Hashtable)entry.Value;
+                        var weaponAccessoryData = (Hashtable) entry.Value;
                         //Grab category------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("category"))
-                        {
+                        if (!weaponAccessoryData.ContainsKey("category")) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
-                        kitItem.category = (String)weaponAccessoryData["category"];
-                        if (String.IsNullOrEmpty(kitItem.category))
-                        {
+                        kitItem.category = (String) weaponAccessoryData["category"];
+                        if (String.IsNullOrEmpty(kitItem.category)) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
                         kitItem.category = kitItem.category.Split('_').Last().Replace('_', ' ').ToUpper();
                         //kitItem.category = kitItem.category.TrimStart("WARSAW_ID_P_CAT_".ToCharArray()).Replace('_', ' ').ToLower();
-                        if (kitItem.category != "GADGET" && kitItem.category != "GRENADE")
-                        {
+                        if (kitItem.category != "GADGET" && kitItem.category != "GRENADE") {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. 'category' not gadget or grenade.");
                             continue;
                         }
 
                         //Grab name------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("name"))
-                        {
+                        if (!weaponAccessoryData.ContainsKey("name")) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
-                        kitItem.name = (String)weaponAccessoryData["name"];
-                        if (String.IsNullOrEmpty(kitItem.name))
-                        {
+                        kitItem.name = (String) weaponAccessoryData["name"];
+                        if (String.IsNullOrEmpty(kitItem.name)) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
@@ -1571,14 +1235,12 @@ namespace PRoConEvents {
                         kitItem.name = kitItem.name.TrimStart("WARSAW_ID_P_INAME_".ToCharArray()).TrimStart("WARSAW_ID_P_WNAME_".ToCharArray()).TrimStart("WARSAW_ID_P_ANAME_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab slug------------------------------------------------------------------------------
-                        if (!weaponAccessoryData.ContainsKey("slug"))
-                        {
+                        if (!weaponAccessoryData.ContainsKey("slug")) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
-                        kitItem.slug = (String)weaponAccessoryData["slug"];
-                        if (String.IsNullOrEmpty(kitItem.slug))
-                        {
+                        kitItem.slug = (String) weaponAccessoryData["slug"];
+                        if (String.IsNullOrEmpty(kitItem.slug)) {
                             //ConsoleError("Rejecting kit item '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
@@ -1594,12 +1256,12 @@ namespace PRoConEvents {
                     //Pause for effect, nothing else
                     Thread.Sleep(500);
 
-                    Hashtable weaponaccessory = (Hashtable) compact["weaponaccessory"];
+                    var weaponaccessory = (Hashtable) compact["weaponaccessory"];
                     if (weaponaccessory == null) {
                         ConsoleError("Weapon accessory section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
-                    Dictionary<String, WarsawItemAccessory> weaponAccessoryDictionary = new Dictionary<String, WarsawItemAccessory>();
+                    var weaponAccessoryDictionary = new Dictionary<String, WarsawItemAccessory>();
                     foreach (DictionaryEntry entry in weaponaccessory) {
                         //Try to parse the entry key as an integer, only accept the entry on success
                         Int64 warsawID;
@@ -1608,11 +1270,11 @@ namespace PRoConEvents {
                             //ConsoleError("Rejecting weapon accessory element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawItemAccessory itemAccessory = new WarsawItemAccessory();
+                        var itemAccessory = new WarsawItemAccessory();
                         itemAccessory.warsawID = warsawID.ToString();
 
                         //Grab the contents
-                        Hashtable weaponAccessoryData = (Hashtable) entry.Value;
+                        var weaponAccessoryData = (Hashtable) entry.Value;
                         //Grab category------------------------------------------------------------------------------
                         if (!weaponAccessoryData.ContainsKey("category")) {
                             //ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'category'.");
@@ -1661,37 +1323,32 @@ namespace PRoConEvents {
                     //Pause for effect, nothing else
                     Thread.Sleep(500);
 
-                    Hashtable vehicleunlocks = (Hashtable)compact["vehicleunlocks"];
-                    if (vehicleunlocks == null)
-                    {
+                    var vehicleunlocks = (Hashtable) compact["vehicleunlocks"];
+                    if (vehicleunlocks == null) {
                         ConsoleError("Vehicle unlocks section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
-                    Dictionary<String, WarsawItem> vehicleUnlockDictionary = new Dictionary<String, WarsawItem>();
-                    foreach (DictionaryEntry entry in vehicleunlocks)
-                    {
+                    var vehicleUnlockDictionary = new Dictionary<String, WarsawItem>();
+                    foreach (DictionaryEntry entry in vehicleunlocks) {
                         //Try to parse the entry key as an integer, only accept the entry on success
                         Int64 warsawID;
-                        if (!Int64.TryParse((String)entry.Key, out warsawID))
-                        {
+                        if (!Int64.TryParse((String) entry.Key, out warsawID)) {
                             //Reject the entry
                             //ConsoleError("Rejecting vehicle unlock element '" + entry.Key + "', key not numeric.");
                             continue;
                         }
-                        WarsawItem vehicleUnlock = new WarsawItem();
+                        var vehicleUnlock = new WarsawItem();
                         vehicleUnlock.warsawID = warsawID.ToString();
 
                         //Grab the contents
-                        Hashtable vehicleUnlockData = (Hashtable)entry.Value;
+                        var vehicleUnlockData = (Hashtable) entry.Value;
                         //Grab category------------------------------------------------------------------------------
-                        if (!vehicleUnlockData.ContainsKey("category"))
-                        {
+                        if (!vehicleUnlockData.ContainsKey("category")) {
                             //ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
-                        vehicleUnlock.category = (String)vehicleUnlockData["category"];
-                        if (String.IsNullOrEmpty(vehicleUnlock.category))
-                        {
+                        vehicleUnlock.category = (String) vehicleUnlockData["category"];
+                        if (String.IsNullOrEmpty(vehicleUnlock.category)) {
                             //ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
@@ -1700,14 +1357,12 @@ namespace PRoConEvents {
                         //kitItem.category = kitItem.category.TrimStart("WARSAW_ID_P_CAT_".ToCharArray()).Replace('_', ' ').ToLower();
 
                         //Grab name------------------------------------------------------------------------------
-                        if (!vehicleUnlockData.ContainsKey("name"))
-                        {
+                        if (!vehicleUnlockData.ContainsKey("name")) {
                             //ConsoleError("Rejecting vehicle unlock'" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
-                        String name = (String)vehicleUnlockData["name"];
-                        if (String.IsNullOrEmpty(name))
-                        {
+                        var name = (String) vehicleUnlockData["name"];
+                        if (String.IsNullOrEmpty(name)) {
                             //ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
@@ -1715,14 +1370,12 @@ namespace PRoConEvents {
                         name = name.Split('_').Last().Replace('_', ' ').ToUpper();
 
                         //Grab slug------------------------------------------------------------------------------
-                        if (!vehicleUnlockData.ContainsKey("slug"))
-                        {
+                        if (!vehicleUnlockData.ContainsKey("slug")) {
                             //ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
-                        vehicleUnlock.slug = (String)vehicleUnlockData["slug"];
-                        if (String.IsNullOrEmpty(vehicleUnlock.slug))
-                        {
+                        vehicleUnlock.slug = (String) vehicleUnlockData["slug"];
+                        if (String.IsNullOrEmpty(vehicleUnlock.slug)) {
                             //ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
@@ -1753,10 +1406,8 @@ namespace PRoConEvents {
 
         private Hashtable FetchWarsawLibrary() {
             Hashtable library = null;
-            try
-            {
-                using (var client = new WebClient())
-                {
+            try {
+                using (var client = new WebClient()) {
                     try {
                         String downloadURL = "https://raw.githubusercontent.com/AdKats/AdKats-LRT/test/WarsawCodeBook.json?token=" + _TokenStringWARSAW;
                         ConsoleInfo(downloadURL);
@@ -1768,8 +1419,7 @@ namespace PRoConEvents {
                     }
                 }
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Unexpected error while fetching WARSAW library", e));
                 return null;
             }
@@ -1778,87 +1428,71 @@ namespace PRoConEvents {
 
         private AdKatsLoadout GetPlayerLoadout(String personaID) {
             DebugWrite("Entering GetPlayerLoadout", 7);
-            try
-            {
+            try {
                 Hashtable responseData = null;
-                if (_gameVersion == GameVersion.BF4)
-                {
-                    AdKatsLoadout loadout = new AdKatsLoadout();
+                if (_gameVersion == GameVersion.BF4) {
+                    var loadout = new AdKatsLoadout();
                     responseData = FetchPlayerLoadout(personaID);
-                    if (responseData == null)
-                    {
+                    if (responseData == null) {
                         ConsoleError("Loadout fetch failed, unable to parse player loadout.");
                         return null;
                     }
-                    if (!responseData.ContainsKey("data"))
-                    {
+                    if (!responseData.ContainsKey("data")) {
                         ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
                         return null;
                     }
-                    Hashtable data = (Hashtable)responseData["data"];
-                    if (data == null)
-                    {
+                    var data = (Hashtable) responseData["data"];
+                    if (data == null) {
                         ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
                         return null;
                     }
                     //Get parsed back persona ID
-                    if (!data.ContainsKey("personaId"))
-                    {
+                    if (!data.ContainsKey("personaId")) {
                         ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.PersonaID = data["personaId"].ToString();
                     //Get persona name
-                    if (!data.ContainsKey("personaName"))
-                    {
+                    if (!data.ContainsKey("personaName")) {
                         ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.Name = data["personaName"].ToString();
                     //Get weapons and their attachements
-                    if (!data.ContainsKey("currentLoadout"))
-                    {
+                    if (!data.ContainsKey("currentLoadout")) {
                         ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
                         return null;
                     }
-                    Hashtable currentLoadoutHashtable = (Hashtable)data["currentLoadout"];
-                    if (currentLoadoutHashtable == null)
-                    {
+                    var currentLoadoutHashtable = (Hashtable) data["currentLoadout"];
+                    if (currentLoadoutHashtable == null) {
                         ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
-                    if (!currentLoadoutHashtable.ContainsKey("weapons"))
-                    {
+                    if (!currentLoadoutHashtable.ContainsKey("weapons")) {
                         ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
                         return null;
                     }
-                    Hashtable currentLoadoutWeapons = (Hashtable) currentLoadoutHashtable["weapons"];
-                    if (currentLoadoutWeapons == null)
-                    {
+                    var currentLoadoutWeapons = (Hashtable) currentLoadoutHashtable["weapons"];
+                    if (currentLoadoutWeapons == null) {
                         ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     foreach (DictionaryEntry weaponEntry in currentLoadoutWeapons) {
-                        if (weaponEntry.Key.ToString() != "0")
-                        {
+                        if (weaponEntry.Key.ToString() != "0") {
                             WarsawItem warsawItem;
-                            if (_WARSAWLibrary.Items.TryGetValue(weaponEntry.Key.ToString(), out warsawItem))
-                            {
+                            if (_WARSAWLibrary.Items.TryGetValue(weaponEntry.Key.ToString(), out warsawItem)) {
                                 //Create new instance of the weapon for this player
-                                WarsawItem loadoutItem = new WarsawItem() {
+                                var loadoutItem = new WarsawItem() {
                                     warsawID = warsawItem.warsawID,
                                     category = warsawItem.category,
                                     categoryType = warsawItem.categoryType,
                                     name = warsawItem.name,
                                     slug = warsawItem.slug
                                 };
-                                foreach (String accessoryID in (ArrayList)weaponEntry.Value)
-                                {
-                                    if (accessoryID != "0")
-                                    {
+                                foreach (String accessoryID in (ArrayList) weaponEntry.Value) {
+                                    if (accessoryID != "0") {
                                         WarsawItemAccessory warsawItemAccessory;
-                                        if (_WARSAWLibrary.ItemAccessories.TryGetValue(accessoryID, out warsawItemAccessory))
-                                        {
+                                        if (_WARSAWLibrary.ItemAccessories.TryGetValue(accessoryID, out warsawItemAccessory)) {
                                             loadoutItem.Accessories[warsawItemAccessory.warsawID] = warsawItemAccessory;
                                         }
                                     }
@@ -1867,8 +1501,7 @@ namespace PRoConEvents {
                             }
                         }
                     }
-                    if (!currentLoadoutHashtable.ContainsKey("selectedKit"))
-                    {
+                    if (!currentLoadoutHashtable.ContainsKey("selectedKit")) {
                         ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
                         return null;
                     }
@@ -1879,26 +1512,25 @@ namespace PRoConEvents {
                     switch (selectedKit) {
                         case "0":
                             loadout.SelectedKitType = AdKatsLoadout.KitType.Assault;
-                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[0];
+                            currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[0];
                             break;
                         case "1":
                             loadout.SelectedKitType = AdKatsLoadout.KitType.Engineer;
-                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[1];
+                            currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[1];
                             break;
                         case "2":
                             loadout.SelectedKitType = AdKatsLoadout.KitType.Support;
-                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[2];
+                            currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[2];
                             break;
                         case "3":
                             loadout.SelectedKitType = AdKatsLoadout.KitType.Recon;
-                            currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[3];
+                            currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[3];
                             break;
                         default:
                             ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
                             return null;
                     }
-                    if (currentLoadoutList.Count < 6)
-                    {
+                    if (currentLoadoutList.Count < 6) {
                         ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
                         return null;
                     }
@@ -1927,8 +1559,7 @@ namespace PRoConEvents {
                     //PRIMARY
                     WarsawItem loadoutPrimary;
                     String specificDefault;
-                    switch (loadout.SelectedKitType)
-                    {
+                    switch (loadout.SelectedKitType) {
                         case AdKatsLoadout.KitType.Assault:
                             specificDefault = defaultAssaultPrimary;
                             break;
@@ -1945,87 +1576,59 @@ namespace PRoConEvents {
                             ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
                             return null;
                     }
-                    if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary))
-                    {
-                        if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
-                        {
+                    if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary)) {
+                        if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
                             ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    switch (loadout.SelectedKitType)
-                    {
+                    switch (loadout.SelectedKitType) {
                         case AdKatsLoadout.KitType.Assault:
-                            if (loadoutPrimary.category != "ASSAULTRIFLE" && 
-                                loadoutPrimary.category != "CARBINE" && 
-                                loadoutPrimary.category != "SHOTGUN" &&
-                                loadoutPrimary.category != "DMR")
-                            {
+                            if (loadoutPrimary.category != "ASSAULTRIFLE" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
-                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
-                                {
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
                                     ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
-                                else
-                                {
+                                else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
                             break;
                         case AdKatsLoadout.KitType.Engineer:
-                            if (loadoutPrimary.category != "PDW" &&
-                                loadoutPrimary.category != "CARBINE" &&
-                                loadoutPrimary.category != "SHOTGUN" &&
-                                loadoutPrimary.category != "DMR")
-                            {
+                            if (loadoutPrimary.category != "PDW" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
-                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
-                                {
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
                                     ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
-                                else
-                                {
+                                else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
                             break;
                         case AdKatsLoadout.KitType.Support:
-                            if (loadoutPrimary.category != "LMG" &&
-                                loadoutPrimary.category != "CARBINE" &&
-                                loadoutPrimary.category != "SHOTGUN" &&
-                                loadoutPrimary.category != "DMR")
-                            {
+                            if (loadoutPrimary.category != "LMG" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
-                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
-                                {
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
                                     ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
-                                else
-                                {
+                                else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
                             break;
                         case AdKatsLoadout.KitType.Recon:
-                            if (loadoutPrimary.category != "SNIPER" &&
-                                loadoutPrimary.category != "CARBINE" &&
-                                loadoutPrimary.category != "SHOTGUN" &&
-                                loadoutPrimary.category != "DMR")
-                            {
+                            if (loadoutPrimary.category != "SNIPER" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
-                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
-                                {
+                                if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
                                     ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
-                                else
-                                {
+                                else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
@@ -2039,27 +1642,21 @@ namespace PRoConEvents {
 
                     //SIDEARM
                     WarsawItem loadoutSidearm;
-                    if (!loadout.LoadoutItems.TryGetValue(loadoutSidearmID, out loadoutSidearm))
-                    {
-                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
-                        {
+                    if (!loadout.LoadoutItems.TryGetValue(loadoutSidearmID, out loadoutSidearm)) {
+                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
                             ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    if (loadoutSidearm.category != "SIDEARM")
-                    {
+                    if (loadoutSidearm.category != "SIDEARM") {
                         WarsawItem originalItem = loadoutSidearm;
-                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
-                        {
+                        if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
                             ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
@@ -2068,27 +1665,21 @@ namespace PRoConEvents {
 
                     //GADGET1
                     WarsawItem loadoutGadget1;
-                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget1ID, out loadoutGadget1))
-                    {
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
-                        {
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget1ID, out loadoutGadget1)) {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
                             ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    if (loadoutGadget1.category != "GADGET")
-                    {
+                    if (loadoutGadget1.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget1;
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
-                        {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
                             ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
@@ -2097,27 +1688,21 @@ namespace PRoConEvents {
 
                     //GADGET2
                     WarsawItem loadoutGadget2;
-                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget2ID, out loadoutGadget2))
-                    {
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
-                        {
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget2ID, out loadoutGadget2)) {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
                             ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    if (loadoutGadget2.category != "GADGET")
-                    {
+                    if (loadoutGadget2.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget2;
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
-                        {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
                             ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
@@ -2126,27 +1711,21 @@ namespace PRoConEvents {
 
                     //GRENADE
                     WarsawItem loadoutGrenade;
-                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGrenadeID, out loadoutGrenade))
-                    {
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
-                        {
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutGrenadeID, out loadoutGrenade)) {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
                             ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    if (loadoutGrenade.category != "GRENADE") 
-                    {
+                    if (loadoutGrenade.category != "GRENADE") {
                         WarsawItem originalItem = loadoutGrenade;
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
-                        {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
                             ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
@@ -2155,27 +1734,21 @@ namespace PRoConEvents {
 
                     //KNIFE
                     WarsawItem loadoutKnife;
-                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutKnifeID, out loadoutKnife))
-                    {
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
-                        {
+                    if (!_WARSAWLibrary.Items.TryGetValue(loadoutKnifeID, out loadoutKnife)) {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
                             ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
-                    if (loadoutKnife.category != "KNIFE")
-                    {
+                    if (loadoutKnife.category != "KNIFE") {
                         WarsawItem originalItem = loadoutKnife;
-                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
-                        {
+                        if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
                             ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
                         }
-                        else
-                        {
+                        else {
                             ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
@@ -2183,42 +1756,32 @@ namespace PRoConEvents {
                     loadout.KitKnife = loadoutKnife;
 
                     //Fill the kit ID listings
-                    if (!loadout.AllKitItemIDs.Contains(loadoutPrimary.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutPrimary.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutPrimary.warsawID);
                     }
-                    foreach (WarsawItemAccessory accessory in loadoutPrimary.Accessories.Values)
-                    {
-                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID))
-                        {
+                    foreach (WarsawItemAccessory accessory in loadoutPrimary.Accessories.Values) {
+                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID)) {
                             loadout.AllKitItemIDs.Add(accessory.warsawID);
                         }
                     }
-                    if (!loadout.AllKitItemIDs.Contains(loadoutSidearm.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutSidearm.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutSidearm.warsawID);
                     }
-                    foreach (WarsawItemAccessory accessory in loadoutSidearm.Accessories.Values)
-                    {
-                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID))
-                        {
+                    foreach (WarsawItemAccessory accessory in loadoutSidearm.Accessories.Values) {
+                        if (!loadout.AllKitItemIDs.Contains(accessory.warsawID)) {
                             loadout.AllKitItemIDs.Add(accessory.warsawID);
                         }
                     }
-                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget1.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget1.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutGadget1.warsawID);
                     }
-                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget2.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGadget2.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutGadget2.warsawID);
                     }
-                    if (!loadout.AllKitItemIDs.Contains(loadoutGrenade.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutGrenade.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutGrenade.warsawID);
                     }
-                    if (!loadout.AllKitItemIDs.Contains(loadoutKnife.warsawID))
-                    {
+                    if (!loadout.AllKitItemIDs.Contains(loadoutKnife.warsawID)) {
                         loadout.AllKitItemIDs.Add(loadoutKnife.warsawID);
                     }
                     return loadout;
@@ -2226,8 +1789,7 @@ namespace PRoConEvents {
                 ConsoleError("Game not BF4, unable to process player loadout.");
                 return null;
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Error while parsing player loadout.", e));
             }
             DebugWrite("Exiting GetPlayerLoadout", 7);
@@ -2236,12 +1798,9 @@ namespace PRoConEvents {
 
         private Hashtable FetchPlayerLoadout(String personaID) {
             Hashtable loadout = null;
-            try
-            {
-                using (var client = new WebClient())
-                {
-                    try
-                    {
+            try {
+                using (var client = new WebClient()) {
+                    try {
                         DoBattlelogWait();
                         String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/");
                         loadout = (Hashtable) JSON.JsonDecode(response);
@@ -2251,8 +1810,7 @@ namespace PRoConEvents {
                     }
                 }
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 HandleException(new AdKatsException("Unexpected error while fetching player loadout.", e));
                 return null;
             }
@@ -2265,36 +1823,12 @@ namespace PRoConEvents {
                 return null;
             }
             String startTag = "<" + tag + ">";
-            Int32 startIndex = s.IndexOf(startTag, System.StringComparison.Ordinal) + startTag.Length;
+            Int32 startIndex = s.IndexOf(startTag, StringComparison.Ordinal) + startTag.Length;
             if (startIndex == -1) {
                 ConsoleError("Unable to extract String. Tag not found.");
             }
-            Int32 endIndex = s.IndexOf("</" + tag + ">", startIndex, System.StringComparison.Ordinal);
+            Int32 endIndex = s.IndexOf("</" + tag + ">", startIndex, StringComparison.Ordinal);
             return s.Substring(startIndex, endIndex - startIndex);
-        }
-
-        public Boolean SoldierNameValid(String input) {
-            try {
-                DebugWrite("Checking player '" + input + "' for validity.", 7);
-                if (String.IsNullOrEmpty(input)) {
-                    DebugWrite("Soldier Name empty or null.", 5);
-                    return false;
-                }
-                if (input.Length > 16) {
-                    DebugWrite("Soldier Name '" + input + "' too long, maximum length is 16 characters.", 5);
-                    return false;
-                }
-                if (new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length) {
-                    DebugWrite("Soldier Name '" + input + "' contained invalid characters.", 5);
-                    return false;
-                }
-                return true;
-            }
-            catch (Exception) {
-                //Soldier id caused exception in the regex, definitely not valid
-                ConsoleError("Soldier Name '" + input + "' contained invalid characters.");
-                return false;
-            }
         }
 
         public String FormatTimeString(TimeSpan timeSpan, Int32 maxComponents) {
@@ -2366,16 +1900,6 @@ namespace PRoConEvents {
             return timeString;
         }
 
-        public static String Encode(String str) {
-            byte[] encbuff = System.Text.Encoding.UTF8.GetBytes(str);
-            return Convert.ToBase64String(encbuff);
-        }
-
-        public static String Decode(String str) {
-            byte[] decbuff = Convert.FromBase64String(str.Replace(" ", "+"));
-            return System.Text.Encoding.UTF8.GetString(decbuff);
-        }
-
         public String FormatMessage(String msg, ConsoleMessageType type) {
             String prefix = "[^bAdKatsLRT^n] ";
             switch (type) {
@@ -2443,8 +1967,7 @@ namespace PRoConEvents {
         }
 
         protected void LogThreadExit() {
-            lock (_aliveThreads)
-            {
+            lock (_aliveThreads) {
                 _aliveThreads.Remove(Thread.CurrentThread.ManagedThreadId);
                 //ConsoleWarn("THREAD DEBUG: Stopping [" + Thread.CurrentThread.ManagedThreadId + ":'" + Thread.CurrentThread.Name + "']. " + _aliveThreads.Count + " threads running.");
             }
@@ -2461,156 +1984,8 @@ namespace PRoConEvents {
             }
         }
 
-        public void CheckForPluginUpdates() {
-            try {
-                //TODO: add back
-                return;
-                if ((_pluginVersionStatus == VersionStatus.OutdatedBuild && !_pluginUpdatePatched) || (false))
-                {
-                    if (_aliveThreads.Values.Any(aThread => aThread.Name == "PluginUpdater"))
-                    {
-                        return;
-                    }
-                    var pluginUpdater = new Thread(new ThreadStart(delegate
-                    {
-                        try
-                        {
-                            Thread.CurrentThread.Name = "PluginUpdater";
-                            _pluginUpdateProgress = "Started";
-                            if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                ConsoleInfo("Preparing to download plugin update to version " + _latestPluginVersion);
-                            String pluginSource = null;
-                            using (var client = new WebClient())
-                            {
-                                try
-                                {
-                                    const string stableURL = "https://raw.githubusercontent.com/AdKats/AdKats/master/AdKats.cs";
-                                    const string testURL = "https://raw.githubusercontent.com/AdKats/AdKats/test/AdKats.cs";
-                                    if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                    {
-                                        pluginSource = client.DownloadString(stableURL);
-                                    }
-                                    else
-                                    {
-                                        pluginSource = client.DownloadString(testURL);
-                                    }
-                                }
-                                catch (Exception e)
-                                {
-                                    if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                        ConsoleError("Unable to download plugin update to version " + _latestPluginVersion);
-                                    return;
-                                }
-                            }
-                            if (String.IsNullOrEmpty(pluginSource))
-                            {
-                                if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                    ConsoleError("Downloaded plugin source was empty. Unable update to version " + _latestPluginVersion);
-                                return;
-                            }
-                            _pluginUpdateProgress = "Downloaded";
-                            if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                            {
-                                ConsoleSuccess("Updated plugin source downloaded.");
-                                ConsoleInfo("Preparing test compile on updated plugin source.");
-                            }
-                            String pluginFileName = "AdKatsLRT.cs";
-                            String dllPath = Directory.GetParent(Assembly.GetExecutingAssembly().Location).FullName;
-                            String pluginPath = Path.Combine(dllPath.Trim(new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }), pluginFileName);
-                            String procon_path = Directory.GetParent(Application.ExecutablePath).FullName;
-                            String pluginDirectory = Path.Combine(procon_path, Path.Combine("Plugins", "BF4"));
-                            var providerOptions = new Dictionary<String, String>();
-                            providerOptions.Add("CompilerVersion", "v3.5");
-                            var cSharpCodeProvider = new CSharpCodeProvider(providerOptions);
-                            var compilerParameters = new CompilerParameters();
-                            compilerParameters.ReferencedAssemblies.Add("System.dll");
-                            compilerParameters.ReferencedAssemblies.Add("System.Core.dll");
-                            compilerParameters.ReferencedAssemblies.Add("System.Data.dll");
-                            compilerParameters.ReferencedAssemblies.Add("System.Windows.Forms.dll");
-                            compilerParameters.ReferencedAssemblies.Add("System.Xml.dll");
-                            compilerParameters.ReferencedAssemblies.Add("MySql.Data.dll");
-                            compilerParameters.ReferencedAssemblies.Add("PRoCon.Core.dll");
-                            compilerParameters.GenerateInMemory = true;
-                            compilerParameters.IncludeDebugInformation = false;
-                            compilerParameters.TempFiles = new TempFileCollection(pluginDirectory);
-                            var compileResults = cSharpCodeProvider.CompileAssemblyFromSource(compilerParameters, pluginSource);
-                            if (compileResults.Errors.HasErrors)
-                            {
-                                foreach (CompilerError errComp in compileResults.Errors)
-                                {
-                                    if (String.Compare(errComp.ErrorNumber, "CS0016", StringComparison.Ordinal) != 0 && errComp.IsWarning == false)
-                                    {
-                                        if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                            ConsoleError(String.Format("\t^1{0} (Line: {1}, C: {2}) {3}: {4}", new object[] { pluginFileName, errComp.Line, errComp.Column, errComp.ErrorNumber, errComp.ErrorText }));
-                                    }
-                                }
-                                if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                    ConsoleError("Updated plugin source could not compile. Unable to update to version " + _latestPluginVersion);
-                                return;
-                            }
-                            else
-                            {
-                                if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                    ConsoleSuccess("Plugin update compiled successfully.");
-                            }
-                            _pluginUpdateProgress = "Compiled";
-                            if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                ConsoleInfo("Preparing to update source file on disk.");
-                            using (FileStream stream = File.Open(pluginPath, FileMode.Create))
-                            {
-                                if (!stream.CanWrite)
-                                {
-                                    if (_pluginVersionStatus == VersionStatus.OutdatedBuild)
-                                        ConsoleError("Cannot write updates to source file. Unable to update to version " + _latestPluginVersion);
-                                }
-                                Byte[] info = new UTF8Encoding(true).GetBytes(pluginSource);
-                                stream.Write(info, 0, info.Length);
-                            }
-                            String patchedVersion = ExtractString(pluginSource, "version_code");
-                            if (!String.IsNullOrEmpty(patchedVersion)) {
-                                String trimmedPatchedVersion = patchedVersion.Replace(".", "");
-                                Int32 patchedVersionInt = Int32.Parse(trimmedPatchedVersion);
-                                if (patchedVersionInt >= _currentPluginVersionInt) {
-                                    //Patched version is newer than current version
-                                    if (patchedVersionInt > _pluginPatchedVersionInt && _pluginUpdatePatched)
-                                    {
-                                        //Patched version is newer than an already patched version
-                                        ConsoleSuccess("Previous update " + _pluginPatchedVersion + " overwritten by newer patch " + patchedVersion + ". Restart procon to run this version.");
-                                    }
-                                    else if (!_pluginUpdatePatched && patchedVersionInt > _currentPluginVersionInt) {
-                                        //User not notified of patch yet
-                                        ConsoleSuccess("Plugin updated to version " + patchedVersion + ". Restart procon to run this version.");
-                                        ConsoleSuccess("Updated plugin file located at: " + pluginPath);
-                                    }
-                                }
-                                else if (!_pluginUpdatePatched) {
-                                    //Patched version is older than current version
-                                    ConsoleWarn("Plugin reverted to previous version " + patchedVersion + ". Restart procon to run this version.");
-                                }
-                                _pluginPatchedVersion = patchedVersion;
-                                _pluginPatchedVersionInt = patchedVersionInt;
-                            }
-                            else {
-                                ConsoleWarn("Plugin update patched, but its version could not be extracted.");
-                            }
-                            _pluginUpdateProgress = "Patched";
-                            _pluginUpdatePatched = true;
-                        }
-                        catch (Exception e) {
-                            HandleException(new AdKatsException("Error while running update thread.", e));
-                        }
-                        LogThreadExit();
-                    }));
-                    StartAndLogThread(pluginUpdater);
-                }
-            }
-            catch (Exception e) {
-                HandleException(new AdKatsException("Error while updating plugin source to latest version", e));
-            }
-        }
-
         public void ProconChatWrite(String msg) {
-            msg = msg.Replace(System.Environment.NewLine, String.Empty);
+            msg = msg.Replace(Environment.NewLine, String.Empty);
             ExecuteCommand("procon.protected.chat.write", "AdKatsLRT > " + msg);
             if (_slowmo) {
                 _threadMasterWaitHandle.WaitOne(1000);
@@ -2619,8 +1994,7 @@ namespace PRoConEvents {
 
         public void ConsoleWrite(String msg, ConsoleMessageType type) {
             ExecuteCommand("procon.protected.pluginconsole.write", FormatMessage(msg, type));
-            if (_slowmo)
-            {
+            if (_slowmo) {
                 _threadMasterWaitHandle.WaitOne(1000);
             }
         }
@@ -2652,24 +2026,21 @@ namespace PRoConEvents {
         }
 
         public void PrintPreparedCommand(MySqlCommand cmd) {
-            String query = cmd.Parameters.Cast<MySqlParameter>().Aggregate(cmd.CommandText, (current, p) => current.Replace(p.ParameterName, (p.Value != null)?(p.Value.ToString()):("NULL")));
+            String query = cmd.Parameters.Cast<MySqlParameter>().Aggregate(cmd.CommandText, (current, p) => current.Replace(p.ParameterName, (p.Value != null) ? (p.Value.ToString()) : ("NULL")));
             ConsoleWrite(query);
         }
 
-        public DateTime DateTimeFromEpochSeconds(Double epochSeconds)
-        {
+        public DateTime DateTimeFromEpochSeconds(Double epochSeconds) {
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             return epoch.AddSeconds(epochSeconds);
         }
-        public void UpdateSettingPage()
-        {
+
+        public void UpdateSettingPage() {
             SetExternalPluginSetting("AdKatsLRT", "UpdateSettings", "Update");
         }
 
-        public void SetExternalPluginSetting(String pluginName, String settingName, String settingValue)
-        {
-            if (String.IsNullOrEmpty(pluginName) || String.IsNullOrEmpty(settingName) || settingValue == null)
-            {
+        public void SetExternalPluginSetting(String pluginName, String settingName, String settingValue) {
+            if (String.IsNullOrEmpty(pluginName) || String.IsNullOrEmpty(settingName) || settingValue == null) {
                 ConsoleError("Required inputs null or empty in setExternalPluginSetting");
                 return;
             }
@@ -2678,153 +2049,79 @@ namespace PRoConEvents {
 
         private void DoBattlelogWait() {
             //Wait 2 seconds between battlelog actions
-            if ((DateTime.UtcNow - _LastBattlelogAction) < _BattlelogWaitDuration)
-            {
+            if ((DateTime.UtcNow - _LastBattlelogAction) < _BattlelogWaitDuration) {
                 Thread.Sleep(_BattlelogWaitDuration - (DateTime.UtcNow - _LastBattlelogAction));
             }
             _LastBattlelogAction = DateTime.UtcNow;
         }
 
-        public AdKatsException HandleException(AdKatsException aException)
-        {
-            try
-            {
+        public AdKatsException HandleException(AdKatsException aException) {
+            try {
                 //If it's null or AdKatsLRT isn't enabled, just return
-                if (aException == null)
-                {
+                if (aException == null) {
                     ConsoleError("Attempted to handle exception when none was given.");
                     return null;
                 }
                 _slowmo = SlowMoOnException;
                 String prefix = "Line ";
-                if (aException.InternalException != null)
-                {
+                if (aException.InternalException != null) {
                     Int64 impericalLineNumber = (new StackTrace(aException.InternalException, true)).GetFrame(0).GetFileLineNumber();
                     Int64 parsedLineNumber = 0;
                     Int64.TryParse(aException.InternalException.ToString().Split(' ').Last(), out parsedLineNumber);
-                    if (impericalLineNumber != 0)
-                    {
+                    if (impericalLineNumber != 0) {
                         prefix += impericalLineNumber;
                     }
-                    else if (parsedLineNumber != 0)
-                    {
+                    else if (parsedLineNumber != 0) {
                         prefix += parsedLineNumber;
                     }
-                    else
-                    {
+                    else {
                         prefix += "Unknown";
                     }
-                    prefix += "-" + _currentPluginVersionInt + ": ";
+                    prefix += ": ";
                 }
                 //Check if the exception attributes to the database
                 ConsoleWrite(prefix + aException, ConsoleMessageType.Exception);
-                StartAndLogThread(new Thread(new ThreadStart(delegate
-                {
+                StartAndLogThread(new Thread(new ThreadStart(delegate {
                     Thread.CurrentThread.Name = "AdKatsExceptionInformThread";
-                    var requestHashtable = new Hashtable{
-                         {"caller_identity", "AdKatsLRT"},
-                         {"response_requested", false},
-                         {"command_type", "adkats_exception"},
-                         {"source_name", "AdKatsLRT"},
-                         {"target_name", "AdKatsLRT"},
-                         {"record_message", prefix + aException.ToString()}
+                    var requestHashtable = new Hashtable {
+                        {"caller_identity", "AdKatsLRT"},
+                        {"response_requested", false},
+                        {"command_type", "adkats_exception"},
+                        {"source_name", "AdKatsLRT"},
+                        {"target_name", "AdKatsLRT"},
+                        {"record_message", prefix + aException}
                     };
                     ExecuteCommand("procon.protected.plugins.call", "AdKats", "IssueCommand", "AdKatsLRT", JSON.JsonEncode(requestHashtable));
                     LogThreadExit();
                 })));
                 return aException;
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 ConsoleWrite(e.ToString(), ConsoleMessageType.Exception);
             }
             return null;
         }
 
-        public class AdKatsSubscribedPlayer {
-            public Int64 player_id;
-            public String player_guid;
-            public String player_pbguid;
-            public String player_ip;
-            public String player_name;
-            public String player_personaID;
-            public Boolean player_aa;
-            public Double player_ping;
-            public Double player_reputation;
-            public Int32 player_infractionPoints;
-            public String player_role;
-            public String player_type;
-            public Boolean player_isAdmin;
-            public Boolean player_reported;
-            public Boolean player_punished;
-            public Boolean player_marked;
-            public TimeSpan player_lastPunishment = TimeSpan.Zero;
-            public TimeSpan player_lastForgive = TimeSpan.Zero;
-            public TimeSpan player_lastAction = TimeSpan.Zero;
-            public Boolean player_spawnedOnce;
-            public String player_conversationPartner;
-            public Int32 player_kills;
-            public Int32 player_deaths;
-            public Double player_kdr;
-            public Int32 player_rank;
-            public Int32 player_score;
-            public Int32 player_squad;
-            public Int32 player_team;
-
-            public Boolean player_loadoutValid = true;
-            public Boolean player_loadoutEnforced = false;
-            public Boolean player_loadoutKilled = false;
-        }
-
-
-        public class WarsawLibrary
-        {
-            public Dictionary<String, WarsawItem> Items;
-            public Dictionary<String, WarsawItem> VehicleUnlocks;
-            public Dictionary<String, WarsawItemAccessory> ItemAccessories;
-
-            public WarsawLibrary()
-            {
-                Items = new Dictionary<String, WarsawItem>();
-                VehicleUnlocks = new Dictionary<String, WarsawItem>();
-                ItemAccessories = new Dictionary<String, WarsawItemAccessory>();
+        public class AdKatsException {
+            public Exception InternalException = null;
+            public String Message = String.Empty;
+            public String Method = String.Empty;
+            //Param Constructors
+            public AdKatsException(String message, Exception internalException) {
+                Method = new StackFrame(1).GetMethod().Name;
+                Message = message;
+                InternalException = internalException;
             }
-        }
 
-        public class WarsawItem
-        {
-            //only take entries with numeric IDs
-            //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
-            //Parsed categoryType does not make any modifications
-            //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
-            //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
-            //If expansion exists assign it, if not, ignore
-            public String warsawID;
-            public String category;
-            public String name;
-            public String categoryType;
-            public String slug;
-            public String desc;
-            public Dictionary<String, WarsawItemAccessory> Accessories;
-
-            public WarsawItem() {
-                Accessories = new Dictionary<string, WarsawItemAccessory>();
+            public AdKatsException(String message) {
+                Method = new StackFrame(1).GetMethod().Name;
+                Message = message;
             }
-        }
 
-        public class WarsawItemAccessory
-        {
-            //only take entries with numeric IDs
-            //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
-            //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
-            //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
-            //If expansion exists assign it, if not, ignore
-            public String warsawID;
-            public String category;
-            public String categoryReadable;
-            public String slug;
-            public String slugReadable;
-            public String name;
+            //Override toString
+            public override String ToString() {
+                return "[" + Method + "][" + Message + "]" + ((InternalException != null) ? (": " + InternalException) : (""));
+            }
         }
 
         public class AdKatsLoadout {
@@ -2835,48 +2132,108 @@ namespace PRoConEvents {
                 Recon
             }
 
-            public String Name;
-            public String PersonaID;
-            public Dictionary<String, WarsawItem> LoadoutItems;
-            public KitType SelectedKitType;
-            public WarsawItem KitItemPrimary;
-            public WarsawItem KitItemSidearm;
+            public HashSet<String> AllKitItemIDs;
+
             public WarsawItem KitGadget1;
             public WarsawItem KitGadget2;
             public WarsawItem KitGrenade;
+            public WarsawItem KitItemPrimary;
+            public WarsawItem KitItemSidearm;
             public WarsawItem KitKnife;
-            public HashSet<String> AllKitItemIDs;
+            public Dictionary<String, WarsawItem> LoadoutItems;
+            public String Name;
+            public String PersonaID;
+            public KitType SelectedKitType;
 
-            public AdKatsLoadout()
-            {
+            public AdKatsLoadout() {
                 LoadoutItems = new Dictionary<String, WarsawItem>();
                 AllKitItemIDs = new HashSet<String>();
             }
         }
 
-        public class AdKatsException
-        {
-            public System.Exception InternalException = null;
-            public String Message = String.Empty;
-            public String Method = String.Empty;
-            //Param Constructors
-            public AdKatsException(String message, System.Exception internalException)
-            {
-                Method = new StackFrame(1).GetMethod().Name;
-                Message = message;
-                InternalException = internalException;
-            }
+        public class AdKatsSubscribedPlayer {
+            public Boolean player_aa;
+            public String player_conversationPartner;
+            public Int32 player_deaths;
+            public String player_guid;
+            public Int64 player_id;
+            public Int32 player_infractionPoints;
+            public String player_ip;
+            public Boolean player_isAdmin;
+            public Double player_kdr;
+            public Int32 player_kills;
+            public TimeSpan player_lastAction = TimeSpan.Zero;
+            public TimeSpan player_lastForgive = TimeSpan.Zero;
+            public TimeSpan player_lastPunishment = TimeSpan.Zero;
+            public Boolean player_loadoutEnforced = false;
+            public Boolean player_loadoutKilled = false;
+            public Boolean player_loadoutValid = true;
+            public Boolean player_marked;
+            public String player_name;
+            public Boolean player_online;
+            public String player_pbguid;
+            public String player_personaID;
+            public Double player_ping;
+            public Boolean player_punished;
+            public Int32 player_rank;
+            public Boolean player_reported;
+            public Double player_reputation;
+            public String player_role;
+            public Int32 player_score;
+            public Boolean player_spawnedOnce;
+            public Int32 player_squad;
+            public Int32 player_team;
+            public String player_type;
+        }
 
-            public AdKatsException(String message)
-            {
-                Method = new StackFrame(1).GetMethod().Name;
-                Message = message;
-            }
+        internal enum SupportedGames {
+            BF_3,
+            BF_4
+        }
 
-            //Override toString
-            public override String ToString()
-            {
-                return "[" + Method + "][" + Message + "]" + ((InternalException != null) ? (": " + InternalException) : (""));
+        public class WarsawItem {
+            //only take entries with numeric IDs
+            //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
+            //Parsed categoryType does not make any modifications
+            //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
+            //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
+            //If expansion exists assign it, if not, ignore
+            public Dictionary<String, WarsawItemAccessory> Accessories;
+            public String category;
+            public String categoryType;
+            public String desc;
+            public String name;
+            public String slug;
+            public String warsawID;
+
+            public WarsawItem() {
+                Accessories = new Dictionary<string, WarsawItemAccessory>();
+            }
+        }
+
+        public class WarsawItemAccessory {
+            //only take entries with numeric IDs
+            //Parsed category removes leading "WARSAW_ID_P_CAT_", replaces "_" with " ", and lower cases the rest
+            //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
+            //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
+            //If expansion exists assign it, if not, ignore
+            public String category;
+            public String categoryReadable;
+            public String name;
+            public String slug;
+            public String slugReadable;
+            public String warsawID;
+        }
+
+        public class WarsawLibrary {
+            public Dictionary<String, WarsawItemAccessory> ItemAccessories;
+            public Dictionary<String, WarsawItem> Items;
+            public Dictionary<String, WarsawItem> VehicleUnlocks;
+
+            public WarsawLibrary() {
+                Items = new Dictionary<String, WarsawItem>();
+                VehicleUnlocks = new Dictionary<String, WarsawItem>();
+                ItemAccessories = new Dictionary<String, WarsawItemAccessory>();
             }
         }
     }
