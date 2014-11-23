@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.0.9";
+        private const String PluginVersion = "1.0.1.0";
 
         public enum ConsoleMessageType {
             Normal,
