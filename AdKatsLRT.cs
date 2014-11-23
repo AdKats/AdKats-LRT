@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.0.9
+ * Version 1.0.1.0
  * 23-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.0.9</version_code>
+ * <version_code>1.0.1.0</version_code>
  */
 
 using System;
@@ -33,6 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
+        private const String PluginVersion = "1.0.0.9";
 
         public enum ConsoleMessageType {
             Normal,
@@ -48,50 +49,45 @@ namespace PRoConEvents {
             BF4
         };
 
-        private const String PluginVersion = "1.0.0.9";
-
         //State
-        private const Boolean FullDebug = false;
-        private const Boolean SlowMoOnException = false;
-        private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(1);
-        private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
+        private GameVersion _gameVersion = GameVersion.BF3;
+        private volatile Boolean _pluginEnabled;
+        private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
+        private Boolean _WARSAWLibraryLoaded;
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
+        private Boolean _firstPlayerListComplete;
         private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>();
+        private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
         private readonly Dictionary<String, String> _WARSAWDeniedIDMessages = new Dictionary<String, String>();
-        private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(1);
+        private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
 
         //Threads
-        private Thread _Activator;
-        private Thread _Finalizer;
-        private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
+        private volatile Boolean _threadsReady;
+        private EventWaitHandle _threadMasterWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private EventWaitHandle _LoadoutProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private EventWaitHandle _PlayerProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private EventWaitHandle _PluginDescriptionWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private Thread _Activator;
+        private Thread _Finalizer;
         private Thread _SpawnProcessingThread;
-        private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
 
-        //Players
+        //Settings
         private String _TokenStringLoadout = "AB0Lk8jgbZj04WEZGxmdrzwPOy6LlKKzks5Ud2ygwA%3D%3D";
         private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
-        private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
-        private Boolean _WARSAWLibraryLoaded;
         private Int32 _YellDuration = 5;
+        private volatile Int32 _debugLevel = 0;
 
         //Debug
-        private volatile Int32 _debugLevel;
+        private const Boolean FullDebug = false;
+        private const Boolean SlowMoOnException = false;
         private String _debugSoldierName = "ColColonCleaner";
-        private Boolean _firstPlayerListComplete;
-        private GameVersion _gameVersion = GameVersion.BF3;
-        private volatile String _pluginChangelog;
-        private volatile String _pluginDescription;
-        private volatile Boolean _pluginEnabled;
-        private volatile String _pluginLinks;
         private Boolean _slowmo;
-        private EventWaitHandle _threadMasterWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        private volatile Boolean _threadsReady;
         private Boolean _toldCol;
 
         public AdKatsLRT() {
@@ -265,7 +261,7 @@ namespace PRoConEvents {
             DebugWrite("Entering OnPluginLoaded", 7);
             try {
                 //Register all events
-                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnListPlayers");
+                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnListPlayers", "OnPlayerLeft");
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("FATAL ERROR on plugin load.", e));
@@ -592,6 +588,23 @@ namespace PRoConEvents {
                     ConsoleError("Attempted to process spawn of " + soldierName + " without their player object loaded.");
                 }
             }
+        }
+
+        public override void OnPlayerLeft(CPlayerInfo playerInfo)
+        {
+            DebugWrite("Entering OnPlayerLeft", 7);
+            try 
+            {
+                AdKatsSubscribedPlayer aPlayer;
+                if (_PlayerDictionary.TryGetValue(playerInfo.SoldierName, out aPlayer)) {
+                    aPlayer.player_online = false;
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error while handling player left.", e));
+            }
+            DebugWrite("Exiting OnPlayerLeft", 7);
         }
 
         public void CallLoadoutCheckOnPlayer(params String[] parameters) {
