@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.0
- * 23-NOV-2014
+ * Version 1.0.1.1
+ * 25-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.0</version_code>
+ * <version_code>1.0.1.1</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.0";
+        private const String PluginVersion = "1.0.1.1";
 
         public enum ConsoleMessageType {
             Normal,
@@ -54,11 +54,13 @@ namespace PRoConEvents {
         private volatile Boolean _pluginEnabled;
         private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
         private Boolean _WARSAWLibraryLoaded;
+        private HashSet<String> _AdminList = new HashSet<string>();
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private Boolean _firstPlayerListComplete;
         private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>();
         private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
-        private readonly Dictionary<String, String> _WARSAWDeniedIDMessages = new Dictionary<String, String>();
+        private readonly Dictionary<String, String> _WARSAWInvalidLoadoutIDMessages = new Dictionary<String, String>();
+        private readonly HashSet<String> _WARSAWSpawnDeniedIDs = new HashSet<String>();
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -137,37 +139,54 @@ namespace PRoConEvents {
                 }
                 if (_WARSAWLibrary.Items.Any()) {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
-                        lstReturn.Add(new CPluginVariable("3. Weapons|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("3. Weapons|ALWT" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
+                        {
+                            lstReturn.Add(new CPluginVariable("3. Weapons|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        }
                     }
                 }
                 if (_WARSAWLibrary.Items.Any()) {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category == "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
-                        lstReturn.Add(new CPluginVariable("3. Gadgets|ALW" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("4. Gadgets|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
+                        {
+                            lstReturn.Add(new CPluginVariable("4. Gadgets|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        }                    
                     }
                 }
                 if (_WARSAWLibrary.VehicleUnlocks.Any()) {
                     foreach (WarsawItem unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug)) {
-                        lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALW" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALWT" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
+                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID))
+                        {
+                            lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALWS" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(unlock.warsawID) ? ("Deny") : ("Allow")));
+                        }                    
                     }
                 }
                 if (_WARSAWLibrary.ItemAccessories.Any()) {
-                    foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category)) {
-                        lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALW" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                    foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
+                    {
+                        lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
+                        {
+                            lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                        }                    
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key))) {
+                foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key))) {
                     WarsawItem deniedItem;
                     if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem)) {
                         lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
+                foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
                     WarsawItem deniedVehicleUnlock;
                     if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock)) {
                         lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWDeniedIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key))) {
+                foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key))) {
                     WarsawItemAccessory deniedItemAccessory;
                     if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory)) {
                         lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
@@ -186,8 +205,12 @@ namespace PRoConEvents {
             const string separator = " | ";
             lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
             lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof (String), _TokenStringLoadout));
-            foreach (var pair in _WARSAWDeniedIDMessages) {
+            foreach (var pair in _WARSAWInvalidLoadoutIDMessages) {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
+            }
+            foreach (var deniedSpawnID in _WARSAWSpawnDeniedIDs)
+            {
+                lstReturn.Add(new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny"));
             }
             return lstReturn;
         }
@@ -216,21 +239,46 @@ namespace PRoConEvents {
                         ConsoleError("Token cannot be empty.");
                     }
                 }
-                else if (strVariable.StartsWith("ALW")) {
+                else if (strVariable.StartsWith("ALWT"))
+                {
                     //Trim off all but the warsaw ID
-                    //ALW3495820391
+                    //ALWT3495820391
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
-                    String warsawID = commandSplit[0].TrimStart("ALW".ToCharArray()).Trim();
+                    String warsawID = commandSplit[0].TrimStart("ALWT".ToCharArray()).Trim();
                     //Fetch needed role
-                    switch (strValue.ToLower()) {
+                    switch (strValue.ToLower())
+                    {
                         case "allow":
                             //parse allow
-                            ConsoleWarn("id " + warsawID + " removed");
-                            _WARSAWDeniedIDMessages.Remove(warsawID);
+                            _WARSAWInvalidLoadoutIDMessages.Remove(warsawID);
                             break;
                         case "deny":
                             //parse deny
-                            _WARSAWDeniedIDMessages[warsawID] = "Please respawn without " + commandSplit[commandSplit.Count() - 2].Trim() + " in your loadout";
+                            _WARSAWInvalidLoadoutIDMessages[warsawID] = "Please respawn without " + commandSplit[commandSplit.Count() - 2].Trim() + " in your loadout";
+                            break;
+                        default:
+                            ConsoleError("Unknown setting when assigning WARSAW allowance.");
+                            return;
+                    }
+                }
+                else if (strVariable.StartsWith("ALWS"))
+                {
+                    //Trim off all but the warsaw ID
+                    //ALWS3495820391
+                    String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
+                    String warsawID = commandSplit[0].TrimStart("ALWS".ToCharArray()).Trim();
+                    //Fetch needed role
+                    switch (strValue.ToLower())
+                    {
+                        case "allow":
+                            //parse allow
+                            _WARSAWSpawnDeniedIDs.Remove(warsawID);
+                            break;
+                        case "deny":
+                            //parse deny
+                            if (!_WARSAWSpawnDeniedIDs.Contains(warsawID)) {
+                                _WARSAWSpawnDeniedIDs.Add(warsawID);
+                            }
                             break;
                         default:
                             ConsoleError("Unknown setting when assigning WARSAW allowance.");
@@ -246,7 +294,7 @@ namespace PRoConEvents {
                     }
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
                     String warsawID = commandSplit[0].TrimStart("MSG".ToCharArray()).Trim();
-                    _WARSAWDeniedIDMessages[warsawID] = strValue;
+                    _WARSAWInvalidLoadoutIDMessages[warsawID] = strValue;
                 }
                 else {
                     ConsoleInfo(strVariable + " =+= " + strValue);
@@ -447,7 +495,7 @@ namespace PRoConEvents {
                 try {
                     Thread.CurrentThread.Name = "StatusMonitor";
                     DateTime lastKeepAliveCheck = DateTime.UtcNow;
-                    DateTime lastServerInfoRequest = DateTime.UtcNow;
+                    DateTime lastAdminFetch = DateTime.UtcNow;
                     while (true) {
                         try {
                             //Check for thread warning every 30 seconds
@@ -466,6 +514,17 @@ namespace PRoConEvents {
                                     }
                                     ConsoleWarn("Thread warning: " + aliveThreads);
                                 }
+                            }
+                            //Check for updated admins every minute
+                            if ((DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady)
+                            {
+                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "FetchAuthorizedSoldiers", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                    {"caller_identity", "AdKatsLRT"},
+                                    {"response_requested", true},
+                                    {"response_class", "AdKatsLRT"},
+                                    {"response_method ", "ReceiveAdminList"},
+                                    {"user_subset", "admin"}
+                                }));
                             }
                             //Sleep 1 second between loops
                             _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
@@ -574,7 +633,7 @@ namespace PRoConEvents {
             if (_threadsReady && _pluginEnabled && _firstPlayerListComplete) {
                 AdKatsSubscribedPlayer aPlayer;
                 if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online) {
-                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60)) {
+                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || _WARSAWSpawnDeniedIDs.Any()) {
                         //Start a delay thread
                         StartAndLogThread(new Thread(new ThreadStart(delegate {
                             Thread.CurrentThread.Name = "LoadoutCheckDelay";
@@ -625,6 +684,7 @@ namespace PRoConEvents {
                     AdKatsSubscribedPlayer aPlayer;
                     if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                         ConsoleWrite("Loadout check manually called on " + playerName + ".");
+                        aPlayer.ManualTrigger = true;
                         QueuePlayerForProcessing(aPlayer);
                     }
                     else {
@@ -636,6 +696,35 @@ namespace PRoConEvents {
                 HandleException(new AdKatsException("Error while calling loadout check on player.", e));
             }
             DebugWrite("CallLoadoutCheckOnPlayer finished!", 6);
+        }
+
+        public void ReceiveAdminList(params String[] parameters)
+        {
+            DebugWrite("ReceiveAdminList starting!", 6);
+            try {
+                if (parameters.Length != 2) {
+                    ConsoleError("Online admin receiving cancelled. Parameters invalid.");
+                    return;
+                }
+                String source = parameters[0];
+                String unparsedCommandJSON = parameters[1];
+
+                var decodedCommand = (Hashtable) JSON.JsonDecode(unparsedCommandJSON);
+
+                var unparsedAdminList = (String) decodedCommand["response_value"];
+
+                String[] tempAdminList = CPluginVariable.DecodeStringArray(unparsedAdminList);
+                foreach (String adminPlayerName in tempAdminList) {
+                    if (!_AdminList.Contains(adminPlayerName)) {
+                        _AdminList.Add(adminPlayerName);
+                    }
+                }
+                _AdminList.RemoveWhere(name => !tempAdminList.Contains(name));
+            }
+            catch (Exception e) {
+                HandleException(new AdKatsException("Error while calling loadout check on player.", e));
+            }
+            DebugWrite("ReceiveAdminList finished!", 6);
         }
 
         private void QueuePlayerForProcessing(AdKatsSubscribedPlayer aPlayer) {
@@ -685,80 +774,163 @@ namespace PRoConEvents {
                                 continue;
                             }
 
-                            //Process the loadout
+                            //Parse the reason for enforcement
+                            Boolean trigger = false;
+                            Boolean killOverride = false;
+                            String reason = "";
+                            if (aPlayer.ManualTrigger)
+                            {
+                                reason = "[manual] ";
+                                trigger = true;
+                                killOverride = true;
+                            }
+                            else if (aPlayer.player_marked)
+                            {
+                                reason = "[marked] ";
+                                trigger = true;
+                                killOverride = true;
+                            }
+                            else if (aPlayer.player_punished)
+                            {
+                                reason = "[recently punished] ";
+                                trigger = true;
+                                killOverride = true;
+                            }
+                            else if (aPlayer.player_reported && aPlayer.player_reputation < 0)
+                            {
+                                reason = "[reported] ";
+                                trigger = true;
+                            }
+                            else if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60 && aPlayer.player_reputation < 0)
+                            {
+                                reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
+                                trigger = true;
+                            }
+                            else 
+                            {
+                                reason = "[spawn] ";
+                            }
+
+                            //Show the loadout contents
                             String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
                             String sidearmMessage = loadout.KitItemSidearm.slug + " [" + loadout.KitItemSidearm.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
                             String gadgetMessage = "[" + loadout.KitGadget1.slug + ", " + loadout.KitGadget2.slug + "]";
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
-
-                            String message = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
-                            ConsoleInfo(message);
+                            String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
+                            ConsoleInfo(loadoutMessage);
+                            
                             Boolean loadoutValid = true;
-                            foreach (var warsawDeniedIDMessage in _WARSAWDeniedIDMessages) {
-                                if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key)) {
-                                    loadoutValid = false;
-                                    PlayerTellMessage(loadout.Name, warsawDeniedIDMessage.Value);
-                                    break;
+                            if (trigger)
+                            {
+                                foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages) 
+                                {
+                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key)) 
+                                    {
+                                        loadoutValid = false;
+                                        PlayerTellMessage(loadout.Name, warsawDeniedIDMessage.Value);
+                                        break;
+                                    }
+                                }
+
+                                //Inform AdKats of the loadout
+                                StartAndLogThread(new Thread(new ThreadStart(delegate
+                                {
+                                    Thread.CurrentThread.Name = "AdKatsInformThread";
+                                    Thread.Sleep(100);
+                                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                        {"caller_identity", "AdKatsLRT"},
+                                        {"response_requested", false},
+                                        {"loadout_player", loadout.Name},
+                                        {"loadout_valid", loadoutValid}
+                                    }));
+                                    Thread.Sleep(100);
+                                    LogThreadExit();
+                                })));
+                            }
+                            else
+                            {
+                                foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
+                                {
+                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                    {
+                                        loadoutValid = false;
+                                        break;
+                                    }
                                 }
                             }
-                            //Inform AdKats of the loadout
-                            StartAndLogThread(new Thread(new ThreadStart(delegate {
-                                Thread.CurrentThread.Name = "AdKatsInformThread";
-                                Thread.Sleep(100);
-                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                    {"caller_identity", "AdKatsLRT"},
-                                    {"response_requested", false},
-                                    {"loadout_player", loadout.Name},
-                                    {"loadout_valid", loadoutValid}
-                                }));
-                                Thread.Sleep(100);
-                                LogThreadExit();
-                            })));
+
                             aPlayer.player_loadoutEnforced = true;
-                            if (!loadoutValid) {
+                            if (!loadoutValid)
+                            {
                                 //Tell them any other items that are invalid in their loadout
                                 String deniedWeapons = String.Empty;
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID)) {
-                                    deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
+                                if (trigger) {
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID)) {
+                                        deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.warsawID)) {
+                                        deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.warsawID)) {
+                                        deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.warsawID)) {
+                                        deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.warsawID)) {
+                                        deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.warsawID)) {
+                                        deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                    }
                                 }
-                                deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitItemSidearm.warsawID)) {
-                                    deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
-                                }
-                                deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWDeniedIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGadget1.warsawID)) {
-                                    deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
-                                }
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGadget2.warsawID)) {
-                                    deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
-                                }
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitGrenade.warsawID)) {
-                                    deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
-                                }
-                                if (_WARSAWDeniedIDMessages.ContainsKey(loadout.KitKnife.warsawID)) {
-                                    deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                else
+                                {
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemPrimary.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemSidearm.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget1.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget2.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGrenade.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
+                                    }
+                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitKnife.warsawID))
+                                    {
+                                        deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                    }
                                 }
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
-                                Boolean manual = false;
-                                String reason = "";
-                                if (aPlayer.player_marked) {
-                                    reason = "[marked] ";
+
+                                OnlineAdminSayMessage("thing");
+                                //Kill the player?
+                                Boolean killPlayer = true;
+                                Boolean adminsOnline = AdminsOnline();
+                                if (adminsOnline) {
+                                    //Admins are online, only kill players when manually requested, or for denied spawns
+                                    killPlayer = !trigger || (trigger && killOverride);
                                 }
-                                else if (aPlayer.player_punished) {
-                                    reason = "[recently punished] ";
+                                if (!killPlayer && adminsOnline) {
+                                    OnlineAdminSayMessage(loadout.Name + ": [" + loadout.SelectedKitType + "] with primary [" + loadout.KitItemPrimary.slug + "], sidearm [" + loadout.KitItemSidearm.slug + "], gadgets " + gadgetMessage + ", grenade " + grenadeMessage + ", and knife " + knifeMessage);
                                 }
-                                else if (aPlayer.player_reported) {
-                                    reason = "[reported] ";
-                                }
-                                else if (aPlayer.player_infractionPoints > 5) {
-                                    reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
-                                }
-                                else {
-                                    reason = "[manual] ";
-                                    manual = true;
-                                }
-                                if ((((aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || aPlayer.player_reported) && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || manual) {
+                                if (killPlayer)
+                                {
                                     AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
                                     aPlayer.player_loadoutKilled = true;
                                     Thread.Sleep(2000);
@@ -914,6 +1086,7 @@ namespace PRoConEvents {
                                 QueuePlayerForProcessing(aPlayer);
                             }
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
+                            aPlayer.ManualTrigger = false;
                             _PlayerLeftDictionary.Remove(aPlayer.player_id);
                         }
                     }
@@ -1591,7 +1764,7 @@ namespace PRoConEvents {
                     }
                     if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary)) {
                         if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                            ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
+                            //ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
                         }
                         else {
                             ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1603,7 +1776,7 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "ASSAULTRIFLE" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1615,7 +1788,7 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "PDW" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1627,7 +1800,7 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "LMG" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1639,7 +1812,7 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "SNIPER" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
                                     ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1657,7 +1830,7 @@ namespace PRoConEvents {
                     WarsawItem loadoutSidearm;
                     if (!loadout.LoadoutItems.TryGetValue(loadoutSidearmID, out loadoutSidearm)) {
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
-                            ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
+                            //ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
                         }
                         else {
                             ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1667,7 +1840,7 @@ namespace PRoConEvents {
                     if (loadoutSidearm.category != "SIDEARM") {
                         WarsawItem originalItem = loadoutSidearm;
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
-                            ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
+                            //ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
                         }
                         else {
                             ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1680,7 +1853,7 @@ namespace PRoConEvents {
                     WarsawItem loadoutGadget1;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget1ID, out loadoutGadget1)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
-                            ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
+                            //ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1690,7 +1863,7 @@ namespace PRoConEvents {
                     if (loadoutGadget1.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget1;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
-                            ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
+                            //ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1703,7 +1876,7 @@ namespace PRoConEvents {
                     WarsawItem loadoutGadget2;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget2ID, out loadoutGadget2)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
-                            ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
+                            //ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1713,7 +1886,7 @@ namespace PRoConEvents {
                     if (loadoutGadget2.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget2;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
-                            ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
+                            //ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1726,7 +1899,7 @@ namespace PRoConEvents {
                     WarsawItem loadoutGrenade;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGrenadeID, out loadoutGrenade)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
-                            ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
+                            //ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1736,7 +1909,7 @@ namespace PRoConEvents {
                     if (loadoutGrenade.category != "GRENADE") {
                         WarsawItem originalItem = loadoutGrenade;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
-                            ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
+                            //ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
                         }
                         else {
                             ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1749,7 +1922,7 @@ namespace PRoConEvents {
                     WarsawItem loadoutKnife;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutKnifeID, out loadoutKnife)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
-                            ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
+                            //ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
                         }
                         else {
                             ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1759,7 +1932,7 @@ namespace PRoConEvents {
                     if (loadoutKnife.category != "KNIFE") {
                         WarsawItem originalItem = loadoutKnife;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
-                            ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
+                            //ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
                         }
                         else {
                             ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
@@ -1997,6 +2170,21 @@ namespace PRoConEvents {
             }
         }
 
+        public Boolean AdminsOnline() {
+            return _AdminList.Any(name => _PlayerDictionary.ContainsKey(name));
+        }
+
+        public Boolean OnlineAdminSayMessage(String message)
+        {
+            ProconChatWrite(ColorMessageMaroon(BoldMessage(message)));
+            Boolean adminsTold = false;
+            foreach (String adminName in _AdminList.Where(name => _PlayerDictionary.ContainsKey(name))) {
+                adminsTold = true;
+                PlayerSayMessage(adminName, message, true, 1);
+            }
+            return adminsTold;
+        }
+
         public void ProconChatWrite(String msg) {
             msg = msg.Replace(Environment.NewLine, String.Empty);
             ExecuteCommand("procon.protected.chat.write", "AdKatsLRT > " + msg);
@@ -2197,6 +2385,8 @@ namespace PRoConEvents {
             public Int32 player_squad;
             public Int32 player_team;
             public String player_type;
+
+            public Boolean ManualTrigger;
         }
 
         internal enum SupportedGames {
