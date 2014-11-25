@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.2
+ * Version 1.0.1.3
  * 25-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.2</version_code>
+ * <version_code>1.0.1.3</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.2";
+        private const String PluginVersion = "1.0.1.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -516,13 +516,14 @@ namespace PRoConEvents {
                                 }
                             }
                             //Check for updated admins every minute
-                            if ((DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady)
+                            if ((DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady) 
                             {
+                                lastAdminFetch = DateTime.UtcNow;
                                 ExecuteCommand("procon.protected.plugins.call", "AdKats", "FetchAuthorizedSoldiers", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                                     {"caller_identity", "AdKatsLRT"},
                                     {"response_requested", true},
                                     {"response_class", "AdKatsLRT"},
-                                    {"response_method ", "ReceiveAdminList"},
+                                    {"response_methods", "ReceiveAdminList"},
                                     {"user_subset", "admin"}
                                 }));
                             }
