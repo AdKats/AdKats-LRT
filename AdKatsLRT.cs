@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.1
+ * Version 1.0.1.2
  * 25-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.1</version_code>
+ * <version_code>1.0.1.2</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.1";
+        private const String PluginVersion = "1.0.1.2";
 
         public enum ConsoleMessageType {
             Normal,
@@ -918,7 +918,6 @@ namespace PRoConEvents {
                                 }
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
 
-                                OnlineAdminSayMessage("thing");
                                 //Kill the player?
                                 Boolean killPlayer = true;
                                 Boolean adminsOnline = AdminsOnline();
@@ -953,7 +952,7 @@ namespace PRoConEvents {
                             Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0, 2);
                             Double percentFixed = Math.Round(countFixed / countKilled * 100.0, 2);
                             Double percentRaged = Math.Round(countRaged / countKilled * 100.0, 2);
-                            ConsoleInfo("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
+                            ConsoleInfo(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
                         }
                         else {
                             //Wait for input
