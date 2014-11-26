@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.5
- * 25-NOV-2014
+ * Version 1.0.1.6
+ * 26-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.5</version_code>
+ * <version_code>1.0.1.6</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.5";
+        private const String PluginVersion = "1.0.1.6";
 
         public enum ConsoleMessageType {
             Normal,
@@ -638,7 +638,12 @@ namespace PRoConEvents {
                         //Start a delay thread
                         StartAndLogThread(new Thread(new ThreadStart(delegate {
                             Thread.CurrentThread.Name = "LoadoutCheckDelay";
-                            Thread.Sleep(5000);
+                            //Wait a minimum of 5 seconds
+                            Int32 waitMS = (5 - _LoadoutProcessingQueue.Count) * 1000;
+                            if (waitMS > 0)
+                            {
+                                Thread.Sleep(waitMS);
+                            }
                             QueuePlayerForProcessing(aPlayer);
                             LogThreadExit();
                         })));
@@ -820,16 +825,17 @@ namespace PRoConEvents {
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             ConsoleInfo(loadoutMessage);
-                            
+
+                            String specificMessage = String.Empty;
                             Boolean loadoutValid = true;
                             if (trigger)
                             {
-                                foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages) 
+                                foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages)
                                 {
-                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key)) 
+                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                     {
                                         loadoutValid = false;
-                                        PlayerTellMessage(loadout.Name, warsawDeniedIDMessage.Value);
+                                        specificMessage = warsawDeniedIDMessage.Value;
                                         break;
                                     }
                                 }
@@ -856,6 +862,7 @@ namespace PRoConEvents {
                                     if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                     {
                                         loadoutValid = false;
+                                        specificMessage = _WARSAWInvalidLoadoutIDMessages[warsawDeniedID];
                                         break;
                                     }
                                 }
@@ -932,6 +939,9 @@ namespace PRoConEvents {
                                 if (killPlayer)
                                 {
                                     AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
+                                    if (!String.IsNullOrEmpty(specificMessage)) {
+                                        PlayerTellMessage(loadout.Name, specificMessage);
+                                    }
                                     aPlayer.player_loadoutKilled = true;
                                     Thread.Sleep(2000);
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
