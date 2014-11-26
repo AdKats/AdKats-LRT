@@ -2309,19 +2309,6 @@ namespace PRoConEvents {
                 }
                 //Check if the exception attributes to the database
                 ConsoleWrite(prefix + aException, ConsoleMessageType.Exception);
-                StartAndLogThread(new Thread(new ThreadStart(delegate {
-                    Thread.CurrentThread.Name = "AdKatsExceptionInformThread";
-                    var requestHashtable = new Hashtable {
-                        {"caller_identity", "AdKatsLRT"},
-                        {"response_requested", false},
-                        {"command_type", "adkats_exception"},
-                        {"source_name", "AdKatsLRT"},
-                        {"target_name", "AdKatsLRT"},
-                        {"record_message", prefix + aException}
-                    };
-                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "IssueCommand", "AdKatsLRT", JSON.JsonEncode(requestHashtable));
-                    LogThreadExit();
-                })));
                 return aException;
             }
             catch (Exception e) {
