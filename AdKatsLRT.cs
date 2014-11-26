@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.6
+ * Version 1.0.1.7
  * 26-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.6</version_code>
+ * <version_code>1.0.1.7</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.6";
+        private const String PluginVersion = "1.0.1.7";
 
         public enum ConsoleMessageType {
             Normal,
@@ -631,27 +631,44 @@ namespace PRoConEvents {
         }
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory) {
-            if (_threadsReady && _pluginEnabled && _firstPlayerListComplete) {
-                AdKatsSubscribedPlayer aPlayer;
-                if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online) {
-                    if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || _WARSAWSpawnDeniedIDs.Any()) {
-                        //Start a delay thread
-                        StartAndLogThread(new Thread(new ThreadStart(delegate {
-                            Thread.CurrentThread.Name = "LoadoutCheckDelay";
-                            //Wait a minimum of 5 seconds
-                            Int32 waitMS = (5 - _LoadoutProcessingQueue.Count) * 1000;
-                            if (waitMS > 0)
+            try
+            {
+                if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
+                {
+                    AdKatsSubscribedPlayer aPlayer;
+                    if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online)
+                    {
+                        if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || _WARSAWSpawnDeniedIDs.Any())
+                        {
+                            //Start a delay thread
+                            StartAndLogThread(new Thread(new ThreadStart(delegate
                             {
-                                Thread.Sleep(waitMS);
-                            }
-                            QueuePlayerForProcessing(aPlayer);
-                            LogThreadExit();
-                        })));
+                                Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                var pPlayer = aPlayer;
+                                //Wait a minimum of 5 seconds
+                                Int32 waitMS = (5 - _LoadoutProcessingQueue.Count) * 1000;
+                                if (waitMS > 0)
+                                {
+                                    Thread.Sleep(100 + waitMS);
+                                }
+                                if (pPlayer == null) {
+                                    ConsoleError("Player was null when processing spawn.");
+                                    LogThreadExit();
+                                    return;
+                                }
+                                QueuePlayerForProcessing(pPlayer);
+                                LogThreadExit();
+                            })));
+                        }
+                    }
+                    else
+                    {
+                        ConsoleError("Attempted to process spawn of " + soldierName + " without their player object loaded.");
                     }
                 }
-                else {
-                    ConsoleError("Attempted to process spawn of " + soldierName + " without their player object loaded.");
-                }
+            }
+            catch (Exception e) {
+                HandleException(new AdKatsException("Error while handling player spawn.", e));
             }
         }
 
