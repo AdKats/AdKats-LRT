@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.3
+ * Version 1.0.1.4
  * 25-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.3</version_code>
+ * <version_code>1.0.1.4</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.3";
+        private const String PluginVersion = "1.0.1.4";
 
         public enum ConsoleMessageType {
             Normal,
@@ -779,13 +779,7 @@ namespace PRoConEvents {
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
-                            if (aPlayer.ManualTrigger)
-                            {
-                                reason = "[manual] ";
-                                trigger = true;
-                                killOverride = true;
-                            }
-                            else if (aPlayer.player_marked)
+                            if (aPlayer.player_marked)
                             {
                                 reason = "[marked] ";
                                 trigger = true;
@@ -806,6 +800,12 @@ namespace PRoConEvents {
                             {
                                 reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
                                 trigger = true;
+                            }
+                            else if (aPlayer.ManualTrigger)
+                            {
+                                reason = "[manual] ";
+                                trigger = true;
+                                killOverride = true;
                             }
                             else 
                             {
