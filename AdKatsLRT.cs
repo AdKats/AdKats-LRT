@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.7
+ * Version 1.0.1.8
  * 26-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.7</version_code>
+ * <version_code>1.0.1.8</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.7";
+        private const String PluginVersion = "1.0.1.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -753,6 +753,10 @@ namespace PRoConEvents {
         private void QueuePlayerForProcessing(AdKatsSubscribedPlayer aPlayer) {
             DebugWrite("Entering QueuePlayerForProcessing", 7);
             try {
+                if (aPlayer == null) {
+                    ConsoleError("Attempted to process null player.");
+                    return;
+                }
                 if (_LoadoutProcessingQueue.All(pPlayer => pPlayer.player_id != aPlayer.player_id)) {
                     _LoadoutProcessingQueue.Enqueue(aPlayer);
                     _LoadoutProcessingWaitHandle.Set();
@@ -787,6 +791,11 @@ namespace PRoConEvents {
                             //Dequeue the next player
                             aPlayer = _LoadoutProcessingQueue.Dequeue();
 
+                            if (aPlayer == null) {
+                                ConsoleError("Player was null when entering player processing loop.");
+                                continue;
+                            }
+
                             if (!aPlayer.player_online) {
                                 continue;
                             }
@@ -796,6 +805,7 @@ namespace PRoConEvents {
                             if (loadout == null) {
                                 continue;
                             }
+                            aPlayer.Loadout = loadout;
 
                             //Parse the reason for enforcement
                             Boolean trigger = false;
@@ -951,7 +961,7 @@ namespace PRoConEvents {
                                     killPlayer = !trigger || (trigger && killOverride);
                                 }
                                 if (!killPlayer && adminsOnline) {
-                                    OnlineAdminSayMessage(loadout.Name + ": [" + loadout.SelectedKitType + "] with primary [" + loadout.KitItemPrimary.slug + "], sidearm [" + loadout.KitItemSidearm.slug + "], gadgets " + gadgetMessage + ", grenade " + grenadeMessage + ", and knife " + knifeMessage);
+                                    OnlineAdminSayMessage(reason + loadout.Name + ": [" + loadout.SelectedKitType + "] with primary [" + loadout.KitItemPrimary.slug + "], sidearm [" + loadout.KitItemSidearm.slug + "], gadgets " + gadgetMessage + ", grenade " + grenadeMessage + ", and knife " + knifeMessage);
                                 }
                                 if (killPlayer)
                                 {
@@ -2401,6 +2411,8 @@ namespace PRoConEvents {
             public String player_type;
 
             public Boolean ManualTrigger;
+
+            public AdKatsLoadout Loadout;
         }
 
         internal enum SupportedGames {
