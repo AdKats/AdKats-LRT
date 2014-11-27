@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.8
+ * Version 1.0.1.9
  * 26-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.8</version_code>
+ * <version_code>1.0.1.9</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.8";
+        private const String PluginVersion = "1.0.1.9";
 
         public enum ConsoleMessageType {
             Normal,
@@ -58,7 +58,7 @@ namespace PRoConEvents {
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private Boolean _firstPlayerListComplete;
         private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>();
-        private readonly Queue<AdKatsSubscribedPlayer> _LoadoutProcessingQueue = new Queue<AdKatsSubscribedPlayer>();
+        private readonly Queue<ProcessObject> _LoadoutProcessingQueue = new Queue<ProcessObject>();
         private readonly Dictionary<String, String> _WARSAWInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly HashSet<String> _WARSAWSpawnDeniedIDs = new HashSet<String>();
 
@@ -559,7 +559,7 @@ namespace PRoConEvents {
 
         public void InitThreads() {
             try {
-                _SpawnProcessingThread = new Thread(SpawnProcessingThreadLoop) {
+                _SpawnProcessingThread = new Thread(ProcessingThreadLoop) {
                     IsBackground = true
                 };
             }
@@ -656,7 +656,12 @@ namespace PRoConEvents {
                                     LogThreadExit();
                                     return;
                                 }
-                                QueuePlayerForProcessing(pPlayer);
+                                QueueForProcessing(new ProcessObject()
+                                {
+                                    process_player = aPlayer,
+                                    process_source = "spawn",
+                                    process_time = DateTime.UtcNow
+                                });
                                 LogThreadExit();
                             })));
                         }
@@ -707,8 +712,11 @@ namespace PRoConEvents {
                     AdKatsSubscribedPlayer aPlayer;
                     if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                         ConsoleWrite("Loadout check manually called on " + playerName + ".");
-                        aPlayer.ManualTrigger = true;
-                        QueuePlayerForProcessing(aPlayer);
+                        QueueForProcessing(new ProcessObject() {
+                            process_player = aPlayer,
+                            process_source = "manual",
+                            process_time = DateTime.UtcNow
+                        });
                     }
                     else {
                         ConsoleError("Attempted to call MANUAL loadout check on " + playerName + " without their player object loaded.");
@@ -750,29 +758,29 @@ namespace PRoConEvents {
             DebugWrite("ReceiveAdminList finished!", 6);
         }
 
-        private void QueuePlayerForProcessing(AdKatsSubscribedPlayer aPlayer) {
-            DebugWrite("Entering QueuePlayerForProcessing", 7);
+        private void QueueForProcessing(ProcessObject processObject)
+        {
+            DebugWrite("Entering QueueForProcessing", 7);
             try {
-                if (aPlayer == null) {
-                    ConsoleError("Attempted to process null player.");
+                if (processObject == null) {
+                    ConsoleError("Attempted to process null object.");
                     return;
                 }
-                if (_LoadoutProcessingQueue.All(pPlayer => pPlayer.player_id != aPlayer.player_id)) {
-                    _LoadoutProcessingQueue.Enqueue(aPlayer);
+                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id)) {
+                    _LoadoutProcessingQueue.Enqueue(processObject);
                     _LoadoutProcessingWaitHandle.Set();
-                    DebugWrite(aPlayer.player_name + " queued for processing", 6);
                 }
                 else {
-                    ConsoleWarn(aPlayer.player_name + " already in queue. Cancelling.");
+                    ConsoleWarn(processObject.process_player.player_name + " already in queue. Cancelling.");
                 }
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("Error while queueing player for processing.", e));
             }
-            DebugWrite("Exiting QueuePlayerForProcessing", 7);
+            DebugWrite("Exiting QueueForProcessing", 7);
         }
 
-        public void SpawnProcessingThreadLoop() {
+        public void ProcessingThreadLoop() {
             try {
                 DebugWrite("SPROC: Starting Spawn Processing Thread", 1);
                 Thread.CurrentThread.Name = "SpawnProcessing";
@@ -786,15 +794,17 @@ namespace PRoConEvents {
                         }
 
                         if (_LoadoutProcessingQueue.Count > 0) {
-                            AdKatsSubscribedPlayer aPlayer;
+                            //Dequeue the next object
+                            var processObject = _LoadoutProcessingQueue.Dequeue();
 
-                            //Dequeue the next player
-                            aPlayer = _LoadoutProcessingQueue.Dequeue();
-
-                            if (aPlayer == null) {
+                            if (processObject == null)
+                            {
                                 ConsoleError("Player was null when entering player processing loop.");
                                 continue;
                             }
+
+                            //Grab the player
+                            AdKatsSubscribedPlayer aPlayer = processObject.process_player;
 
                             if (!aPlayer.player_online) {
                                 continue;
@@ -833,15 +843,20 @@ namespace PRoConEvents {
                                 reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
                                 trigger = true;
                             }
-                            else if (aPlayer.ManualTrigger)
+                            else if (processObject.process_source == "manual")
                             {
                                 reason = "[manual] ";
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else 
+                            else if (processObject.process_source == "spawn") 
                             {
                                 reason = "[spawn] ";
+                            }
+                            else 
+                            {
+                                ConsoleError("Unknown reason for processing player. Cancelling processing.");
+                                continue;
                             }
 
                             //Show the loadout contents
@@ -851,7 +866,7 @@ namespace PRoConEvents {
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
-                            ConsoleInfo(loadoutMessage);
+                            //ConsoleInfo(loadoutMessage);
 
                             String specificMessage = String.Empty;
                             Boolean loadoutValid = true;
@@ -980,6 +995,7 @@ namespace PRoConEvents {
                                     AdminSayMessage(aPlayer.player_name + " thank you for fixing your loadout.");
                                 }
                             }
+                            ConsoleInfo(loadout.Name + " processed after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
                             aPlayer.player_loadoutValid = loadoutValid;
                             Double totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
                             Double countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
@@ -1105,8 +1121,14 @@ namespace PRoConEvents {
                                 action = true;
                             }
                             dPlayer.player_marked = aPlayer.player_marked;
-                            if (action) {
-                                QueuePlayerForProcessing(dPlayer);
+                            if (action)
+                            {
+                                QueueForProcessing(new ProcessObject()
+                                {
+                                    process_player = aPlayer,
+                                    process_source = "listing",
+                                    process_time = DateTime.UtcNow
+                                });
                             }
                             dPlayer.player_spawnedOnce = aPlayer.player_spawnedOnce;
                             dPlayer.player_conversationPartner = aPlayer.player_conversationPartner;
@@ -1119,11 +1141,16 @@ namespace PRoConEvents {
                             dPlayer.player_team = aPlayer.player_team;
                         }
                         else {
-                            if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) {
-                                QueuePlayerForProcessing(aPlayer);
+                            if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60)
+                            {
+                                QueueForProcessing(new ProcessObject()
+                                {
+                                    process_player = aPlayer,
+                                    process_source = "listing",
+                                    process_time = DateTime.UtcNow
+                                });
                             }
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
-                            aPlayer.ManualTrigger = false;
                             _PlayerLeftDictionary.Remove(aPlayer.player_id);
                         }
                     }
@@ -2376,6 +2403,12 @@ namespace PRoConEvents {
             }
         }
 
+        public class ProcessObject {
+            public String process_source;
+            public DateTime process_time;
+            public AdKatsSubscribedPlayer process_player;
+        }
+
         public class AdKatsSubscribedPlayer {
             public Boolean player_aa;
             public String player_conversationPartner;
@@ -2409,8 +2442,6 @@ namespace PRoConEvents {
             public Int32 player_squad;
             public Int32 player_team;
             public String player_type;
-
-            public Boolean ManualTrigger;
 
             public AdKatsLoadout Loadout;
         }
