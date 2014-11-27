@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.1.9
+ * Version 1.0.2.0
  * 26-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.1.9</version_code>
+ * <version_code>1.0.2.0</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.1.9";
+        private const String PluginVersion = "1.0.2.0";
 
         public enum ConsoleMessageType {
             Normal,
@@ -64,7 +64,7 @@ namespace PRoConEvents {
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(1);
+        private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(0.8);
         private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
 
@@ -631,8 +631,8 @@ namespace PRoConEvents {
         }
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory) {
-            try
-            {
+            try {
+                DateTime spawnTime = DateTime.UtcNow;
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
                 {
                     AdKatsSubscribedPlayer aPlayer;
@@ -660,7 +660,7 @@ namespace PRoConEvents {
                                 {
                                     process_player = aPlayer,
                                     process_source = "spawn",
-                                    process_time = DateTime.UtcNow
+                                    process_time = spawnTime
                                 });
                                 LogThreadExit();
                             })));
