@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.0
- * 26-NOV-2014
+ * Version 1.0.2.2
+ * 28-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.0</version_code>
+ * <version_code>1.0.2.2</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.0";
+        private const String PluginVersion = "1.0.2.2";
 
         public enum ConsoleMessageType {
             Normal,
@@ -638,32 +638,49 @@ namespace PRoConEvents {
                     AdKatsSubscribedPlayer aPlayer;
                     if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online)
                     {
-                        if ((aPlayer.player_reported && aPlayer.player_reputation < 0) || aPlayer.player_punished || aPlayer.player_marked || (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60) || _WARSAWSpawnDeniedIDs.Any())
+                        if (_WARSAWSpawnDeniedIDs.Any() ||
+                            (aPlayer.player_reported && aPlayer.player_reputation < 0) || 
+                            aPlayer.player_punished || 
+                            aPlayer.player_marked || 
+                            (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60))
                         {
-                            //Start a delay thread
-                            StartAndLogThread(new Thread(new ThreadStart(delegate
+                            //Create process object
+                            var processObject = new ProcessObject() {
+                                process_player = aPlayer,
+                                process_source = "spawn",
+                                process_time = spawnTime
+                            };
+                            //Minimum wait time of 5 seconds
+                            if (_LoadoutProcessingQueue.Count >= 6) {
+                                QueueForProcessing(processObject);
+                            }
+                            else
                             {
-                                Thread.CurrentThread.Name = "LoadoutCheckDelay";
-                                var pPlayer = aPlayer;
-                                //Wait a minimum of 5 seconds
-                                Int32 waitMS = (5 - _LoadoutProcessingQueue.Count) * 1000;
-                                if (waitMS > 0)
-                                {
-                                    Thread.Sleep(100 + waitMS);
+                                var waitTime = TimeSpan.FromSeconds(5 - _LoadoutProcessingQueue.Count);
+                                if (waitTime.TotalSeconds > 0) {
+                                    ConsoleInfo("Waiting " + ((int) waitTime.TotalSeconds) + " seconds to process " + soldierName + " spawn.");
                                 }
-                                if (pPlayer == null) {
-                                    ConsoleError("Player was null when processing spawn.");
-                                    LogThreadExit();
+                                else {
+                                    ConsoleError("WaitTime was negative or zero!");
                                     return;
                                 }
-                                QueueForProcessing(new ProcessObject()
+                                //Start a delay thread
+                                StartAndLogThread(new Thread(new ThreadStart(delegate
                                 {
-                                    process_player = aPlayer,
-                                    process_source = "spawn",
-                                    process_time = spawnTime
-                                });
-                                LogThreadExit();
-                            })));
+                                    Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                    Thread.Sleep(100);
+                                    try {
+                                        Thread.Sleep(waitTime);
+                                        QueueForProcessing(processObject);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        HandleException(new AdKatsException("Error running loadout check delay thread.", e));
+                                    }
+                                    Thread.Sleep(100);
+                                    LogThreadExit();
+                                })));
+                            }
                         }
                     }
                     else
@@ -706,7 +723,8 @@ namespace PRoConEvents {
 
                 var decodedCommand = (Hashtable) JSON.JsonDecode(unparsedCommandJSON);
 
-                var playerName = (String) decodedCommand["player_name"];
+                var playerName = (String)decodedCommand["player_name"];
+                var loadoutCheckReason = (String)decodedCommand["loadoutCheck_reason"];
 
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete) {
                     AdKatsSubscribedPlayer aPlayer;
@@ -714,7 +732,7 @@ namespace PRoConEvents {
                         ConsoleWrite("Loadout check manually called on " + playerName + ".");
                         QueueForProcessing(new ProcessObject() {
                             process_player = aPlayer,
-                            process_source = "manual",
+                            process_source = loadoutCheckReason,
                             process_time = DateTime.UtcNow
                         });
                     }
@@ -810,30 +828,23 @@ namespace PRoConEvents {
                                 continue;
                             }
 
-                            //Fetch the loadout
-                            AdKatsLoadout loadout = GetPlayerLoadout(aPlayer.player_personaID);
-                            if (loadout == null) {
-                                continue;
-                            }
-                            aPlayer.Loadout = loadout;
-
                             //Parse the reason for enforcement
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
-                            if (aPlayer.player_marked)
+                            if (aPlayer.player_marked || processObject.process_source == "marked")
                             {
                                 reason = "[marked] ";
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if (aPlayer.player_punished)
+                            else if (aPlayer.player_punished || processObject.process_source == "punished")
                             {
                                 reason = "[recently punished] ";
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if (aPlayer.player_reported && aPlayer.player_reputation < 0)
+                            else if ((aPlayer.player_reported || processObject.process_source == "reported") && aPlayer.player_reputation < 0)
                             {
                                 reason = "[reported] ";
                                 trigger = true;
@@ -843,21 +854,25 @@ namespace PRoConEvents {
                                 reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
                                 trigger = true;
                             }
-                            else if (processObject.process_source == "manual")
-                            {
-                                reason = "[manual] ";
-                                trigger = true;
-                                killOverride = true;
-                            }
-                            else if (processObject.process_source == "spawn") 
+                            else if (processObject.process_source == "spawn")
                             {
                                 reason = "[spawn] ";
+                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin) {
+                                    continue;
+                                }
                             }
-                            else 
+                            else
                             {
                                 ConsoleError("Unknown reason for processing player. Cancelling processing.");
                                 continue;
                             }
+
+                            //Fetch the loadout
+                            AdKatsLoadout loadout = GetPlayerLoadout(aPlayer.player_personaID);
+                            if (loadout == null) {
+                                continue;
+                            }
+                            aPlayer.Loadout = loadout;
 
                             //Show the loadout contents
                             String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
@@ -987,7 +1002,19 @@ namespace PRoConEvents {
                                     aPlayer.player_loadoutKilled = true;
                                     Thread.Sleep(2000);
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
-                                    ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
+                                    //Start a repeat kill
+                                    StartAndLogThread(new Thread(new ThreadStart(delegate
+                                    {
+                                        Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                        Thread.Sleep(100);
+                                        for(Int32 index = 0; index < 15; index++)
+                                        {
+                                            ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
+                                            Thread.Sleep(500);
+                                        }
+                                        Thread.Sleep(100);
+                                        LogThreadExit();
+                                    })));
                                 }
                             }
                             else {
@@ -1107,29 +1134,9 @@ namespace PRoConEvents {
                             dPlayer.player_role = aPlayer.player_role;
                             dPlayer.player_type = aPlayer.player_type;
                             dPlayer.player_isAdmin = aPlayer.player_isAdmin;
-                            Boolean action = false;
-                            //Check player loadout if they've been reported and have low rep
-                            if (!dPlayer.player_reported && aPlayer.player_reported && dPlayer.player_reputation < 0) {
-                                action = true;
-                            }
                             dPlayer.player_reported = aPlayer.player_reported;
-                            if (!dPlayer.player_punished && aPlayer.player_punished) {
-                                action = true;
-                            }
                             dPlayer.player_punished = aPlayer.player_punished;
-                            if (!dPlayer.player_marked && aPlayer.player_marked) {
-                                action = true;
-                            }
                             dPlayer.player_marked = aPlayer.player_marked;
-                            if (action)
-                            {
-                                QueueForProcessing(new ProcessObject()
-                                {
-                                    process_player = aPlayer,
-                                    process_source = "listing",
-                                    process_time = DateTime.UtcNow
-                                });
-                            }
                             dPlayer.player_spawnedOnce = aPlayer.player_spawnedOnce;
                             dPlayer.player_conversationPartner = aPlayer.player_conversationPartner;
                             dPlayer.player_kills = aPlayer.player_kills;
@@ -1141,15 +1148,6 @@ namespace PRoConEvents {
                             dPlayer.player_team = aPlayer.player_team;
                         }
                         else {
-                            if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60)
-                            {
-                                QueueForProcessing(new ProcessObject()
-                                {
-                                    process_player = aPlayer,
-                                    process_source = "listing",
-                                    process_time = DateTime.UtcNow
-                                });
-                            }
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
                             _PlayerLeftDictionary.Remove(aPlayer.player_id);
                         }
@@ -2235,16 +2233,17 @@ namespace PRoConEvents {
         }
 
         public Boolean AdminsOnline() {
-            return _AdminList.Any(name => _PlayerDictionary.ContainsKey(name));
+            return _PlayerDictionary.Values.Any(aPlayer => aPlayer.player_isAdmin);
         }
 
         public Boolean OnlineAdminSayMessage(String message)
         {
             ProconChatWrite(ColorMessageMaroon(BoldMessage(message)));
             Boolean adminsTold = false;
-            foreach (String adminName in _AdminList.Where(name => _PlayerDictionary.ContainsKey(name))) {
+            foreach (var aPlayer in _PlayerDictionary.Values.Where(aPlayer => aPlayer.player_isAdmin))
+            {
                 adminsTold = true;
-                PlayerSayMessage(adminName, message, true, 1);
+                PlayerSayMessage(aPlayer.player_name, message, true, 1);
             }
             return adminsTold;
         }
