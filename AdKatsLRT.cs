@@ -990,7 +990,7 @@ namespace PRoConEvents {
                                     //Admins are online, only kill players when manually requested, or for denied spawns
                                     killPlayer = !trigger || (trigger && killOverride);
                                 }
-                                if (!killPlayer && adminsOnline) {
+                                if (!killPlayer && adminsOnline && processObject.process_source != "spawn") {
                                     OnlineAdminSayMessage(reason + loadout.Name + ": [" + loadout.SelectedKitType + "] with primary [" + loadout.KitItemPrimary.slug + "], sidearm [" + loadout.KitItemSidearm.slug + "], gadgets " + gadgetMessage + ", grenade " + grenadeMessage + ", and knife " + knifeMessage);
                                 }
                                 if (killPlayer)
