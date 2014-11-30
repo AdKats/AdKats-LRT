@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.3
+ * Version 1.0.2.4
  * 30-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.3</version_code>
+ * <version_code>1.0.2.4</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.3";
+        private const String PluginVersion = "1.0.2.4";
 
         public enum ConsoleMessageType {
             Normal,
@@ -683,10 +683,6 @@ namespace PRoConEvents {
                             }
                         }
                     }
-                    else
-                    {
-                        ConsoleError("Attempted to process spawn of " + soldierName + " without their player object loaded.");
-                    }
                 }
             }
             catch (Exception e) {
@@ -860,7 +856,16 @@ namespace PRoConEvents {
                             else if (processObject.process_source == "spawn")
                             {
                                 reason = "[spawn] ";
-                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin) {
+                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin)
+                                {
+                                    continue;
+                                }
+                            }
+                            else if (processObject.process_source == "listing")
+                            {
+                                reason = "[join] ";
+                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin)
+                                {
                                     continue;
                                 }
                             }
@@ -1153,6 +1158,11 @@ namespace PRoConEvents {
                         else {
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
                             _PlayerLeftDictionary.Remove(aPlayer.player_id);
+                            QueueForProcessing(new ProcessObject() {
+                                process_player = aPlayer,
+                                process_source = "listing",
+                                process_time = DateTime.UtcNow
+                            });
                         }
                     }
                     foreach (string playerName in _PlayerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList()) {
