@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.2
- * 28-NOV-2014
+ * Version 1.0.2.3
+ * 30-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.2</version_code>
+ * <version_code>1.0.2.3</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.2";
+        private const String PluginVersion = "1.0.2.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -784,7 +784,9 @@ namespace PRoConEvents {
                     ConsoleError("Attempted to process null object.");
                     return;
                 }
-                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id)) {
+                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id))
+                {
+                    ConsoleInfo(processObject.process_player.player_name + " queued after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + "."); 
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     _LoadoutProcessingWaitHandle.Set();
                 }
@@ -817,7 +819,7 @@ namespace PRoConEvents {
 
                             if (processObject == null)
                             {
-                                ConsoleError("Player was null when entering player processing loop.");
+                                ConsoleError("Process object was null when entering player processing loop.");
                                 continue;
                             }
 
@@ -827,6 +829,7 @@ namespace PRoConEvents {
                             if (!aPlayer.player_online) {
                                 continue;
                             }
+                            ConsoleInfo(aPlayer.player_name + " started processing after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
 
                             //Parse the reason for enforcement
                             Boolean trigger = false;
