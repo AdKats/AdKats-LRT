@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.5
- * 30-NOV-2014
+ * Version 1.0.2.6
+ * 1-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.5</version_code>
+ * <version_code>1.0.2.6</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.5";
+        private const String PluginVersion = "1.0.2.6";
 
         public enum ConsoleMessageType {
             Normal,
@@ -636,8 +636,8 @@ namespace PRoConEvents {
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
                 {
                     AdKatsSubscribedPlayer aPlayer;
-                    if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online)
-                    {
+                    if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online) {
+                        aPlayer.player_spawnedOnce = true;
                         if (_WARSAWSpawnDeniedIDs.Any() ||
                             (aPlayer.player_reported && aPlayer.player_reputation < 0) || 
                             aPlayer.player_punished || 
@@ -1012,24 +1012,28 @@ namespace PRoConEvents {
                                     }
                                     aPlayer.player_loadoutKilled = true;
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
-                                    //Start a repeat kill
-                                    StartAndLogThread(new Thread(new ThreadStart(delegate
+                                    if (aPlayer.player_spawnedOnce) {
+                                        //Start a repeat kill
+                                        StartAndLogThread(new Thread(new ThreadStart(delegate {
+                                            Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                            Thread.Sleep(100);
+                                            for (Int32 index = 0; index < 15; index++) {
+                                                ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
+                                                Thread.Sleep(500);
+                                            }
+                                            Thread.Sleep(100);
+                                            LogThreadExit();
+                                        })));
+                                    }
+                                    else
                                     {
-                                        Thread.CurrentThread.Name = "LoadoutCheckDelay";
-                                        Thread.Sleep(100);
-                                        for(Int32 index = 0; index < 15; index++)
-                                        {
-                                            ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
-                                            Thread.Sleep(500);
-                                        }
-                                        Thread.Sleep(100);
-                                        LogThreadExit();
-                                    })));
+                                        ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
+                                    }
                                 }
                             }
                             else {
                                 if (!aPlayer.player_loadoutValid) {
-                                    AdminSayMessage(aPlayer.player_name + " thank you for fixing your loadout.");
+                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " thank you for fixing your loadout.");
                                 }
                             }
                             ConsoleInfo(loadout.Name + " processed after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
