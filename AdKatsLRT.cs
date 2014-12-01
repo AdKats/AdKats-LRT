@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.4
+ * Version 1.0.2.5
  * 30-NOV-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.4</version_code>
+ * <version_code>1.0.2.5</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.4";
+        private const String PluginVersion = "1.0.2.5";
 
         public enum ConsoleMessageType {
             Normal,
@@ -661,7 +661,6 @@ namespace PRoConEvents {
                                     ConsoleInfo("Waiting " + ((int) waitTime.TotalSeconds) + " seconds to process " + soldierName + " spawn.");
                                 }
                                 else {
-                                    ConsoleError("WaitTime was negative or zero!");
                                     return;
                                 }
                                 //Start a delay thread
@@ -1003,12 +1002,15 @@ namespace PRoConEvents {
                                 }
                                 if (killPlayer)
                                 {
-                                    AdminSayMessage(reason + aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
+                                    if (killOverride) 
+                                    {
+                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " has invalid items [" + deniedWeapons + "] in their loadout.");
+                                    }
+                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
                                     if (!String.IsNullOrEmpty(specificMessage)) {
                                         PlayerTellMessage(loadout.Name, specificMessage);
                                     }
                                     aPlayer.player_loadoutKilled = true;
-                                    Thread.Sleep(2000);
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
                                     //Start a repeat kill
                                     StartAndLogThread(new Thread(new ThreadStart(delegate
