@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.6
- * 1-DEC-2014
+ * Version 1.0.2.7
+ * 3-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.6</version_code>
+ * <version_code>1.0.2.7</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.6";
+        private const String PluginVersion = "1.0.2.7";
 
         public enum ConsoleMessageType {
             Normal,
@@ -1054,7 +1054,7 @@ namespace PRoConEvents {
                             if ((DateTime.UtcNow - loopStart).TotalMilliseconds > 1000)
                                 DebugWrite("Warning. " + Thread.CurrentThread.Name + " thread processing completed in " + ((int) ((DateTime.UtcNow - loopStart).TotalMilliseconds)) + "ms", 4);
                             _LoadoutProcessingWaitHandle.Reset();
-                            _LoadoutProcessingWaitHandle.WaitOne(Timeout.Infinite);
+                            _LoadoutProcessingWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
                             loopStart = DateTime.UtcNow;
                         }
                     }
