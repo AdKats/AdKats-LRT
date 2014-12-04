@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.8
+ * Version 1.0.2.9
  * 3-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.8</version_code>
+ * <version_code>1.0.2.9</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.8";
+        private const String PluginVersion = "1.0.2.9";
 
         public enum ConsoleMessageType {
             Normal,
@@ -890,8 +890,10 @@ namespace PRoConEvents {
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             //ConsoleInfo(loadoutMessage);
 
-                            List<String> specificMessages = new List<String>();
+                            HashSet<String> specificMessages = new HashSet<String>();
+                            HashSet<String> spawnSpecificMessages = new HashSet<String>();
                             Boolean loadoutValid = true;
+                            Boolean spawnLoadoutValid = true;
                             if (trigger)
                             {
                                 foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages)
@@ -899,8 +901,10 @@ namespace PRoConEvents {
                                     if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                     {
                                         loadoutValid = false;
-                                        specificMessages.Add(warsawDeniedIDMessage.Value);
-                                        break;
+                                        if(!specificMessages.Contains(warsawDeniedIDMessage.Value))
+                                        {
+                                            specificMessages.Add(warsawDeniedIDMessage.Value);
+                                        }
                                     }
                                 }
 
@@ -918,6 +922,18 @@ namespace PRoConEvents {
                                     Thread.Sleep(100);
                                     LogThreadExit();
                                 })));
+
+                                foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
+                                {
+                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                    {
+                                        spawnLoadoutValid = false;
+                                        if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                        {
+                                            spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
+                                        }
+                                    }
+                                }
                             }
                             else
                             {
@@ -926,8 +942,11 @@ namespace PRoConEvents {
                                     if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                     {
                                         loadoutValid = false;
-                                        specificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
-                                        break;
+                                        spawnLoadoutValid = false;
+                                        if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                        {
+                                            spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
+                                        }
                                     }
                                 }
                             }
@@ -935,87 +954,114 @@ namespace PRoConEvents {
                             aPlayer.player_loadoutEnforced = true;
                             if (!loadoutValid)
                             {
-                                //Tell them any other items that are invalid in their loadout
                                 String deniedWeapons = String.Empty;
-                                if (trigger) {
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID)) {
-                                        deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
-                                    }
-                                    deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.warsawID)) {
-                                        deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
-                                    }
-                                    deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.warsawID)) {
-                                        deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.warsawID)) {
-                                        deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.warsawID)) {
-                                        deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.warsawID)) {
-                                        deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
-                                    }
-                                }
-                                else
+                                String spawnDeniedWeapons = String.Empty;
+                                //Fill the denied messages
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID))
                                 {
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemPrimary.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
-                                    }
-                                    deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemSidearm.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
-                                    }
-                                    deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget1.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget2.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGrenade.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
-                                    }
-                                    if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitKnife.warsawID))
-                                    {
-                                        deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
-                                    }
+                                    deniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
                                 }
+                                deniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.warsawID))
+                                {
+                                    deniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
+                                }
+                                deniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.warsawID))
+                                {
+                                    deniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.warsawID))
+                                {
+                                    deniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.warsawID))
+                                {
+                                    deniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.warsawID))
+                                {
+                                    deniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                }
+                                //Fill the spawn denied messages
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemPrimary.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
+                                }
+                                spawnDeniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemSidearm.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
+                                }
+                                spawnDeniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget1.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget2.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitGadget2.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGrenade.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitGrenade.slug.ToUpper() + ", ";
+                                }
+                                if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitKnife.warsawID))
+                                {
+                                    spawnDeniedWeapons += loadout.KitKnife.slug.ToUpper() + ", ";
+                                }
+                                //Trim the messages
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
+                                spawnDeniedWeapons = deniedWeapons.Trim().TrimEnd(',');
 
-                                //Kill the player?
-                                Boolean killPlayer = true;
+                                //Decide whether to kill the player
+                                Boolean killPlayer = false;
                                 Boolean adminsOnline = AdminsOnline();
-                                if (adminsOnline) {
-                                    //Admins are online, only kill players when manually requested, or for denied spawns
-                                    killPlayer = !trigger || (trigger && killOverride);
+                                if (!spawnLoadoutValid || killOverride || (!adminsOnline && trigger)) {
+                                    killPlayer = true;
                                 }
-                                if (!killPlayer && adminsOnline && processObject.process_source != "spawn") {
-                                    OnlineAdminSayMessage(reason + loadout.Name + ": [" + loadout.SelectedKitType + "] with primary [" + loadout.KitItemPrimary.slug + "], sidearm [" + loadout.KitItemSidearm.slug + "], gadgets " + gadgetMessage + ", grenade " + grenadeMessage + ", and knife " + knifeMessage);
+
+                                if (trigger) {
+                                    //Loadout enforcement was triggered
+                                    if (killOverride || !adminsOnline) {
+                                        //Manual trigger or no admins online, enforce all denied weapons
+                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " killed for denied items [" + deniedWeapons + "].");
+                                        PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
+                                        foreach (String specificMessage in specificMessages) {
+                                            PlayerTellMessage(loadout.Name, specificMessage);
+                                        }
+                                    }
+                                    else {
+                                        //Not manual trigger and admins online
+                                        if (spawnLoadoutValid) {
+                                            OnlineAdminSayMessage(reason + aPlayer.player_name + " has denied items [" + deniedWeapons + "].");
+                                        }
+                                        else
+                                        {
+                                            PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                            foreach (String specificMessage in spawnSpecificMessages)
+                                            {
+                                                PlayerTellMessage(loadout.Name, specificMessage);
+                                            }
+                                        }
+                                    }
+                                }
+                                else {
+                                    //Loadout enforcement was not triggered, enforce spawn denied weapons only
+                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                    foreach (String specificMessage in spawnSpecificMessages)
+                                    {
+                                        PlayerTellMessage(loadout.Name, specificMessage);
+                                    }
                                 }
                                 if (killPlayer)
                                 {
-                                    if (killOverride) 
-                                    {
-                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " has invalid items [" + deniedWeapons + "] in their loadout.");
-                                    }
-                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
-                                    foreach(String specificMessage in specificMessages) {
-                                        PlayerTellMessage(loadout.Name, specificMessage);
-                                    }
                                     aPlayer.player_loadoutKilled = true;
                                     ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
                                     if (aPlayer.player_spawnedOnce) {
                                         //Start a repeat kill
                                         StartAndLogThread(new Thread(new ThreadStart(delegate {
-                                            Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                            Thread.CurrentThread.Name = "PlayerRepeatKill";
                                             Thread.Sleep(100);
                                             for (Int32 index = 0; index < 15; index++) {
                                                 ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
@@ -1027,13 +1073,19 @@ namespace PRoConEvents {
                                     }
                                     else
                                     {
+                                        //Perform a single kill
                                         ExecuteCommand("procon.protected.send", "admin.killPlayer", loadout.Name);
                                     }
                                 }
                             }
                             else {
-                                if (!aPlayer.player_loadoutValid) {
+                                if (!aPlayer.player_loadoutValid) 
+                                {
                                     PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " thank you for fixing your loadout.");
+                                    if (killOverride)
+                                    {
+                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " fixed their loadout.");
+                                    }
                                 }
                             }
                             ConsoleInfo(loadout.Name + " processed after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
