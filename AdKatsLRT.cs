@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.7
+ * Version 1.0.2.8
  * 3-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.7</version_code>
+ * <version_code>1.0.2.8</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.7";
+        private const String PluginVersion = "1.0.2.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -890,7 +890,7 @@ namespace PRoConEvents {
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             //ConsoleInfo(loadoutMessage);
 
-                            String specificMessage = String.Empty;
+                            List<String> specificMessages = new List<String>();
                             Boolean loadoutValid = true;
                             if (trigger)
                             {
@@ -899,7 +899,7 @@ namespace PRoConEvents {
                                     if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                     {
                                         loadoutValid = false;
-                                        specificMessage = warsawDeniedIDMessage.Value;
+                                        specificMessages.Add(warsawDeniedIDMessage.Value);
                                         break;
                                     }
                                 }
@@ -926,7 +926,7 @@ namespace PRoConEvents {
                                     if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                     {
                                         loadoutValid = false;
-                                        specificMessage = _WARSAWInvalidLoadoutIDMessages[warsawDeniedID];
+                                        specificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
                                         break;
                                     }
                                 }
@@ -1007,7 +1007,7 @@ namespace PRoConEvents {
                                         OnlineAdminSayMessage(reason + aPlayer.player_name + " has invalid items [" + deniedWeapons + "] in their loadout.");
                                     }
                                     PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
-                                    if (!String.IsNullOrEmpty(specificMessage)) {
+                                    foreach(String specificMessage in specificMessages) {
                                         PlayerTellMessage(loadout.Name, specificMessage);
                                     }
                                     aPlayer.player_loadoutKilled = true;
