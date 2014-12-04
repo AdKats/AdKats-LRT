@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.2.9
+ * Version 1.0.3.0
  * 3-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.2.9</version_code>
+ * <version_code>1.0.3.0</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.2.9";
+        private const String PluginVersion = "1.0.3.0";
 
         public enum ConsoleMessageType {
             Normal,
@@ -824,6 +824,12 @@ namespace PRoConEvents {
                             if (!aPlayer.player_online) {
                                 continue;
                             }
+
+                            if (String.IsNullOrEmpty(aPlayer.player_personaID)) {
+                                ConsoleInfo(aPlayer.player_name + " did not have a persona ID loaded. Cancelling.");
+                                continue;
+                            }
+
                             ConsoleInfo(aPlayer.player_name + " started processing after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
 
                             //Parse the reason for enforcement
