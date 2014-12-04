@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.2
+ * Version 1.0.3.3
  * 4-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.2</version_code>
+ * <version_code>1.0.3.3</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.2";
+        private const String PluginVersion = "1.0.3.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -994,12 +994,12 @@ namespace PRoConEvents {
                                 {
                                     spawnDeniedWeapons += loadout.KitItemPrimary.slug.ToUpper() + ", ";
                                 }
-                                spawnDeniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                spawnDeniedWeapons = loadout.KitItemPrimary.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
                                 if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitItemSidearm.warsawID))
                                 {
                                     spawnDeniedWeapons += loadout.KitItemSidearm.slug.ToUpper() + ", ";
                                 }
-                                spawnDeniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
+                                spawnDeniedWeapons = loadout.KitItemSidearm.Accessories.Values.Where(weaponAccessory => _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.slug.ToUpper() + ", "));
                                 if (_WARSAWSpawnDeniedIDs.Contains(loadout.KitGadget1.warsawID))
                                 {
                                     spawnDeniedWeapons += loadout.KitGadget1.slug.ToUpper() + ", ";
