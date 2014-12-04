@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.0
- * 3-DEC-2014
+ * Version 1.0.3.2
+ * 4-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.0</version_code>
+ * <version_code>1.0.3.2</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.0";
+        private const String PluginVersion = "1.0.3.2";
 
         public enum ConsoleMessageType {
             Normal,
@@ -1018,7 +1018,7 @@ namespace PRoConEvents {
                                 }
                                 //Trim the messages
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
-                                spawnDeniedWeapons = deniedWeapons.Trim().TrimEnd(',');
+                                spawnDeniedWeapons = spawnDeniedWeapons.Trim().TrimEnd(',');
 
                                 //Decide whether to kill the player
                                 Boolean killPlayer = false;
