@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.3
- * 4-DEC-2014
+ * Version 1.0.3.4
+ * 6-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.3</version_code>
+ * <version_code>1.0.3.4</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.3";
+        private const String PluginVersion = "1.0.3.4";
 
         public enum ConsoleMessageType {
             Normal,
@@ -781,12 +781,12 @@ namespace PRoConEvents {
                 }
                 if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id))
                 {
-                    ConsoleInfo(processObject.process_player.player_name + " queued after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + "."); 
+                    ConsoleInfo(processObject.process_player.GetVerboseName() + " queued after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + "."); 
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     _LoadoutProcessingWaitHandle.Set();
                 }
                 else {
-                    ConsoleWarn(processObject.process_player.player_name + " already in queue. Cancelling.");
+                    ConsoleWarn(processObject.process_player.GetVerboseName() + " already in queue. Cancelling.");
                 }
             }
             catch (Exception e) {
@@ -826,11 +826,11 @@ namespace PRoConEvents {
                             }
 
                             if (String.IsNullOrEmpty(aPlayer.player_personaID)) {
-                                ConsoleInfo(aPlayer.player_name + " did not have a persona ID loaded. Cancelling.");
+                                ConsoleInfo(aPlayer.GetVerboseName() + " did not have a persona ID loaded. Cancelling.");
                                 continue;
                             }
 
-                            ConsoleInfo(aPlayer.player_name + " started processing after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
+                            ConsoleInfo(aPlayer.GetVerboseName() + " started processing after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
 
                             //Parse the reason for enforcement
                             Boolean trigger = false;
@@ -1031,8 +1031,8 @@ namespace PRoConEvents {
                                     //Loadout enforcement was triggered
                                     if (killOverride || !adminsOnline) {
                                         //Manual trigger or no admins online, enforce all denied weapons
-                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " killed for denied items [" + deniedWeapons + "].");
-                                        PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + deniedWeapons + "] from your loadout.");
+                                        OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " killed for denied items [" + deniedWeapons + "].");
+                                        PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
                                         foreach (String specificMessage in specificMessages) {
                                             PlayerTellMessage(loadout.Name, specificMessage);
                                         }
@@ -1040,11 +1040,11 @@ namespace PRoConEvents {
                                     else {
                                         //Not manual trigger and admins online
                                         if (spawnLoadoutValid) {
-                                            OnlineAdminSayMessage(reason + aPlayer.player_name + " has denied items [" + deniedWeapons + "].");
+                                            OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " has denied items [" + deniedWeapons + "].");
                                         }
                                         else
                                         {
-                                            PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                            PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                             foreach (String specificMessage in spawnSpecificMessages)
                                             {
                                                 PlayerTellMessage(loadout.Name, specificMessage);
@@ -1054,7 +1054,7 @@ namespace PRoConEvents {
                                 }
                                 else {
                                     //Loadout enforcement was not triggered, enforce spawn denied weapons only
-                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                    PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                     foreach (String specificMessage in spawnSpecificMessages)
                                     {
                                         PlayerTellMessage(loadout.Name, specificMessage);
@@ -1087,10 +1087,10 @@ namespace PRoConEvents {
                             else {
                                 if (!aPlayer.player_loadoutValid) 
                                 {
-                                    PlayerSayMessage(aPlayer.player_name, aPlayer.player_name + " thank you for fixing your loadout.");
+                                    PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " thank you for fixing your loadout.");
                                     if (killOverride)
                                     {
-                                        OnlineAdminSayMessage(reason + aPlayer.player_name + " fixed their loadout.");
+                                        OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " fixed their loadout.");
                                     }
                                 }
                             }
@@ -1159,6 +1159,7 @@ namespace PRoConEvents {
                         aPlayer.player_ip = (String) soldierHashtable["player_ip"];
                         aPlayer.player_name = (String) soldierHashtable["player_name"];
                         aPlayer.player_personaID = (String) soldierHashtable["player_personaID"];
+                        aPlayer.player_clanTag = (String) soldierHashtable["player_clanTag"];
                         aPlayer.player_online = (Boolean) soldierHashtable["player_online"];
                         aPlayer.player_aa = (Boolean) soldierHashtable["player_aa"];
                         aPlayer.player_ping = (Double) soldierHashtable["player_ping"];
@@ -1197,8 +1198,11 @@ namespace PRoConEvents {
                         AdKatsSubscribedPlayer dPlayer;
                         if (_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer)) {
                             //Player already exists, update the model
+                            dPlayer.player_name = aPlayer.player_name;
                             dPlayer.player_ip = aPlayer.player_ip;
                             dPlayer.player_aa = aPlayer.player_aa;
+                            dPlayer.player_personaID = aPlayer.player_personaID;
+                            dPlayer.player_clanTag = aPlayer.player_clanTag;
                             dPlayer.player_online = aPlayer.player_online;
                             dPlayer.player_ping = aPlayer.player_ping;
                             dPlayer.player_reputation = aPlayer.player_reputation;
@@ -2507,6 +2511,7 @@ namespace PRoConEvents {
             public Boolean player_online;
             public String player_pbguid;
             public String player_personaID;
+            public String player_clanTag;
             public Double player_ping;
             public Boolean player_punished;
             public Int32 player_rank;
@@ -2520,6 +2525,11 @@ namespace PRoConEvents {
             public String player_type;
 
             public AdKatsLoadout Loadout;
+
+            public String GetVerboseName()
+            {
+                return ((String.IsNullOrEmpty(player_clanTag)) ? ("") : ("[" + player_clanTag + "]")) + player_name;
+            }
         }
 
         internal enum SupportedGames {
