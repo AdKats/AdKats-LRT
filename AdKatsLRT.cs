@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.4
- * 6-DEC-2014
+ * Version 1.0.3.5
+ * 7-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.4</version_code>
+ * <version_code>1.0.3.5</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.4";
+        private const String PluginVersion = "1.0.3.5";
 
         public enum ConsoleMessageType {
             Normal,
@@ -658,7 +658,7 @@ namespace PRoConEvents {
                             {
                                 var waitTime = TimeSpan.FromSeconds(5 - _LoadoutProcessingQueue.Count);
                                 if (waitTime.TotalSeconds > 0) {
-                                    ConsoleInfo("Waiting " + ((int) waitTime.TotalSeconds) + " seconds to process " + soldierName + " spawn.");
+                                    DebugWrite("Waiting " + ((int) waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
                                 }
                                 else {
                                     return;
@@ -780,8 +780,7 @@ namespace PRoConEvents {
                     return;
                 }
                 if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id))
-                {
-                    ConsoleInfo(processObject.process_player.GetVerboseName() + " queued after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + "."); 
+                { 
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     _LoadoutProcessingWaitHandle.Set();
                 }
@@ -821,16 +820,15 @@ namespace PRoConEvents {
                             //Grab the player
                             AdKatsSubscribedPlayer aPlayer = processObject.process_player;
 
-                            if (!aPlayer.player_online) {
+                            if (!aPlayer.player_online || String.IsNullOrEmpty(aPlayer.player_personaID)) {
                                 continue;
                             }
 
-                            if (String.IsNullOrEmpty(aPlayer.player_personaID)) {
-                                ConsoleInfo(aPlayer.GetVerboseName() + " did not have a persona ID loaded. Cancelling.");
-                                continue;
+                            var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
+                            if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 2)
+                            {
+                                ConsoleWarn(aPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
                             }
-
-                            ConsoleInfo(aPlayer.GetVerboseName() + " started processing after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
 
                             //Parse the reason for enforcement
                             Boolean trigger = false;
@@ -1094,7 +1092,6 @@ namespace PRoConEvents {
                                     }
                                 }
                             }
-                            ConsoleInfo(loadout.Name + " processed after " + FormatTimeString(DateTime.UtcNow - processObject.process_time, 2) + ".");
                             aPlayer.player_loadoutValid = loadoutValid;
                             Double totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
                             Double countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
@@ -1105,7 +1102,7 @@ namespace PRoConEvents {
                             Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0, 2);
                             Double percentFixed = Math.Round(countFixed / countKilled * 100.0, 2);
                             Double percentRaged = Math.Round(countRaged / countKilled * 100.0, 2);
-                            ConsoleInfo(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
+                            ConsoleWrite(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
                         }
                         else {
                             //Wait for input
@@ -1195,12 +1192,16 @@ namespace PRoConEvents {
 
                         validPlayers.Add(aPlayer.player_name);
 
+                        Boolean process = false;
                         AdKatsSubscribedPlayer dPlayer;
                         if (_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer)) {
                             //Player already exists, update the model
                             dPlayer.player_name = aPlayer.player_name;
                             dPlayer.player_ip = aPlayer.player_ip;
                             dPlayer.player_aa = aPlayer.player_aa;
+                            if (String.IsNullOrEmpty(dPlayer.player_personaID) && !String.IsNullOrEmpty(aPlayer.player_personaID)) {
+                                process = true;
+                            }
                             dPlayer.player_personaID = aPlayer.player_personaID;
                             dPlayer.player_clanTag = aPlayer.player_clanTag;
                             dPlayer.player_online = aPlayer.player_online;
@@ -1226,8 +1227,13 @@ namespace PRoConEvents {
                         else {
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
                             _PlayerLeftDictionary.Remove(aPlayer.player_id);
-                            QueueForProcessing(new ProcessObject() {
-                                process_player = aPlayer,
+                            dPlayer = aPlayer;
+                            process = true;
+                        }
+                        if (process) {
+                            QueueForProcessing(new ProcessObject()
+                            {
+                                process_player = dPlayer,
                                 process_source = "listing",
                                 process_time = DateTime.UtcNow
                             });
