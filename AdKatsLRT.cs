@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.5
+ * Version 1.0.3.6
  * 7-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.5</version_code>
+ * <version_code>1.0.3.6</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.5";
+        private const String PluginVersion = "1.0.3.6";
 
         public enum ConsoleMessageType {
             Normal,
@@ -784,9 +784,6 @@ namespace PRoConEvents {
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     _LoadoutProcessingWaitHandle.Set();
                 }
-                else {
-                    ConsoleWarn(processObject.process_player.GetVerboseName() + " already in queue. Cancelling.");
-                }
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("Error while queueing player for processing.", e));
@@ -825,7 +822,7 @@ namespace PRoConEvents {
                             }
 
                             var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
-                            if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 2)
+                            if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
                             {
                                 ConsoleWarn(aPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
                             }
@@ -1098,11 +1095,11 @@ namespace PRoConEvents {
                             Double countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
                             Double countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
                             Double countRaged = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
-                            Double percentEnforced = Math.Round(countEnforced / totalPlayerCount * 100.0, 2);
-                            Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0, 2);
-                            Double percentFixed = Math.Round(countFixed / countKilled * 100.0, 2);
-                            Double percentRaged = Math.Round(countRaged / countKilled * 100.0, 2);
-                            ConsoleWrite(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% under loadout enforcement. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed for loadout enforcement. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed their loadouts after kill. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit without fixing.");
+                            Double percentEnforced = Math.Round(countEnforced / totalPlayerCount * 100.0);
+                            Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0);
+                            Double percentFixed = Math.Round(countFixed / countKilled * 100.0);
+                            Double percentRaged = Math.Round(countRaged / countKilled * 100.0);
+                            ConsoleWrite(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit.");
                         }
                         else {
                             //Wait for input
