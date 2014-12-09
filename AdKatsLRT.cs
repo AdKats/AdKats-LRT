@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.6
- * 7-DEC-2014
+ * Version 1.0.3.7
+ * 9-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.6</version_code>
+ * <version_code>1.0.3.7</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.6";
+        private const String PluginVersion = "1.0.3.7";
 
         public enum ConsoleMessageType {
             Normal,
@@ -775,13 +775,16 @@ namespace PRoConEvents {
         {
             DebugWrite("Entering QueueForProcessing", 7);
             try {
-                if (processObject == null) {
-                    ConsoleError("Attempted to process null object.");
+                if (processObject == null || processObject.process_player == null) {
+                    ConsoleError("Attempted to process null object or player.");
                     return;
                 }
-                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id))
-                { 
+                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id)) 
+                {
+                    Int32 oldCount = _LoadoutProcessingQueue.Count();
                     _LoadoutProcessingQueue.Enqueue(processObject);
+                    var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
+                    ConsoleInfo(processObject.process_player.player_name + " queued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
                     _LoadoutProcessingWaitHandle.Set();
                 }
             }
@@ -806,6 +809,7 @@ namespace PRoConEvents {
 
                         if (_LoadoutProcessingQueue.Count > 0) {
                             //Dequeue the next object
+                            Int32 oldCount = _LoadoutProcessingQueue.Count();
                             var processObject = _LoadoutProcessingQueue.Dequeue();
 
                             if (processObject == null)
@@ -813,7 +817,7 @@ namespace PRoConEvents {
                                 ConsoleError("Process object was null when entering player processing loop.");
                                 continue;
                             }
-
+                            
                             //Grab the player
                             AdKatsSubscribedPlayer aPlayer = processObject.process_player;
 
@@ -825,6 +829,10 @@ namespace PRoConEvents {
                             if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
                             {
                                 ConsoleWarn(aPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
+                            }
+                            else
+                            {
+                                ConsoleInfo(processObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
                             }
 
                             //Parse the reason for enforcement
@@ -1035,7 +1043,7 @@ namespace PRoConEvents {
                                     else {
                                         //Not manual trigger and admins online
                                         if (spawnLoadoutValid) {
-                                            OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " has denied items [" + deniedWeapons + "].");
+                                            //OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " has denied items [" + deniedWeapons + "].");
                                         }
                                         else
                                         {
