@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.7
- * 9-DEC-2014
+ * Version 1.0.3.8
+ * 10-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.7</version_code>
+ * <version_code>1.0.3.8</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.7";
+        private const String PluginVersion = "1.0.3.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -774,13 +774,27 @@ namespace PRoConEvents {
         private void QueueForProcessing(ProcessObject processObject)
         {
             DebugWrite("Entering QueueForProcessing", 7);
-            try {
-                if (processObject == null || processObject.process_player == null) {
+            try
+            {
+                if (processObject == null || processObject.process_player == null)
+                {
                     ConsoleError("Attempted to process null object or player.");
                     return;
                 }
-                if (_LoadoutProcessingQueue.All(obj => obj.process_player.player_id != processObject.process_player.player_id)) 
+                if (!processObject.process_player.player_online || 
+                    String.IsNullOrEmpty(processObject.process_player.player_personaID) ||
+                    (processObject.process_source == "spawn" && (processObject.process_player.player_reputation >= 15 || processObject.process_player.player_isAdmin)) ||
+                    (processObject.process_source == "listing" && (processObject.process_player.player_reputation >= 15 || processObject.process_player.player_isAdmin)))
                 {
+                    return;
+                }
+                lock (_LoadoutProcessingQueue)
+                {
+                    if (_LoadoutProcessingQueue.Any(obj => obj != null && obj.process_player != null && obj.process_player.player_id == processObject.process_player.player_id))
+                    {
+                        ConsoleInfo(processObject.process_player.player_name + " already in queue. Cancelling.");
+                        return;
+                    }
                     Int32 oldCount = _LoadoutProcessingQueue.Count();
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
@@ -808,32 +822,35 @@ namespace PRoConEvents {
                         }
 
                         if (_LoadoutProcessingQueue.Count > 0) {
-                            //Dequeue the next object
-                            Int32 oldCount = _LoadoutProcessingQueue.Count();
-                            var processObject = _LoadoutProcessingQueue.Dequeue();
-
-                            if (processObject == null)
+                            ProcessObject processObject = null;
+                            lock (_LoadoutProcessingQueue)
                             {
-                                ConsoleError("Process object was null when entering player processing loop.");
-                                continue;
+                                //Dequeue the next object
+                                Int32 oldCount = _LoadoutProcessingQueue.Count();
+                                ProcessObject importObject = _LoadoutProcessingQueue.Dequeue();
+                                if (importObject == null)
+                                {
+                                    ConsoleError("Process object was null when entering player processing loop.");
+                                    continue;
+                                }
+                                if (importObject.process_player == null)
+                                {
+                                    ConsoleError("Process player was null when entering player processing loop.");
+                                    continue;
+                                }
+                                var processDelay = DateTime.UtcNow.Subtract(importObject.process_time);
+                                if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
+                                {
+                                    ConsoleWarn(importObject.process_player.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
+                                }
+                                else
+                                {
+                                    ConsoleInfo(importObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
+                                }
                             }
                             
                             //Grab the player
                             AdKatsSubscribedPlayer aPlayer = processObject.process_player;
-
-                            if (!aPlayer.player_online || String.IsNullOrEmpty(aPlayer.player_personaID)) {
-                                continue;
-                            }
-
-                            var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
-                            if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
-                            {
-                                ConsoleWarn(aPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
-                            }
-                            else
-                            {
-                                ConsoleInfo(processObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
-                            }
 
                             //Parse the reason for enforcement
                             Boolean trigger = false;
