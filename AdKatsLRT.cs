@@ -847,6 +847,7 @@ namespace PRoConEvents {
                                 {
                                     ConsoleInfo(importObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
                                 }
+                                processObject = importObject;
                             }
                             
                             //Grab the player
