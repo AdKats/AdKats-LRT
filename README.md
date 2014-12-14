@@ -10,12 +10,12 @@ Some things you will need to know, as documentation is not done yet:
  * There are no debug level options at the moment, what you see in the console is what you get. Options will be added soon.
  * This extension changes the way the /mark command in AdKats works, if you use that command on a player it marks them for loadout enforcement instead of leave notification.
  * There are 2 levels of enforcement:
- * * Trigger enforcement
- * * * (Applies to problem players only)
- * * * Players under trigger enforcement are those with marks/punishments against them during the current session, or additionally if admins are offline they fall under this enforcement because of high infraction points or by being reported by another player. Trigger enforcement happens on spawn, and additionaly on any mark/punish/report issued against them.
- * * Spawn enforcement
- * * * (Applies to all* players)
- * * * When you deny a certain weapon for trigger enforcement, a second setting appears below it asking if it should also be denied on spawn. Items under spawn enforcement are acted on for *all non-admin non-reputable players. Spawn enforcement happens on spawn.
+ ** Trigger enforcement
+ ** * (Applies to problem players only)
+ ** * Players under trigger enforcement are those with marks/punishments against them during the current session, or additionally if admins are offline they fall under this enforcement because of high infraction points or by being reported by another player. Trigger enforcement happens on spawn, and additionaly on any mark/punish/report issued against them.
+ ** Spawn enforcement
+ ** * (Applies to all* players)
+ ** * When you deny a certain weapon for trigger enforcement, a second setting appears below it asking if it should also be denied on spawn. Items under spawn enforcement are acted on for *all non-admin non-reputable players. Spawn enforcement happens on spawn.
  * Battlelog can take 2-4 seconds to update a player's loadout after they change it, so loadouts are checked 5 seconds after a player spawns.
  * Once you add a weapon/attachement as denied, new settings appear at the bottom of the list, these are custom messages sent to players when they spawn under restriction with those weapons. Modify them as needed.
  * None of the vehicle attachements work yet, as I have not placed this under testing on a vehicle centric server yet.
