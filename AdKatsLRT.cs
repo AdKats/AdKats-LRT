@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.8
- * 10-DEC-2014
+ * Version 1.0.3.9
+ * 15-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.8</version_code>
+ * <version_code>1.0.3.9</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.8";
+        private const String PluginVersion = "1.0.3.9";
 
         public enum ConsoleMessageType {
             Normal,
@@ -61,6 +61,10 @@ namespace PRoConEvents {
         private readonly Queue<ProcessObject> _LoadoutProcessingQueue = new Queue<ProcessObject>();
         private readonly Dictionary<String, String> _WARSAWInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly HashSet<String> _WARSAWSpawnDeniedIDs = new HashSet<String>();
+        private Int32 _countEnforced;
+        private Int32 _countKilled;
+        private Int32 _countFixed;
+        private Int32 _countQuit;
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -80,14 +84,13 @@ namespace PRoConEvents {
         private Thread _SpawnProcessingThread;
 
         //Settings
-        private String _TokenStringLoadout = "AB0Lk8jgbZj04WEZGxmdrzwPOy6LlKKzks5Ud2ygwA%3D%3D";
         private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
         private Int32 _YellDuration = 5;
-        private volatile Int32 _debugLevel = 0;
 
         //Debug
         private const Boolean FullDebug = false;
         private const Boolean SlowMoOnException = false;
+        private volatile Int32 _debugLevel = 0;
         private String _debugSoldierName = "ColColonCleaner";
         private Boolean _slowmo;
         private Boolean _toldCol;
@@ -132,7 +135,6 @@ namespace PRoConEvents {
                 var lstReturn = new List<CPluginVariable>();
                 const string separator = " | ";
                 lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
-                lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof (String), _TokenStringLoadout));
                 if (!_WARSAWLibraryLoaded) {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof (String), "Enable the plugin to fetch the library."));
                     return lstReturn;
@@ -192,6 +194,7 @@ namespace PRoConEvents {
                         lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
+                lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
                 return lstReturn;
             }
             catch (Exception e) {
@@ -204,7 +207,6 @@ namespace PRoConEvents {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
             lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
-            lstReturn.Add(new CPluginVariable("2. Tokens|Loadout Token", typeof (String), _TokenStringLoadout));
             foreach (var pair in _WARSAWInvalidLoadoutIDMessages) {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
             }
@@ -212,6 +214,7 @@ namespace PRoConEvents {
             {
                 lstReturn.Add(new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny"));
             }
+            lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
             return lstReturn;
         }
 
@@ -223,17 +226,30 @@ namespace PRoConEvents {
                 if (strVariable == "UpdateSettings") {
                     //Do nothing. Settings page will be updated after return.
                 }
+                else if (Regex.Match(strVariable, @"Debug level").Success)
+                {
+                    Int32 tmp;
+                    if (int.TryParse(strValue, out tmp))
+                    {
+                        if (tmp != _debugLevel)
+                        {
+                            _debugLevel = tmp;
+                        }
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
+                {
+                    if (SoldierNameValid(strValue))
+                    {
+                        if (strValue != _debugSoldierName)
+                        {
+                            _debugSoldierName = strValue;
+                        }
+                    }
+                }
                 else if (Regex.Match(strVariable, @"WARSAW Token").Success) {
                     if (!String.IsNullOrEmpty(strValue)) {
                         _TokenStringWARSAW = strValue;
-                    }
-                    else {
-                        ConsoleError("Token cannot be empty.");
-                    }
-                }
-                else if (Regex.Match(strVariable, @"Loadout Token").Success) {
-                    if (!String.IsNullOrEmpty(strValue)) {
-                        _TokenStringLoadout = strValue;
                     }
                     else {
                         ConsoleError("Token cannot be empty.");
@@ -472,6 +488,10 @@ namespace PRoConEvents {
                         _WARSAWLibrary = null;
                         _WARSAWLibraryLoaded = false;
                         _firstPlayerListComplete = false;
+                        _countEnforced = 0;
+                        _countFixed = 0;
+                        _countKilled = 0;
+                        _countQuit = 0;
                         _slowmo = false;
                         ConsoleWrite("^b^1AdKatsLRT " + GetPluginVersion() + " Disabled! =(^n^0");
                     }
@@ -792,13 +812,13 @@ namespace PRoConEvents {
                 {
                     if (_LoadoutProcessingQueue.Any(obj => obj != null && obj.process_player != null && obj.process_player.player_id == processObject.process_player.player_id))
                     {
-                        ConsoleInfo(processObject.process_player.player_name + " already in queue. Cancelling.");
+                        DebugWrite(processObject.process_player.player_name + " already in queue. Cancelling.", 4);
                         return;
                     }
                     Int32 oldCount = _LoadoutProcessingQueue.Count();
                     _LoadoutProcessingQueue.Enqueue(processObject);
                     var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
-                    ConsoleInfo(processObject.process_player.player_name + " queued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
+                    DebugWrite(processObject.process_player.player_name + " queued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s", 5);
                     _LoadoutProcessingWaitHandle.Set();
                 }
             }
@@ -845,7 +865,7 @@ namespace PRoConEvents {
                                 }
                                 else
                                 {
-                                    ConsoleInfo(importObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s");
+                                    DebugWrite(importObject.process_player.player_name + " dequeued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s", 5);
                                 }
                                 processObject = importObject;
                             }
@@ -1084,7 +1104,7 @@ namespace PRoConEvents {
                                 if (killPlayer)
                                 {
                                     aPlayer.player_loadoutKilled = true;
-                                    ConsoleWarn(loadout.Name + " KILLED for invalid loadout.");
+                                    DebugWrite(loadout.Name + " KILLED for invalid loadout.", 1);
                                     if (aPlayer.player_spawnedOnce) {
                                         //Start a repeat kill
                                         StartAndLogThread(new Thread(new ThreadStart(delegate {
@@ -1116,21 +1136,31 @@ namespace PRoConEvents {
                                 }
                             }
                             aPlayer.player_loadoutValid = loadoutValid;
-                            Double totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
-                            Double countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
-                            Double countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
-                            Double countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
-                            Double countRaged = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
+                            Int32 totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
+                            Int32 countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
+                            Int32 countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
+                            Int32 countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
+                            Int32 countQuit = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
+                            Boolean displayStats =   (_countEnforced != countEnforced) || 
+                                                (_countKilled != countKilled) || 
+                                                (_countFixed != countFixed) || 
+                                                (_countQuit != countQuit);
+                            _countEnforced = countEnforced;
+                            _countKilled = countKilled;
+                            _countFixed = countFixed;
+                            _countQuit = countQuit;
                             Double percentEnforced = Math.Round(countEnforced / totalPlayerCount * 100.0);
                             Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0);
                             Double percentFixed = Math.Round(countFixed / countKilled * 100.0);
-                            Double percentRaged = Math.Round(countRaged / countKilled * 100.0);
-                            ConsoleWrite(_LoadoutProcessingQueue.Count + " players still in queue. (" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countRaged + "/" + countKilled + ") " + percentRaged + "% quit.");
+                            Double percentRaged = Math.Round(countQuit / countKilled * 100.0);
+                            if (displayStats)
+                            {
+                                DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
+                            }
+                            DebugWrite(_LoadoutProcessingQueue.Count + " players still in queue.", 3);
                         }
                         else {
                             //Wait for input
-                            if ((DateTime.UtcNow - loopStart).TotalMilliseconds > 1000)
-                                DebugWrite("Warning. " + Thread.CurrentThread.Name + " thread processing completed in " + ((int) ((DateTime.UtcNow - loopStart).TotalMilliseconds)) + "ms", 4);
                             _LoadoutProcessingWaitHandle.Reset();
                             _LoadoutProcessingWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
                             loopStart = DateTime.UtcNow;
@@ -1768,7 +1798,6 @@ namespace PRoConEvents {
                 using (var client = new WebClient()) {
                     try {
                         String downloadURL = "https://raw.githubusercontent.com/AdKats/AdKats-LRT/test/WarsawCodeBook.json?token=" + _TokenStringWARSAW;
-                        ConsoleInfo(downloadURL);
                         String response = client.DownloadString(downloadURL);
                         library = (Hashtable) JSON.JsonDecode(response);
                     }
@@ -2187,6 +2216,36 @@ namespace PRoConEvents {
             }
             Int32 endIndex = s.IndexOf("</" + tag + ">", startIndex, StringComparison.Ordinal);
             return s.Substring(startIndex, endIndex - startIndex);
+        }
+
+        public Boolean SoldierNameValid(String input)
+        {
+            try
+            {
+                DebugWrite("Checking player '" + input + "' for validity.", 7);
+                if (String.IsNullOrEmpty(input))
+                {
+                    DebugWrite("Soldier Name empty or null.", 5);
+                    return false;
+                }
+                if (input.Length > 16)
+                {
+                    DebugWrite("Soldier Name '" + input + "' too long, maximum length is 16 characters.", 5);
+                    return false;
+                }
+                if (new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length)
+                {
+                    DebugWrite("Soldier Name '" + input + "' contained invalid characters.", 5);
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                //Soldier id caused exception in the regex, definitely not valid
+                ConsoleError("Soldier Name '" + input + "' contained invalid characters.");
+                return false;
+            }
         }
 
         public String FormatTimeString(TimeSpan timeSpan, Int32 maxComponents) {
