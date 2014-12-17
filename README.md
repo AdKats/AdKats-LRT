@@ -99,30 +99,34 @@
 <p>
     Every infantry item in the game (about 3500 items), can be enforced here. The settings are split into 3 sections; Weapons, Gadgets, and Weapon Accessories, in that order.
 </p>
-<h3>Item Library</h3>
+<h3>Loadout Processing</h3>
+<h4>Deciding Enforcement Type</h4>
 <p>
-    Once a user is added you need to assign their soldiers.
-    If you add a user with the same name as their soldier(s), their soldier(s) will be added automatically.
-    Users can have multiple soldiers, so if your admins have multiple accounts you can assign all of those soldiers
-    under their user.
-    All soldiers added need to be in your database before they can be added to a user.
-    This system tracks user's soldiers, so if they change their soldier names they will still have powers without
-    needing to contact admins about the name change.
-    Type their soldier's name in the "new soldier" field to add them.
-    It will error out if it cannot find the soldier in the database.
-    To add soldiers to the database quickly after installing stat logger for the first time, have them join any server
-    you are running this version of AdKats on and their information will be immediately added.
+    Loadouts have several reasons for being checked; A player spawns, gets reported, gets punished, gets marked, or has more than 5 infraction points. Any of these instances will call a loadout check, and the reason for checking them changes the way the enforcement works.
 </p>
 <p>
-    The user list is sorted by role ID, then by user name.
-    Any item that says "Delete?" you need to type the word delete in the line and press enter.
+    When running loadout enforcement for a specific player, the reason, and action if invalid, is first decided. The following are results for specific reasons, in order of priority:
+    <ul>
+        <li>If a player was marked, they are set under trigger enforcement, and will be slain for invalid loadout of any kind.</li>
+        <li>If a player is punished, they are set under trigger enforcement, and will be slain for invalid loadout of any kind.</li>
+        <li>If a player was reported, their reputation is negative, and no admins are online, they are set under trigger enforcement and will be slain for invalid loadout of any kind. If they are slain after report, the report is automatically accepted.</li>
+        <li>If a player has more than 5 infraction points, was punished in the last 2 months, their reputation is negative, and no admins are online, they are set under trigger enforcement and will be slain for invalid loadout.</li>
+        <li>If a player joins, or spawns, has less than 15 reputation, and is not an admin, they are set under spawn enforcement, and will be slain for spawn denied items in their loadout.</li>
+    </ul>
 </p>
-<h3>Full Logging</h3>
+<h4>Informing and Acting</h4>
 <p>
-    All commands, their usage, who used them, who they were targeted on, why, when they were used, and where from, are
-    logged in the database.
-    All plugin actions are additionally stored in Procon's event log for review without connecting to the database.
-    Player's name/IP changes are logged and the records connected to their player ID, so tracking players is easier.
+    If a player is about to be slain for loadout enforcement, regardless of enforcement type, they are shown two messages. The first is a generic message containing all denied weapons they have in their loadout "playername please remove [denied weapons] from your loadout". This messages is sent using player SAY. After that, the specific messages written by the admin for each denied item is displayed. These customizable messages are found in setting sections 5A and 5B, once denied items are selected. These messages are sent using player TELL.
+</p>
+<p>
+    Immediately after informing the player of denied items in their loadout, they are admin killed. If they are under trigger enforcement, admins are notified of their demise, all other messages are private.
+</p>
+<p>
+    Thank you messages are given to players who fix their loadouts. If a player is under trigger enforcement, admins are notified that they fixed their loadout.
+</p>
+<h3>Debug Messages</h3>
+<p>
+    Setting your debug level to at least 2 will display statistics in the console when stats change. The stats available are percent under loadout enforcement (should be nearly 100%), percent killed for loadout enforcement, percent who fixed their loadouts after kill, and percent who quit the server without fixing after being killed.
 </p>
 <HR>
 <p>
@@ -172,41 +176,38 @@
     <a name=settings />
     <img src="https://raw.githubusercontent.com/ColColonCleaner/AdKats/master/images/AdKats_Docs_Settings.jpg" alt="AdKats User Manual">
 </p>
-<h3>0. Instance Settings:</h3>
+<h3>1. Preset Settings:</h3>
 <ul>
-    <li><b>'Auto-Enable/Keep-Alive'</b> - When this is enabled, AdKats will auto-recover from shutdowns and auto-restart
-        if disabled.
+    <li><b>'Coming Soon'</b> - This setting block will soon contain settings for presets, like 'No Frag Rounds', or 'No Explosives'.
     </li>
 </ul>
-<h3>1. Server Settings:</h3>
+<h3>2. Weapons:</h3>
 <ul>
-    <li><b>'Lock Settings - Create Password'</b> - Lock settings with a new created password > 5 characters.</li>
-    <li><b>'Lock Settings'</b> - Lock settings with the existing settings password.</li>
-    <li><b>'Unlock Settings'</b> - Unlock settings with the existing settings password.</li>
-    <li><b>'Setting Import'</b> - Enter an existing server ID here and all settings from that instance will be imported
-        here. All settings on this instance will be overwritten.<br/></li>
-    <li><b>'Server ID (Display)'</b> - ID of this server. Automatically set via the database.</li>
-    <li><b>'Server IP (Display)'</b> - IP address and port of this server. Automatically set via Procon.<br/></li>
-    <li><b>'Low Population Value'</b> - Number of players at which the server is deemed 'Low Population'.</li>
+    <li><b>'*WeaponIdentifier Allow on trigger?'</b> - Whether this item should be allowed/denied when a player is under trigger level enforcement.</li>
+    <li><b>'*WeaponIdentifier Allow on spawn?'</b> - Appears when a weapon is denied under trigger enforcement. Whether this item should be allowed/denied when a player is under spawn level enforcement.</li>
 </ul>
-<h3>A10. Admin Assistant Settings:</h3>
+<h3>3. Gadget:</h3>
 <ul>
-    <li><b>'Enable Admin Assistants'</b> - Whether admin assistant statuses can be assigned to players.</li>
-    <li><b>'Minimum Confirmed Reports Per Month'</b> - How many confirmed reports the player must have in the past month
-        to be considered an admin assistant.
-    </li>
-    <li><b>'Enable Admin Assistant Perk'</b> - Whether admin assistants will get the TeamSwap perk for their help.</li>
-    <li><b>'Use AA Report Auto Handler'</b> - Whether the internal auto-handling system for admin assistant reports is
-        enabled.
-    </li>
-    <li><b>'Auto-Report-Handler Strings'</b> - List of trigger words/phrases that the auto-handler will act on. One per
-        line.
-    </li>
+    <li><b>'*GadgetIdentifier Allow on trigger?'</b> - Whether this item should be allowed/denied when a player is under trigger level enforcement.</li>
+    <li><b>'*GadgetIdentifier Allow on spawn?'</b> - Appears when a weapon is denied under trigger enforcement. Whether this item should be allowed/denied when a player is under spawn level enforcement.</li>
+</ul>
+<h3>4. Weapon Accessories:</h3>
+<ul>
+    <li><b>'*AccessoryIdentifier Allow on trigger?'</b> - Whether this item should be allowed/denied when a player is under trigger level enforcement.</li>
+    <li><b>'*AccessoryIdentifier Allow on spawn?'</b> - Appears when a weapon is denied under trigger enforcement. Whether this item should be allowed/denied when a player is under spawn level enforcement.</li>
+</ul>
+<h3>5A. Denied Item Kill Messages:</h3>
+<ul>
+    <li><b>'*ItemIdentifier Kill Message'</b> - The specific message sent to players when they are slain for having this item in their loadout.</li>
+</ul>
+<h3>5B. Denied Item Accessory Kill Messages:</h3>
+<ul>
+    <li><b>'*AccessoryIdentifier Kill Message'</b> - The specific message sent to players when they are slain for having this accessory in their current loadout.</li>
 </ul>
 <h3>D99. Debug Settings:</h3>
 <ul>
     <li><b>'Debug level'</b> -
         Indicates how much debug-output is printed to the plugin-console.
-        0 turns off debug messages (just shows important warnings/exceptions/success), 5 is most detailed.
+        0 turns off debug messages (just shows important warnings/exceptions/success), 5 is most detailed, and includes each player's loadout in debug.
     </li>
 </ul>
