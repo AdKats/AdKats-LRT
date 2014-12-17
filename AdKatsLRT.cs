@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.3.9
- * 15-DEC-2014
+ * Version 1.0.4.0
+ * 16-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.3.9</version_code>
+ * <version_code>1.0.4.0</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.3.9";
+        private const String PluginVersion = "1.0.4.0";
 
         public enum ConsoleMessageType {
             Normal,
@@ -84,7 +84,6 @@ namespace PRoConEvents {
         private Thread _SpawnProcessingThread;
 
         //Settings
-        private String _TokenStringWARSAW = "AB0Lk3LtVa3YQLWSViQ_WCHjtkDe56qsks5Ud2_nwA%3D%3D";
         private Int32 _YellDuration = 5;
 
         //Debug
@@ -134,64 +133,63 @@ namespace PRoConEvents {
             try {
                 var lstReturn = new List<CPluginVariable>();
                 const string separator = " | ";
-                lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
                 if (!_WARSAWLibraryLoaded) {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof (String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
                 if (_WARSAWLibrary.Items.Any()) {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
-                        lstReturn.Add(new CPluginVariable("3. Weapons|ALWT" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("2. Weapons|ALWT" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
                         {
-                            lstReturn.Add(new CPluginVariable("3. Weapons|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("2. Weapons|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
                 if (_WARSAWLibrary.Items.Any()) {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category == "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug)) {
-                        lstReturn.Add(new CPluginVariable("4. Gadgets|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("3. Gadgets|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
                         {
-                            lstReturn.Add(new CPluginVariable("4. Gadgets|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("3. Gadgets|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }                    
                     }
                 }
                 if (_WARSAWLibrary.VehicleUnlocks.Any()) {
                     foreach (WarsawItem unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug)) {
-                        lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALWT" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("4. Vehicle Unlocks|ALWT" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID))
                         {
-                            lstReturn.Add(new CPluginVariable("5. Vehicle Unlocks|ALWS" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(unlock.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("4. Vehicle Unlocks|ALWS" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(unlock.warsawID) ? ("Deny") : ("Allow")));
                         }                    
                     }
                 }
                 if (_WARSAWLibrary.ItemAccessories.Any()) {
                     foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
                     {
-                        lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("5. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
                         {
-                            lstReturn.Add(new CPluginVariable("6. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("5. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         }                    
                     }
                 }
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key))) {
                     WarsawItem deniedItem;
                     if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem)) {
-                        lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("6A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
                     WarsawItem deniedVehicleUnlock;
                     if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock)) {
-                        lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("6C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key))) {
                     WarsawItemAccessory deniedItemAccessory;
                     if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory)) {
-                        lstReturn.Add(new CPluginVariable("7D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("6D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
                 lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
@@ -206,7 +204,6 @@ namespace PRoConEvents {
         public List<CPluginVariable> GetPluginVariables() {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
-            lstReturn.Add(new CPluginVariable("2. Tokens|WARSAW Token", typeof (String), _TokenStringWARSAW));
             foreach (var pair in _WARSAWInvalidLoadoutIDMessages) {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
             }
@@ -245,14 +242,6 @@ namespace PRoConEvents {
                         {
                             _debugSoldierName = strValue;
                         }
-                    }
-                }
-                else if (Regex.Match(strVariable, @"WARSAW Token").Success) {
-                    if (!String.IsNullOrEmpty(strValue)) {
-                        _TokenStringWARSAW = strValue;
-                    }
-                    else {
-                        ConsoleError("Token cannot be empty.");
                     }
                 }
                 else if (strVariable.StartsWith("ALWT"))
@@ -1149,10 +1138,10 @@ namespace PRoConEvents {
                             _countKilled = countKilled;
                             _countFixed = countFixed;
                             _countQuit = countQuit;
-                            Double percentEnforced = Math.Round(countEnforced / totalPlayerCount * 100.0);
-                            Double percentKilled = Math.Round(countKilled / totalPlayerCount * 100.0);
-                            Double percentFixed = Math.Round(countFixed / countKilled * 100.0);
-                            Double percentRaged = Math.Round(countQuit / countKilled * 100.0);
+                            Double percentEnforced = Math.Round(((Double)countEnforced / (Double)totalPlayerCount) * 100.0);
+                            Double percentKilled = Math.Round(((Double)countKilled / (Double)totalPlayerCount) * 100.0);
+                            Double percentFixed = Math.Round(((Double)countFixed / (Double)countKilled) * 100.0);
+                            Double percentRaged = Math.Round(((Double)countQuit / (Double)countKilled) * 100.0);
                             if (displayStats)
                             {
                                 DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
@@ -1795,15 +1784,26 @@ namespace PRoConEvents {
         private Hashtable FetchWarsawLibrary() {
             Hashtable library = null;
             try {
-                using (var client = new WebClient()) {
-                    try {
-                        String downloadURL = "https://raw.githubusercontent.com/AdKats/AdKats-LRT/test/WarsawCodeBook.json?token=" + _TokenStringWARSAW;
-                        String response = client.DownloadString(downloadURL);
-                        library = (Hashtable) JSON.JsonDecode(response);
+                using (var client = new WebClient())
+                {
+                    String response;
+                    try
+                    {
+                        response = client.DownloadString("https://raw.githubusercontent.com/AdKats/AdKats/master/lib/WarsawCodeBook.json");
                     }
-                    catch (Exception e) {
-                        HandleException(new AdKatsException("Error while downloading raw WARSAW library.", e));
+                    catch (Exception)
+                    {
+                        try
+                        {
+                            response = client.DownloadString("http://api.gamerethos.net/adkats/fetch/warsaw");
+                        }
+                        catch (Exception e)
+                        {
+                            HandleException(new AdKatsException("Error while downloading raw WARSAW library.", e));
+                            return null;
+                        }
                     }
+                    library = (Hashtable)JSON.JsonDecode(response);
                 }
             }
             catch (Exception e) {
