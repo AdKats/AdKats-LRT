@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.4.0
- * 16-DEC-2014
+ * Version 1.0.4.1
+ * 17-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.4.0</version_code>
+ * <version_code>1.0.4.1</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.4.0";
+        private const String PluginVersion = "1.0.4.1";
 
         public enum ConsoleMessageType {
             Normal,
@@ -155,7 +155,7 @@ namespace PRoConEvents {
                         }                    
                     }
                 }
-                if (_WARSAWLibrary.VehicleUnlocks.Any()) {
+                /*if (_WARSAWLibrary.VehicleUnlocks.Any()) {
                     foreach (WarsawItem unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug)) {
                         lstReturn.Add(new CPluginVariable("4. Vehicle Unlocks|ALWT" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID))
@@ -163,33 +163,33 @@ namespace PRoConEvents {
                             lstReturn.Add(new CPluginVariable("4. Vehicle Unlocks|ALWS" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(unlock.warsawID) ? ("Deny") : ("Allow")));
                         }                    
                     }
-                }
+                }*/
                 if (_WARSAWLibrary.ItemAccessories.Any()) {
                     foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
                     {
-                        lstReturn.Add(new CPluginVariable("5. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                        lstReturn.Add(new CPluginVariable("4. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
                         {
-                            lstReturn.Add(new CPluginVariable("5. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         }                    
                     }
                 }
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key))) {
                     WarsawItem deniedItem;
                     if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem)) {
-                        lstReturn.Add(new CPluginVariable("6A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("5A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
-                foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
+                /*foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
                     WarsawItem deniedVehicleUnlock;
                     if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock)) {
-                        lstReturn.Add(new CPluginVariable("6C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("5C. Denied Vehicle Unlock Kill Messages|MSG" + deniedVehicleUnlock.warsawID + separator + deniedVehicleUnlock.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
-                }
+                }*/
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key))) {
                     WarsawItemAccessory deniedItemAccessory;
                     if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory)) {
-                        lstReturn.Add(new CPluginVariable("6D. Denied Weapon Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
+                        lstReturn.Add(new CPluginVariable("5B. Denied Item Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof (String), pair.Value));
                     }
                 }
                 lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
@@ -314,7 +314,7 @@ namespace PRoConEvents {
             DebugWrite("Entering OnPluginLoaded", 7);
             try {
                 //Register all events
-                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnListPlayers", "OnPlayerLeft");
+                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnPlayerLeft");
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("FATAL ERROR on plugin load.", e));
@@ -352,7 +352,9 @@ namespace PRoConEvents {
                                 _threadMasterWaitHandle.WaitOne(1000);
                             }
                         }
-                        if (!_pluginEnabled) {
+                        if (!_pluginEnabled)
+                        {
+                            LogThreadExit();
                             return;
                         }
                         if (GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled")) {
@@ -360,12 +362,16 @@ namespace PRoConEvents {
                             //Set the enabled variable
                             _PlayerProcessingWaitHandle.Reset();
 
-                            if (!_pluginEnabled) {
+                            if (!_pluginEnabled)
+                            {
+                                LogThreadExit();
                                 return;
                             }
                             //Fetch all weapon names
                             if (LoadWarsawLibrary()) {
-                                if (!_pluginEnabled) {
+                                if (!_pluginEnabled)
+                                {
+                                    LogThreadExit();
                                     return;
                                 }
                                 ConsoleSuccess("WARSAW library loaded. " + _WARSAWLibrary.Items.Count + " items, " + _WARSAWLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _WARSAWLibrary.ItemAccessories.Count + " accessories.");
@@ -382,7 +388,9 @@ namespace PRoConEvents {
 
                                 ConsoleInfo("Waiting for player listing response from AdKats.");
                                 _PlayerProcessingWaitHandle.WaitOne(Timeout.Infinite);
-                                if (!_pluginEnabled) {
+                                if (!_pluginEnabled)
+                                {
+                                    LogThreadExit();
                                     return;
                                 }
 
@@ -924,7 +932,7 @@ namespace PRoConEvents {
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
-                            //ConsoleInfo(loadoutMessage);
+                            DebugWrite(loadoutMessage, 4);
 
                             HashSet<String> specificMessages = new HashSet<String>();
                             HashSet<String> spawnSpecificMessages = new HashSet<String>();
