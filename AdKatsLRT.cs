@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.4.2
+ * Version 1.0.4.3
  * 17-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.4.2</version_code>
+ * <version_code>1.0.4.3</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.4.2";
+        private const String PluginVersion = "1.0.4.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -166,6 +166,7 @@ namespace PRoConEvents {
                         lock (_currentSettings) {
                             _currentSettings = lstReturn;
                         }
+                        LogThreadExit();
                         return;
                     }
                     if (_WARSAWLibrary.Items.Any())
