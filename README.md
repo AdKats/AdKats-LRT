@@ -72,7 +72,7 @@
         Download and install the latest version of AdKats.
         <a href="https://github.com/AdKats/AdKats#install" target="_blank">AdKats Install Instructions.</a>
         After install make sure you are running version 5.3.1.3 or later. If you are not, download the latest test version from here:
-        <a href="https://github.com/AdKats/AdKats#install" target="_blank">AdKats Test Branch.</a>
+        <a href="https://raw.githubusercontent.com/AdKats/AdKats/test/AdKats.cs" target="_blank">AdKats Test Branch.</a>
     </li>
     <li>
         <b>Purchase AdKatsLRT, and aquire an extension token.</b>
@@ -186,7 +186,7 @@
     <li><b>'*WeaponIdentifier Allow on trigger?'</b> - Whether this item should be allowed/denied when a player is under trigger level enforcement.</li>
     <li><b>'*WeaponIdentifier Allow on spawn?'</b> - Appears when a weapon is denied under trigger enforcement. Whether this item should be allowed/denied when a player is under spawn level enforcement.</li>
 </ul>
-<h3>3. Gadget:</h3>
+<h3>3. Gadgets:</h3>
 <ul>
     <li><b>'*GadgetIdentifier Allow on trigger?'</b> - Whether this item should be allowed/denied when a player is under trigger level enforcement.</li>
     <li><b>'*GadgetIdentifier Allow on spawn?'</b> - Appears when a weapon is denied under trigger enforcement. Whether this item should be allowed/denied when a player is under spawn level enforcement.</li>
@@ -208,6 +208,6 @@
 <ul>
     <li><b>'Debug level'</b> -
         Indicates how much debug-output is printed to the plugin-console.
-        0 turns off debug messages (just shows important warnings/exceptions/success), 5 is most detailed, and includes each player's loadout in debug.
+        0 turns off debug messages (just shows important warnings/exceptions/success), 1 includes kill notifications, 2 includes stats, 3 includes queue information, 4 includes each player's full loadout, and 5 is overly detailed.
     </li>
 </ul>
