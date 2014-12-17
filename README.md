@@ -57,10 +57,7 @@
     <a name=dependencies />
     <img src="https://raw.githubusercontent.com/ColColonCleaner/AdKats/master/images/AdKats_Docs_Dependencies.jpg" alt="AdKats User Manual">
 </p>
-<h4>1. AdKats</h4>
-<p>
-    AdKats 5.3.1.3 or later, and its dependencies.
-</p>
+<h4>1. AdKats 5.3.1.4 or later, and its dependencies.</h4>
 <HR>
 <p>
     <a name=install />
