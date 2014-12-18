@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.4.4
+ * Version 1.0.4.5
  * 17-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.4.4</version_code>
+ * <version_code>1.0.4.5/version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.4.4";
+        private const String PluginVersion = "1.0.4.5";
 
         public enum ConsoleMessageType {
             Normal,
@@ -156,7 +156,7 @@ namespace PRoConEvents {
                 StartAndLogThread(new Thread(new ThreadStart(delegate
                 {
                     Thread.CurrentThread.Name = "VariableRender";
-                    ConsoleInfo("Settings updating.");
+                    DebugWrite("Updating settings...", 1);
                     Thread.Sleep(250);
                     var lstReturn = new List<CPluginVariable>();
                     const string separator = " | ";
@@ -182,10 +182,6 @@ namespace PRoConEvents {
                             }
                         }
                     }
-                    watch.Stop();
-                    ConsoleInfo("Section 2 render took " + Math.Round(watch.Elapsed.TotalMilliseconds) + "ms.");
-                    watch.Reset();
-                    watch.Start();
                     if (_WARSAWLibrary.Items.Any())
                     {
                         foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category == "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
@@ -193,14 +189,10 @@ namespace PRoConEvents {
                             lstReturn.Add(new CPluginVariable("3. Gadgets|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                             if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
                             {
-                                lstReturn.Add(new CPluginVariable("3. Gadgets|ALWS" + weapon.warsawID + separator + weapon.categoryType + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable("3. Gadgets|ALWS" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
-                    watch.Stop();
-                    ConsoleInfo("Section 3 render took " + Math.Round(watch.Elapsed.TotalMilliseconds) + "ms.");
-                    watch.Reset();
-                    watch.Start();
                     /*if (_WARSAWLibrary.VehicleUnlocks.Any()) {
                         foreach (WarsawItem unlock in _WARSAWLibrary.VehicleUnlocks.Values.OrderBy(vehicleUnlock => vehicleUnlock.category).ThenBy(vehicleUnlock => vehicleUnlock.slug)) {
                             lstReturn.Add(new CPluginVariable("4. Vehicle Unlocks|ALWT" + unlock.warsawID + separator + unlock.category + separator + unlock.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(unlock.warsawID) ? ("Deny") : ("Allow")));
@@ -214,17 +206,13 @@ namespace PRoConEvents {
                     {
                         foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
                         {
-                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("4" + weaponAccessory.categoryReadable.ToUpper().Substring(0, 3) + ". Weapon Accessories " + weaponAccessory.categoryReadable + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                             if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
                             {
-                                lstReturn.Add(new CPluginVariable("4. Weapon Accessories|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable("4" + weaponAccessory.categoryReadable.ToUpper().Substring(0, 3) + ". Weapon Accessories" + weaponAccessory.categoryReadable + "|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
-                    watch.Stop();
-                    ConsoleInfo("Section 4 render took " + Math.Round(watch.Elapsed.TotalMilliseconds) + "ms.");
-                    watch.Reset();
-                    watch.Start();
                     foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.Items.ContainsKey(denied.Key)))
                     {
                         WarsawItem deniedItem;
@@ -233,10 +221,6 @@ namespace PRoConEvents {
                             lstReturn.Add(new CPluginVariable("5A. Denied Item Kill Messages|MSG" + deniedItem.warsawID + separator + deniedItem.slug + separator + "Kill Message", typeof(String), pair.Value));
                         }
                     }
-                    watch.Stop();
-                    ConsoleInfo("Section 5A render took " + Math.Round(watch.Elapsed.TotalMilliseconds) + "ms.");
-                    watch.Reset();
-                    watch.Start();
                     /*foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key))) {
                         WarsawItem deniedVehicleUnlock;
                         if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock)) {
@@ -251,16 +235,15 @@ namespace PRoConEvents {
                             lstReturn.Add(new CPluginVariable("5B. Denied Item Accessory Kill Messages|MSG" + deniedItemAccessory.warsawID + separator + deniedItemAccessory.slug + separator + "Kill Message", typeof(String), pair.Value));
                         }
                     }
-                    watch.Stop();
-                    ConsoleInfo("Section 5B render took " + Math.Round(watch.Elapsed.TotalMilliseconds) + "ms.");
-                    watch.Reset();
                     lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
                     lock (_currentSettings)
                     {
                         _currentSettings = lstReturn;
                     }
+                    watch.Stop();
+                    DebugWrite("...settings updated. Sending to Procon...", 1);
                     UpdateSettingPage();
-                    ConsoleSuccess("Setting update complete.");
+                    DebugWrite("...Procon accepted settings", 1);
                     LogThreadExit();
                 })));
             }
@@ -1850,6 +1833,7 @@ namespace PRoConEvents {
 
                     _WARSAWLibrary = library;
                     _WARSAWLibraryLoaded = true;
+                    UpdateSettingPage();
                     return true;
                 }
                 ConsoleError("Game not BF4, unable to process WARSAW library.");
