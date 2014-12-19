@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.0
- * 17-DEC-2014
+ * Version 1.0.5.1
+ * 19-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.0</version_code>
+ * <version_code>1.0.5.1</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.0";
+        private const String PluginVersion = "1.0.5.1";
 
         public enum ConsoleMessageType {
             Normal,
@@ -140,6 +140,7 @@ namespace PRoConEvents {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
+                _WARSAWSpawnDeniedIDs.RemoveWhere(spawnID => !_WARSAWInvalidLoadoutIDMessages.ContainsKey(spawnID));
                 if (_WARSAWLibrary.Items.Any())
                 {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
@@ -249,6 +250,7 @@ namespace PRoConEvents {
             foreach (var pair in _WARSAWInvalidLoadoutIDMessages) {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
             }
+            _WARSAWSpawnDeniedIDs.RemoveWhere(spawnID => !_WARSAWInvalidLoadoutIDMessages.ContainsKey(spawnID));
             foreach (var deniedSpawnID in _WARSAWSpawnDeniedIDs)
             {
                 lstReturn.Add(new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny"));
