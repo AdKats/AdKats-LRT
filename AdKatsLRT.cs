@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.4
+ * Version 1.0.5.5
  * 21-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.4</version_code>
+ * <version_code>1.0.5.5</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.4";
+        private const String PluginVersion = "1.0.5.5";
 
         public enum ConsoleMessageType {
             Normal,
@@ -2283,47 +2283,47 @@ namespace PRoConEvents {
                     var loadout = new AdKatsLoadout();
                     responseData = FetchPlayerLoadout(personaID);
                     if (responseData == null) {
-                        ConsoleError("Loadout fetch failed, unable to parse player loadout.");
+                        //ConsoleError("Loadout fetch failed, unable to parse player loadout.");
                         return null;
                     }
                     if (!responseData.ContainsKey("data")) {
-                        ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
+                        //ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
                         return null;
                     }
                     var data = (Hashtable) responseData["data"];
                     if (data == null) {
-                        ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
+                        //ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
                         return null;
                     }
                     //Get parsed back persona ID
                     if (!data.ContainsKey("personaId")) {
-                        ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
+                        //ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.PersonaID = data["personaId"].ToString();
                     //Get persona name
                     if (!data.ContainsKey("personaName")) {
-                        ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
+                        //ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.Name = data["personaName"].ToString();
                     //Get weapons and their attachements
                     if (!data.ContainsKey("currentLoadout")) {
-                        ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
+                        //ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutHashtable = (Hashtable) data["currentLoadout"];
                     if (currentLoadoutHashtable == null) {
-                        ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
+                        //ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     if (!currentLoadoutHashtable.ContainsKey("weapons")) {
-                        ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
+                        //ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutWeapons = (Hashtable) currentLoadoutHashtable["weapons"];
                     if (currentLoadoutWeapons == null) {
-                        ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
+                        //ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     foreach (DictionaryEntry weaponEntry in currentLoadoutWeapons) {
@@ -2351,7 +2351,7 @@ namespace PRoConEvents {
                         }
                     }
                     if (!currentLoadoutHashtable.ContainsKey("selectedKit")) {
-                        ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
+                        //ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
                         return null;
                     }
                     String selectedKit = currentLoadoutHashtable["selectedKit"].ToString();
@@ -2376,11 +2376,11 @@ namespace PRoConEvents {
                             currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[3];
                             break;
                         default:
-                            ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
+                            //ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
                             return null;
                     }
                     if (currentLoadoutList.Count < 6) {
-                        ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
+                        //ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
                         return null;
                     }
                     //Pull the specifics
@@ -2422,7 +2422,7 @@ namespace PRoConEvents {
                             specificDefault = defaultReconPrimary;
                             break;
                         default:
-                            ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
+                            //ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
                             return null;
                     }
                     if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary)) {
