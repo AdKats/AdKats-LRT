@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.3
- * 20-DEC-2014
+ * Version 1.0.5.4
+ * 21-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.3</version_code>
+ * <version_code>1.0.5.4</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.3";
+        private const String PluginVersion = "1.0.5.4";
 
         public enum ConsoleMessageType {
             Normal,
@@ -931,8 +931,8 @@ namespace PRoConEvents {
                         if (_WARSAWSpawnDeniedIDs.Any() ||
                             (aPlayer.player_reported && aPlayer.player_reputation < 0) || 
                             aPlayer.player_punished || 
-                            aPlayer.player_marked || 
-                            (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60))
+                            aPlayer.player_marked ||
+                            (aPlayer.player_infractionPoints >= _triggerEnforcementMinimumInfractionPoints && aPlayer.player_lastPunishment.TotalDays < 60))
                         {
                             //Create process object
                             var processObject = new ProcessObject() {
@@ -1073,8 +1073,8 @@ namespace PRoConEvents {
                 }
                 if (!processObject.process_player.player_online || 
                     String.IsNullOrEmpty(processObject.process_player.player_personaID) ||
-                    (processObject.process_source == "spawn" && (processObject.process_player.player_reputation >= 15 || processObject.process_player.player_isAdmin)) ||
-                    (processObject.process_source == "listing" && (processObject.process_player.player_reputation >= 15 || processObject.process_player.player_isAdmin)))
+                    (processObject.process_source == "spawn" && ((!_spawnEnforcementActOnReputablePlayers && processObject.process_player.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && processObject.process_player.player_isAdmin))) ||
+                    (processObject.process_source == "listing" && ((!_spawnEnforcementActOnReputablePlayers && processObject.process_player.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && processObject.process_player.player_isAdmin))))
                 {
                     return;
                 }
@@ -1164,7 +1164,7 @@ namespace PRoConEvents {
                                 reason = "[reported] ";
                                 trigger = true;
                             }
-                            else if (aPlayer.player_infractionPoints > 5 && aPlayer.player_lastPunishment.TotalDays < 60 && aPlayer.player_reputation < 0)
+                            else if (aPlayer.player_infractionPoints >= _triggerEnforcementMinimumInfractionPoints && aPlayer.player_lastPunishment.TotalDays < 60 && aPlayer.player_reputation < 0)
                             {
                                 reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
                                 trigger = true;
@@ -1172,7 +1172,7 @@ namespace PRoConEvents {
                             else if (processObject.process_source == "spawn")
                             {
                                 reason = "[spawn] ";
-                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin)
+                                if ((!_spawnEnforcementActOnReputablePlayers && aPlayer.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && aPlayer.player_isAdmin))
                                 {
                                     continue;
                                 }
@@ -1180,7 +1180,7 @@ namespace PRoConEvents {
                             else if (processObject.process_source == "listing")
                             {
                                 reason = "[join] ";
-                                if (aPlayer.player_reputation >= 15 || aPlayer.player_isAdmin)
+                                if ((!_spawnEnforcementActOnReputablePlayers && aPlayer.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && aPlayer.player_isAdmin))
                                 {
                                     continue;
                                 }
