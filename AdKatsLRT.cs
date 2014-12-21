@@ -120,7 +120,7 @@ namespace PRoConEvents {
         }
 
         public String GetPluginName() {
-            return "AdKats Extension - LRT";
+            return "AdKatsLRT - Loadout Enforcer";
         }
 
         public String GetPluginVersion() {
@@ -132,7 +132,7 @@ namespace PRoConEvents {
         }
 
         public String GetPluginWebsite() {
-            return "https://github.com/AdKats/AdKatsLRT/";
+            return "https://github.com/AdKats/";
         }
 
         public String GetPluginDescription() {
