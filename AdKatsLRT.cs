@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.1
- * 19-DEC-2014
+ * Version 1.0.5.3
+ * 20-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.1</version_code>
+ * <version_code>1.0.5.3</version_code>
  */
 
 using System;
@@ -33,7 +33,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.1";
+        private const String PluginVersion = "1.0.5.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -57,8 +57,9 @@ namespace PRoConEvents {
         private HashSet<String> _AdminList = new HashSet<string>();
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private Boolean _firstPlayerListComplete;
-        private readonly Dictionary<Int64, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<Int64, AdKatsSubscribedPlayer>();
+        private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private readonly Queue<ProcessObject> _LoadoutProcessingQueue = new Queue<ProcessObject>();
+        private readonly Queue<AdKatsSubscribedPlayer> _BattlelogFetchQueue = new Queue<AdKatsSubscribedPlayer>();
         private readonly Dictionary<String, String> _WARSAWInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly HashSet<String> _WARSAWSpawnDeniedIDs = new HashSet<String>();
         private Int32 _countEnforced;
@@ -66,11 +67,18 @@ namespace PRoConEvents {
         private Int32 _countFixed;
         private Int32 _countQuit;
 
+        //Settings
+        private Boolean _enableAdKatsIntegration;
+        private Boolean _spawnEnforcementActOnAdmins;
+        private Boolean _spawnEnforcementActOnReputablePlayers;
+        private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
+
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(0.8);
         private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private DateTime _lastSuccessfulPlayerList = DateTime.UtcNow - TimeSpan.FromSeconds(5);
 
         //Threads
         private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
@@ -79,9 +87,11 @@ namespace PRoConEvents {
         private EventWaitHandle _LoadoutProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private EventWaitHandle _PlayerProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private EventWaitHandle _PluginDescriptionWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle _BattlelogCommWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         private Thread _Activator;
         private Thread _Finalizer;
         private Thread _SpawnProcessingThread;
+        private Thread _BattlelogCommThread;
 
         //Settings
         private Int32 _YellDuration = 5;
@@ -135,20 +145,39 @@ namespace PRoConEvents {
             try
             {
                 const string separator = " | ";
+
+                lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+                if (_enableAdKatsIntegration)
+                {
+                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
+                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+                }
+
                 if (!_WARSAWLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
+
+                lstReturn.Add(new CPluginVariable("1. Preset Settings" + separator + "Presets Coming Soon", typeof(String), "Presets Coming Soon"));
+
                 _WARSAWSpawnDeniedIDs.RemoveWhere(spawnID => !_WARSAWInvalidLoadoutIDMessages.ContainsKey(spawnID));
                 if (_WARSAWLibrary.Items.Any())
                 {
                     foreach (WarsawItem weapon in _WARSAWLibrary.Items.Values.Where(weapon => weapon.category != "GADGET").OrderBy(weapon => weapon.category).ThenBy(weapon => weapon.slug))
                     {
-                        lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
-                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
+                        if (_enableAdKatsIntegration) 
                         {
-                            lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWS" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID)) 
+                            {
+                                lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWS" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            }
+                        }
+                        else
+                        {
+                            lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -159,10 +188,17 @@ namespace PRoConEvents {
                         if (String.IsNullOrEmpty(weapon.categoryType)) {
                             ConsoleError(weapon.warsawID + " did not have a category type.");
                         }
-                        lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
-                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID))
+                        if (_enableAdKatsIntegration) 
                         {
-                            lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWS" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID)) 
+                            {
+                                lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWS" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            }
+                        }
+                        else
+                        {
+                            lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -179,10 +215,17 @@ namespace PRoConEvents {
                 {
                     foreach (WarsawItemAccessory weaponAccessory in _WARSAWLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.slug).ThenBy(weaponAccessory => weaponAccessory.category))
                     {
-                        lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
-                        if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
+                        if (_enableAdKatsIntegration)
                         {
-                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on trigger?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID))
+                            {
+                                lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWS" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            }
+                        }
+                        else
+                        {
+                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -215,34 +258,6 @@ namespace PRoConEvents {
             }
             return lstReturn;
         }
-
-        /*public void RenderDisplayPluginVariables() {
-            try
-            {
-                if (_aliveThreads.Values.Any(aThread => aThread.Name == "VariableRender"))
-                {
-                    return;
-                }
-                StartAndLogThread(new Thread(new ThreadStart(delegate
-                {
-                    Thread.CurrentThread.Name = "VariableRender";
-                    DebugWrite("Updating settings...", 1);
-                    Thread.Sleep(250);
-                    lock (_currentSettings)
-                    {
-                        _currentSettings = lstReturn;
-                    }
-                    watch.Stop();
-                    DebugWrite("...settings updated. Sending to Procon...", 1);
-                    UpdateSettingPage();
-                    DebugWrite("...Procon accepted settings", 1);
-                    LogThreadExit();
-                })));
-            }
-            catch (Exception e) {
-                HandleException(new AdKatsException("Error while rendering display vars.", e));
-            }
-        }*/
 
         public List<CPluginVariable> GetPluginVariables() {
             var lstReturn = new List<CPluginVariable>();
@@ -288,6 +303,45 @@ namespace PRoConEvents {
                         }
                     }
                 }
+                else if (Regex.Match(strVariable, @"Integrate with AdKats").Success)
+                {
+                    Boolean enableAdKatsIntegration = Boolean.Parse(strValue);
+                    if (enableAdKatsIntegration != _enableAdKatsIntegration)
+                    {
+                        if (_threadsReady) {
+                            ConsoleInfo("AdKatsLRT must be rebooted to modify this setting.");
+                            Disable();
+                        }
+                        _enableAdKatsIntegration = enableAdKatsIntegration;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Spawn Enforce Admins").Success)
+                {
+                    Boolean spawnEnforcementActOnAdmins = Boolean.Parse(strValue);
+                    if (spawnEnforcementActOnAdmins != _spawnEnforcementActOnAdmins)
+                    {
+                        _spawnEnforcementActOnAdmins = spawnEnforcementActOnAdmins;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Spawn Enforce Reputable Players").Success)
+                {
+                    Boolean spawnEnforcementActOnReputablePlayers = Boolean.Parse(strValue);
+                    if (spawnEnforcementActOnReputablePlayers != _spawnEnforcementActOnReputablePlayers)
+                    {
+                        _spawnEnforcementActOnReputablePlayers = spawnEnforcementActOnReputablePlayers;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Trigger Enforce Minimum Infraction Points").Success)
+                {
+                    Int32 triggerEnforcementMinimumInfractionPoints;
+                    if (int.TryParse(strValue, out triggerEnforcementMinimumInfractionPoints))
+                    {
+                        if (triggerEnforcementMinimumInfractionPoints != _triggerEnforcementMinimumInfractionPoints)
+                        {
+                            _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
+                        }
+                    }
+                }
                 else if (strVariable.StartsWith("ALWT"))
                 {
                     //Trim off all but the warsaw ID
@@ -304,6 +358,12 @@ namespace PRoConEvents {
                         case "deny":
                             //parse deny
                             _WARSAWInvalidLoadoutIDMessages[warsawID] = "Please respawn without " + commandSplit[commandSplit.Count() - 2].Trim() + " in your loadout";
+                            if (!_enableAdKatsIntegration) {
+                                if (!_WARSAWSpawnDeniedIDs.Contains(warsawID))
+                                {
+                                    _WARSAWSpawnDeniedIDs.Add(warsawID);
+                                }
+                            }
                             break;
                         default:
                             ConsoleError("Unknown setting when assigning WARSAW allowance.");
@@ -358,7 +418,11 @@ namespace PRoConEvents {
             DebugWrite("Entering OnPluginLoaded", 7);
             try {
                 //Register all events
-                RegisterEvents(GetType().Name, "OnVersion", "OnPlayerSpawned", "OnPlayerLeft");
+                RegisterEvents(GetType().Name,
+                    "OnVersion",
+                    "OnListPlayers", 
+                    "OnPlayerSpawned", 
+                    "OnPlayerLeft");
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("FATAL ERROR on plugin load.", e));
@@ -388,7 +452,8 @@ namespace PRoConEvents {
 
                         _pluginEnabled = true;
 
-                        if ((DateTime.UtcNow - _proconStartTime).TotalSeconds <= 20) {
+                        if ((DateTime.UtcNow - _proconStartTime).TotalSeconds <= 20)
+                        {
                             ConsoleWrite("Waiting a few seconds for requirements and other plugins to initialize, please wait...");
                             //Wait on all settings to be imported by procon for initial start, and for all other plugins to start and register.
                             for (Int32 index = 20 - (Int32) (DateTime.UtcNow - _proconStartTime).TotalSeconds; index > 0; index--) {
@@ -401,7 +466,12 @@ namespace PRoConEvents {
                             LogThreadExit();
                             return;
                         }
-                        if (GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled")) {
+                        Boolean AdKatsFound = GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled");
+                        if (AdKatsFound) {
+                            _enableAdKatsIntegration = true;
+                        }
+                        if (!_enableAdKatsIntegration || AdKatsFound)
+                        {
                             _StartTime = DateTime.UtcNow;
                             //Set the enabled variable
                             _PlayerProcessingWaitHandle.Reset();
@@ -421,16 +491,21 @@ namespace PRoConEvents {
                                 ConsoleSuccess("WARSAW library loaded. " + _WARSAWLibrary.Items.Count + " items, " + _WARSAWLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _WARSAWLibrary.ItemAccessories.Count + " accessories.");
                                 UpdateSettingPage();
 
-                                //Subscribe to online soldiers from AdKats
-                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                    {"caller_identity", "AdKatsLRT"},
-                                    {"response_requested", false},
-                                    {"subscription_group", "OnlineSoldiers"},
-                                    {"subscription_method", "ReceiveOnlineSoldiers"},
-                                    {"subscription_enabled", true}
-                                }));
-
-                                ConsoleInfo("Waiting for player listing response from AdKats.");
+                                if (_enableAdKatsIntegration) {
+                                    //Subscribe to online soldiers from AdKats
+                                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                        {"caller_identity", "AdKatsLRT"},
+                                        {"response_requested", false},
+                                        {"subscription_group", "OnlineSoldiers"},
+                                        {"subscription_method", "ReceiveOnlineSoldiers"},
+                                        {"subscription_enabled", true}
+                                    }));
+                                    ConsoleInfo("Waiting for player listing response from AdKats.");
+                                }
+                                else
+                                {
+                                    ConsoleInfo("Waiting for first player list event.");
+                                }
                                 _PlayerProcessingWaitHandle.WaitOne(Timeout.Infinite);
                                 if (!_pluginEnabled)
                                 {
@@ -526,8 +601,6 @@ namespace PRoConEvents {
                         _PlayerDictionary.Clear();
                         _PlayerLeftDictionary.Clear();
                         _LoadoutProcessingQueue.Clear();
-                        _WARSAWLibrary = null;
-                        _WARSAWLibraryLoaded = false;
                         _firstPlayerListComplete = false;
                         _countEnforced = 0;
                         _countFixed = 0;
@@ -560,10 +633,22 @@ namespace PRoConEvents {
                     while (true) {
                         try {
                             //Check for thread warning every 30 seconds
-                            if ((DateTime.UtcNow - lastKeepAliveCheck).TotalSeconds > 30) {
-                                if (_pluginEnabled && !GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled")) {
-                                    ConsoleSuccess("AdKats was disabled. The AdKatsLRT extension requires that plugin to function.");
-                                    Disable();
+                            if ((DateTime.UtcNow - lastKeepAliveCheck).TotalSeconds > 30)
+                            {
+                                if (_threadsReady)
+                                {
+                                    Boolean AdKatsFound = GetRegisteredCommands().Any(command => command.RegisteredClassname == "AdKats" && command.RegisteredMethodName == "PluginEnabled");
+                                    if (AdKatsFound) {
+                                        if (!_enableAdKatsIntegration) {
+                                            ConsoleError("AdKats found, but integration not enabled, disabling.");
+                                            Disable();
+                                        }
+                                    }
+                                    else if (_enableAdKatsIntegration)
+                                    {
+                                        ConsoleSuccess("AdKats was disabled. AdKatsLRT has integration enabled, and must shut down if that plugin shuts down.");
+                                        Disable();
+                                    }
                                 }
                                 lastKeepAliveCheck = DateTime.UtcNow;
 
@@ -577,7 +662,7 @@ namespace PRoConEvents {
                                 }
                             }
                             //Check for updated admins every minute
-                            if ((DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady) 
+                            if (_enableAdKatsIntegration && (DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady) 
                             {
                                 lastAdminFetch = DateTime.UtcNow;
                                 ExecuteCommand("procon.protected.plugins.call", "AdKats", "FetchAuthorizedSoldiers", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
@@ -623,6 +708,11 @@ namespace PRoConEvents {
                 _SpawnProcessingThread = new Thread(ProcessingThreadLoop) {
                     IsBackground = true
                 };
+
+                _BattlelogCommThread = new Thread(BattlelogCommThreadLoop)
+                {
+                    IsBackground = true
+                };
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("Error occured while initializing threads.", e));
@@ -636,6 +726,7 @@ namespace PRoConEvents {
                 _threadMasterWaitHandle.Reset();
                 //Start the spawn processing thread
                 StartAndLogThread(_SpawnProcessingThread);
+                StartAndLogThread(_BattlelogCommThread);
                 _threadsReady = true;
             }
             catch (Exception e) {
@@ -691,6 +782,136 @@ namespace PRoConEvents {
             DebugWrite("^1Game Version: " + _gameVersion, 1);
         }
 
+        public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset cpsSubset)
+        {
+            //Completely ignore this event if integrated with AdKats
+            if (_enableAdKatsIntegration || !_pluginEnabled) {
+                return;
+            }
+            DebugWrite("Entering OnListPlayers", 7);
+            try
+            {
+                if (cpsSubset.Subset != CPlayerSubset.PlayerSubsetType.All)
+                {
+                    return;
+                }
+                lock (_PlayerDictionary)
+                {
+                    var validPlayers = new List<String>();
+                    foreach (CPlayerInfo cPlayer in players)
+                    {
+                        //Check for glitched players
+                        if (String.IsNullOrEmpty(cPlayer.GUID))
+                        {
+                            continue;
+                        }
+                        //Ready to parse
+                        var aPlayer = new AdKatsSubscribedPlayer();
+                        aPlayer.player_id = 0;
+                        aPlayer.player_guid = cPlayer.GUID;
+                        aPlayer.player_pbguid = null;
+                        aPlayer.player_ip = null;
+                        aPlayer.player_name = cPlayer.SoldierName;
+                        aPlayer.player_personaID = null;
+                        aPlayer.player_clanTag = null;
+                        aPlayer.player_online = true;
+                        aPlayer.player_aa = false;
+                        aPlayer.player_ping = cPlayer.Ping;
+                        aPlayer.player_reputation = 0;
+                        aPlayer.player_infractionPoints = 0;
+                        aPlayer.player_role = "guest_default";
+                        switch (cPlayer.Type)
+                        {
+                            case 0:
+                                aPlayer.player_type = "Player";
+                                break;
+                            case 1:
+                                aPlayer.player_type = "Spectator";
+                                break;
+                            case 2:
+                                aPlayer.player_type = "CommanderPC";
+                                break;
+                            case 3:
+                                aPlayer.player_type = "CommanderMobile";
+                                break;
+                            default:
+                                ConsoleError("Player type " + cPlayer.Type + " is not valid.");
+                                break;
+                        }
+                        aPlayer.player_isAdmin = false;
+                        aPlayer.player_reported = false;
+                        aPlayer.player_punished = false;
+                        aPlayer.player_marked = false;
+                        aPlayer.player_lastPunishment = TimeSpan.FromSeconds(0);
+                        aPlayer.player_lastForgive = TimeSpan.FromSeconds(0);
+                        aPlayer.player_lastAction = TimeSpan.FromSeconds(0);
+                        aPlayer.player_spawnedOnce = false;
+                        aPlayer.player_conversationPartner = null;
+                        aPlayer.player_kills = cPlayer.Kills;
+                        aPlayer.player_deaths = cPlayer.Deaths;
+                        aPlayer.player_kdr = cPlayer.Kdr;
+                        aPlayer.player_rank = cPlayer.Rank;
+                        aPlayer.player_score = cPlayer.Score;
+                        aPlayer.player_squad = cPlayer.SquadID;
+                        aPlayer.player_team = cPlayer.TeamID;
+
+                        validPlayers.Add(aPlayer.player_name);
+
+                        Boolean process = false;
+                        AdKatsSubscribedPlayer dPlayer;
+                        Boolean newPlayer = false;
+                        //Are they online?
+                        if (!_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer)) {
+                            //Not online. Are they returning?
+                            if (!_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer)) {
+                                //Not online or returning. New player.
+                                newPlayer = true;
+                            }
+                        }
+                        if (newPlayer)
+                        {
+                            _PlayerDictionary[aPlayer.player_name] = aPlayer;
+                            _PlayerLeftDictionary.Remove(aPlayer.player_guid);
+                            dPlayer = aPlayer;
+                            QueuePlayerForBattlelogInfoFetch(dPlayer);
+                        }
+                        else
+                        {
+                            dPlayer.player_name = aPlayer.player_name;
+                            dPlayer.player_ip = aPlayer.player_ip;
+                            dPlayer.player_aa = aPlayer.player_aa;
+                            dPlayer.player_ping = aPlayer.player_ping;
+                            dPlayer.player_type = aPlayer.player_type;
+                            dPlayer.player_spawnedOnce = aPlayer.player_spawnedOnce;
+                            dPlayer.player_kills = aPlayer.player_kills;
+                            dPlayer.player_deaths = aPlayer.player_deaths;
+                            dPlayer.player_kdr = aPlayer.player_kdr;
+                            dPlayer.player_rank = aPlayer.player_rank;
+                            dPlayer.player_score = aPlayer.player_score;
+                            dPlayer.player_squad = aPlayer.player_squad;
+                            dPlayer.player_team = aPlayer.player_team;
+                        }
+                    }
+                    foreach (string playerName in _PlayerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
+                    {
+                        AdKatsSubscribedPlayer aPlayer;
+                        if (_PlayerDictionary.TryGetValue(playerName, out aPlayer))
+                        {
+                            _PlayerDictionary.Remove(aPlayer.player_name);
+                            _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
+                        }
+                    }
+                }
+                _firstPlayerListComplete = true;
+                _PlayerProcessingWaitHandle.Set();
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error occured while listing players.", e));
+            }
+            DebugWrite("Exiting OnListPlayers", 7);
+        }
+
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory) {
             try {
                 DateTime spawnTime = DateTime.UtcNow;
@@ -699,6 +920,14 @@ namespace PRoConEvents {
                     AdKatsSubscribedPlayer aPlayer;
                     if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online) {
                         aPlayer.player_spawnedOnce = true;
+                        //Reject spawn processing if player has no persona ID
+                        if (String.IsNullOrEmpty(aPlayer.player_personaID)) {
+                            if (!_enableAdKatsIntegration) {
+                                QueuePlayerForBattlelogInfoFetch(aPlayer);
+                            }
+                            DebugWrite(aPlayer.player_name + " does not have a Persona ID yet.", 3);
+                            return;
+                        }
                         if (_WARSAWSpawnDeniedIDs.Any() ||
                             (aPlayer.player_reported && aPlayer.player_reputation < 0) || 
                             aPlayer.player_punished || 
@@ -970,8 +1199,8 @@ namespace PRoConEvents {
                             aPlayer.Loadout = loadout;
 
                             //Show the loadout contents
-                            String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
-                            String sidearmMessage = loadout.KitItemSidearm.slug + " [" + loadout.KitItemSidearm.Accessories.Values.Aggregate("", (currentString, acc) => currentString + acc.slug + ", ").Trim().TrimEnd(',') + "]";
+                            String primaryMessage = loadout.KitItemPrimary.slug + " [" + loadout.KitItemPrimary.Accessories.Values.Aggregate("", (currentString, acc) => currentString + TrimStart(acc.slug, loadout.KitItemPrimary.slug).Trim() + ", ").Trim().TrimEnd(',') + "]";
+                            String sidearmMessage = loadout.KitItemSidearm.slug + " [" + loadout.KitItemSidearm.Accessories.Values.Aggregate("", (currentString, acc) => currentString + TrimStart(acc.slug, loadout.KitItemSidearm.slug).Trim() + ", ").Trim().TrimEnd(',') + "]";
                             String gadgetMessage = "[" + loadout.KitGadget1.slug + ", " + loadout.KitGadget2.slug + "]";
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
@@ -996,20 +1225,23 @@ namespace PRoConEvents {
                                     }
                                 }
 
-                                //Inform AdKats of the loadout
-                                StartAndLogThread(new Thread(new ThreadStart(delegate
+                                if (_enableAdKatsIntegration)
                                 {
-                                    Thread.CurrentThread.Name = "AdKatsInformThread";
-                                    Thread.Sleep(100);
-                                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                        {"caller_identity", "AdKatsLRT"},
-                                        {"response_requested", false},
-                                        {"loadout_player", loadout.Name},
-                                        {"loadout_valid", loadoutValid}
-                                    }));
-                                    Thread.Sleep(100);
-                                    LogThreadExit();
-                                })));
+                                    //Inform AdKats of the loadout
+                                    StartAndLogThread(new Thread(new ThreadStart(delegate
+                                    {
+                                        Thread.CurrentThread.Name = "AdKatsInformThread";
+                                        Thread.Sleep(100);
+                                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                            {"caller_identity", "AdKatsLRT"},
+                                            {"response_requested", false},
+                                            {"loadout_player", loadout.Name},
+                                            {"loadout_valid", loadoutValid}
+                                        }));
+                                        Thread.Sleep(100);
+                                        LogThreadExit();
+                                    })));
+                                }
 
                                 foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
                                 {
@@ -1223,9 +1455,179 @@ namespace PRoConEvents {
             }
         }
 
+        private void QueuePlayerForBattlelogInfoFetch(AdKatsSubscribedPlayer aPlayer)
+        {
+            DebugWrite("Entering QueuePlayerForBattlelogInfoFetch", 6);
+            try
+            {
+                DebugWrite("Preparing to queue player for battlelog info fetch.", 6);
+                if (_BattlelogFetchQueue.Any(bPlayer => bPlayer.player_guid == aPlayer.player_guid)) {
+                    return;
+                }
+                lock (_BattlelogFetchQueue)
+                {
+                    _BattlelogFetchQueue.Enqueue(aPlayer);
+                    DebugWrite("Player queued for battlelog info fetch.", 6);
+                    _BattlelogCommWaitHandle.Set();
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error while queuing player for battlelog info fetch.", e));
+            }
+            DebugWrite("Exiting QueuePlayerForBattlelogInfoFetch", 6);
+        }
+
+        public void BattlelogCommThreadLoop()
+        {
+            try
+            {
+                DebugWrite("BTLOG: Starting Battlelog Comm Thread", 1);
+                Thread.CurrentThread.Name = "BattlelogComm";
+                DateTime loopStart = DateTime.UtcNow;
+                while (true)
+                {
+                    try
+                    {
+                        DebugWrite("BTLOG: Entering Battlelog Comm Thread Loop", 7);
+                        if (!_pluginEnabled)
+                        {
+                            DebugWrite("BTLOG: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                            break;
+                        }
+                        //Sleep for 10ms
+                        _threadMasterWaitHandle.WaitOne(10);
+
+                        //Handle Inbound player fetches
+                        if (_BattlelogFetchQueue.Count > 0)
+                        {
+                            Queue<AdKatsSubscribedPlayer> unprocessedPlayers;
+                            lock (_BattlelogFetchQueue)
+                            {
+                                DebugWrite("BTLOG: Inbound players found. Grabbing.", 6);
+                                //Grab all items in the queue
+                                unprocessedPlayers = new Queue<AdKatsSubscribedPlayer>(_BattlelogFetchQueue.ToArray());
+                                //Clear the queue for next run
+                                _BattlelogFetchQueue.Clear();
+                            }
+                            //Loop through all players in order that they came in
+                            while (unprocessedPlayers.Count > 0)
+                            {
+                                if (!_pluginEnabled)
+                                {
+                                    break;
+                                }
+                                DebugWrite("BTLOG: Preparing to fetch battlelog info for player", 6);
+                                //Dequeue the record
+                                AdKatsSubscribedPlayer aPlayer = unprocessedPlayers.Dequeue();
+                                //Run the appropriate action
+                                FetchPlayerBattlelogInformation(aPlayer);
+                            }
+                        }
+                        else
+                        {
+                            //Wait for new actions
+                            _BattlelogCommWaitHandle.Reset();
+                            _BattlelogCommWaitHandle.WaitOne(TimeSpan.FromSeconds(5));
+                            loopStart = DateTime.UtcNow;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is ThreadAbortException)
+                        {
+                            HandleException(new AdKatsException("Battlelog comm thread aborted. Exiting."));
+                            break;
+                        }
+                        HandleException(new AdKatsException("Error occured in Battlelog comm thread. Skipping current loop.", e));
+                    }
+                }
+                DebugWrite("BTLOG: Ending Battlelog Comm Thread", 1);
+                LogThreadExit();
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error occured in battlelog comm thread.", e));
+            }
+        }
+
+        public void FetchPlayerBattlelogInformation(AdKatsSubscribedPlayer aPlayer)
+        {
+            try
+            {
+                if (!String.IsNullOrEmpty(aPlayer.player_personaID))
+                {
+                    return;
+                }
+                if (String.IsNullOrEmpty(aPlayer.player_name))
+                {
+                    ConsoleError("Attempted to get battlelog information of nameless player.");
+                    return;
+                }
+                using (var client = new WebClient())
+                {
+                    try
+                    {
+                        DoBattlelogWait();
+                        String personaResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.player_name);
+                        Match pid = Regex.Match(personaResponse, @"bf4/soldier/" + aPlayer.player_name + @"/stats/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                        if (!pid.Success)
+                        {
+                            HandleException(new AdKatsException("Could not find persona ID for " + aPlayer.player_name));
+                            return;
+                        }
+                        aPlayer.player_personaID = pid.Groups[1].Value.Trim();
+                        DebugWrite("Persona ID fetched for " + aPlayer.player_name, 4);
+                        QueueForProcessing(new ProcessObject()
+                        {
+                            process_player = aPlayer,
+                            process_source = "listing",
+                            process_time = DateTime.UtcNow
+                        });
+                        DoBattlelogWait();
+                        String overviewResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.player_personaID + "/1/");
+
+                        Hashtable json = (Hashtable)JSON.JsonDecode(overviewResponse);
+                        Hashtable data = (Hashtable)json["data"];
+                        Hashtable info = null;
+                        if (!data.ContainsKey("viewedPersonaInfo") || (info = (Hashtable)data["viewedPersonaInfo"]) == null)
+                        {
+                            aPlayer.player_clanTag = String.Empty;
+                            DebugWrite("Could not find BF4 clan tag for " + aPlayer.player_name, 4);
+                        }
+                        else
+                        {
+                            String tag = String.Empty;
+                            if (!info.ContainsKey("tag") || String.IsNullOrEmpty(tag = (String)info["tag"]))
+                            {
+                                aPlayer.player_clanTag = String.Empty;
+                                DebugWrite("Could not find BF4 clan tag for " + aPlayer.player_name, 4);
+                            }
+                            else
+                            {
+                                aPlayer.player_clanTag = tag;
+                                DebugWrite("Clan tag [" + aPlayer.player_clanTag + "] found for " + aPlayer.player_name, 4);
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        return;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error while fetching battlelog information for " + aPlayer.player_name, e));
+            }
+        }
+
         public void ReceiveOnlineSoldiers(params String[] parameters) {
             DebugWrite("ReceiveOnlineSoldiers starting!", 6);
             try {
+                if (!_enableAdKatsIntegration) {
+                    return;
+                }
                 if (parameters.Length != 2) {
                     ConsoleError("Online soldier handling canceled. Parameters invalid.");
                     return;
@@ -1288,12 +1690,31 @@ namespace PRoConEvents {
 
                         Boolean process = false;
                         AdKatsSubscribedPlayer dPlayer;
-                        if (_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer)) {
-                            //Player already exists, update the model
+                        Boolean newPlayer = false;
+                        //Are they online?
+                        if (!_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer))
+                        {
+                            //Not online. Are they returning?
+                            if (!_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer))
+                            {
+                                //Not online or returning. New player.
+                                newPlayer = true;
+                            }
+                        }
+                        if (newPlayer)
+                        {
+                            _PlayerDictionary[aPlayer.player_name] = aPlayer;
+                            _PlayerLeftDictionary.Remove(aPlayer.player_guid);
+                            dPlayer = aPlayer;
+                            process = true;
+                        }
+                        else
+                        {
                             dPlayer.player_name = aPlayer.player_name;
                             dPlayer.player_ip = aPlayer.player_ip;
                             dPlayer.player_aa = aPlayer.player_aa;
-                            if (String.IsNullOrEmpty(dPlayer.player_personaID) && !String.IsNullOrEmpty(aPlayer.player_personaID)) {
+                            if (String.IsNullOrEmpty(dPlayer.player_personaID) && !String.IsNullOrEmpty(aPlayer.player_personaID))
+                            {
                                 process = true;
                             }
                             dPlayer.player_personaID = aPlayer.player_personaID;
@@ -1318,12 +1739,6 @@ namespace PRoConEvents {
                             dPlayer.player_squad = aPlayer.player_squad;
                             dPlayer.player_team = aPlayer.player_team;
                         }
-                        else {
-                            _PlayerDictionary[aPlayer.player_name] = aPlayer;
-                            _PlayerLeftDictionary.Remove(aPlayer.player_id);
-                            dPlayer = aPlayer;
-                            process = true;
-                        }
                         if (process) {
                             QueueForProcessing(new ProcessObject()
                             {
@@ -1337,14 +1752,12 @@ namespace PRoConEvents {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                             _PlayerDictionary.Remove(aPlayer.player_name);
-                            _PlayerLeftDictionary[aPlayer.player_id] = aPlayer;
+                            _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
                         }
                     }
                 }
-                if (!_firstPlayerListComplete) {
-                    _firstPlayerListComplete = true;
-                    _PlayerProcessingWaitHandle.Set();
-                }
+                _firstPlayerListComplete = true;
+                _PlayerProcessingWaitHandle.Set();
             }
             catch (Exception e) {
                 HandleException(new AdKatsException("Error while receiving online soldiers.", e));
@@ -2435,7 +2848,6 @@ namespace PRoConEvents {
         protected void LogThreadExit() {
             lock (_aliveThreads) {
                 _aliveThreads.Remove(Thread.CurrentThread.ManagedThreadId);
-                //ConsoleWarn("THREAD DEBUG: Stopping [" + Thread.CurrentThread.ManagedThreadId + ":'" + Thread.CurrentThread.Name + "']. " + _aliveThreads.Count + " threads running.");
             }
         }
 
@@ -2445,7 +2857,6 @@ namespace PRoConEvents {
                 if (!_aliveThreads.ContainsKey(aThread.ManagedThreadId)) {
                     _aliveThreads.Add(aThread.ManagedThreadId, aThread);
                     _threadMasterWaitHandle.WaitOne(100);
-                    //ConsoleWarn("THREAD DEBUG: Starting [" + aThread.ManagedThreadId + ":'" + aThread.Name + "']. " + _aliveThreads.Count + " threads running.");
                 }
             }
         }
@@ -2507,11 +2918,6 @@ namespace PRoConEvents {
             }
         }
 
-        public void PrintPreparedCommand(MySqlCommand cmd) {
-            String query = cmd.Parameters.Cast<MySqlParameter>().Aggregate(cmd.CommandText, (current, p) => current.Replace(p.ParameterName, (p.Value != null) ? (p.Value.ToString()) : ("NULL")));
-            ConsoleWrite(query);
-        }
-
         public DateTime DateTimeFromEpochSeconds(Double epochSeconds) {
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             return epoch.AddSeconds(epochSeconds);
@@ -2527,6 +2933,17 @@ namespace PRoConEvents {
                 return;
             }
             ExecuteCommand("procon.protected.plugins.setVariable", pluginName, settingName, settingValue);
+        }
+
+        public string TrimStart(string target, string trimString)
+        {
+            string result = target;
+            while (result.StartsWith(trimString))
+            {
+                result = result.Substring(trimString.Length);
+            }
+
+            return result;
         }
 
         private void DoBattlelogWait() {
