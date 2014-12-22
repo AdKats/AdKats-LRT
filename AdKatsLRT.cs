@@ -10,16 +10,17 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.5
+ * Version 1.0.5.6
  * 21-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.5</version_code>
+ * <version_code>1.0.5.6</version_code>
  */
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -33,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.5";
+        private const String PluginVersion = "1.0.5.6";
 
         public enum ConsoleMessageType {
             Normal,
@@ -66,6 +67,7 @@ namespace PRoConEvents {
         private Int32 _countKilled;
         private Int32 _countFixed;
         private Int32 _countQuit;
+        private readonly AdKatsServer _serverInfo;
 
         //Settings
         private Boolean _enableAdKatsIntegration;
@@ -77,6 +79,7 @@ namespace PRoConEvents {
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private readonly TimeSpan _BattlelogWaitDuration = TimeSpan.FromSeconds(0.8);
         private DateTime _StartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private DateTime _LastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _LastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastSuccessfulPlayerList = DateTime.UtcNow - TimeSpan.FromSeconds(5);
 
@@ -104,7 +107,11 @@ namespace PRoConEvents {
         private Boolean _slowmo;
         private Boolean _toldCol;
 
-        public AdKatsLRT() {
+        public AdKatsLRT()
+        {
+            //Create the server reference
+            _serverInfo = new AdKatsServer(this);
+
             //Set defaults for webclient
             ServicePointManager.Expect100Continue = false;
 
@@ -416,10 +423,14 @@ namespace PRoConEvents {
 
         public void OnPluginLoaded(String strHostName, String strPort, String strPRoConVersion) {
             DebugWrite("Entering OnPluginLoaded", 7);
-            try {
+            try
+            {
+                //Set the server IP
+                _serverInfo.ServerIP = strHostName + ":" + strPort;
                 //Register all events
                 RegisterEvents(GetType().Name,
                     "OnVersion",
+                    "OnServerInfo", 
                     "OnListPlayers", 
                     "OnPlayerSpawned", 
                     "OnPlayerLeft");
@@ -622,6 +633,42 @@ namespace PRoConEvents {
             }
         }
 
+        public override void OnServerInfo(CServerInfo serverInfo)
+        {
+            DebugWrite("Entering OnServerInfo", 7);
+            try
+            {
+                if (_pluginEnabled)
+                {
+                    lock (_serverInfo)
+                    {
+                        if (serverInfo != null)
+                        {
+                            //Get the server info
+                            _serverInfo.SetInfoObject(serverInfo);
+
+                            Boolean hadServerName = !String.IsNullOrEmpty(_serverInfo.ServerName);
+                            _serverInfo.ServerName = serverInfo.ServerName;
+                            Boolean haveServerName = !String.IsNullOrEmpty(_serverInfo.ServerName);
+                            if (haveServerName && !hadServerName)
+                            {
+                                PostVersionTracking();
+                            }
+                        }
+                        else
+                        {
+                            HandleException(new AdKatsException("Server info was null"));
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(new AdKatsException("Error while processing server info.", e));
+            }
+            DebugWrite("Exiting OnServerInfo", 7);
+        }
+
         private void SetupStatusMonitor() {
             //Create a new thread to handle status monitoring
             //This thread will remain running for the duration the layer is online
@@ -661,6 +708,7 @@ namespace PRoConEvents {
                                     ConsoleWarn("Thread warning: " + aliveThreads);
                                 }
                             }
+
                             //Check for updated admins every minute
                             if (_enableAdKatsIntegration && (DateTime.UtcNow - lastAdminFetch).TotalSeconds > 60 && _threadsReady) 
                             {
@@ -673,6 +721,14 @@ namespace PRoConEvents {
                                     {"user_subset", "admin"}
                                 }));
                             }
+
+                            //Post usage stats at interval
+                            if ((DateTime.UtcNow - _LastVersionTrackingUpdate).TotalMinutes > 20 &&
+                                (_threadsReady || (DateTime.UtcNow - _proconStartTime).TotalSeconds > 30))
+                            {
+                                PostVersionTracking();
+                            }
+
                             //Sleep 1 second between loops
                             _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
                         }
@@ -2954,6 +3010,33 @@ namespace PRoConEvents {
             _LastBattlelogAction = DateTime.UtcNow;
         }
 
+        private void PostVersionTracking()
+        {
+            if (String.IsNullOrEmpty(_serverInfo.ServerIP))
+            {
+                return;
+            }
+            try
+            {
+                using (var client = new WebClient())
+                {
+                    var data = new NameValueCollection {
+                        {"server_ip", _serverInfo.ServerIP},
+                        {"server_name", _serverInfo.ServerName},
+                        {"adkatslrt_version_current", PluginVersion},
+                        {"adkatslrt_enabled", _pluginEnabled.ToString().ToLower()},
+                        {"adkatslrt_uptime", (_threadsReady)?(Math.Round((DateTime.UtcNow - _StartTime).TotalSeconds).ToString()):("0")},
+                        {"updates_disabled", false.ToString().ToLower()}
+                    };
+                    byte[] response = client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
+                }
+            }
+            catch (Exception e) {
+                //Ignore errors
+            }
+            _LastVersionTrackingUpdate = DateTime.UtcNow;
+        }
+
         public AdKatsException HandleException(AdKatsException aException) {
             try {
                 //If it's null or AdKatsLRT isn't enabled, just return
@@ -3007,6 +3090,48 @@ namespace PRoConEvents {
             //Override toString
             public override String ToString() {
                 return "[" + Method + "][" + Message + "]" + ((InternalException != null) ? (": " + InternalException) : (""));
+            }
+        }
+
+        public class AdKatsServer
+        {
+            public Int64 ServerID;
+            public Int64 ServerGroup;
+            public String ServerIP;
+            public String ServerName;
+            public String ServerType = "UNKNOWN";
+            public Int64 GameID = -1;
+            public String ConnectionState;
+            public Boolean CommanderEnabled;
+            public Boolean FairFightEnabled;
+            public Boolean ForceReloadWholeMags;
+            public Boolean HitIndicatorEnabled;
+            public String GamePatchVersion = "UNKNOWN";
+            public Int32 MaxSpectators = -1;
+            public CServerInfo InfoObject { get; private set; }
+            private DateTime infoObjectTime = DateTime.UtcNow;
+
+            private AdKatsLRT Plugin;
+
+            public AdKatsServer(AdKatsLRT plugin)
+            {
+                Plugin = plugin;
+            }
+
+            public void SetInfoObject(CServerInfo infoObject)
+            {
+                InfoObject = infoObject;
+                ServerName = infoObject.ServerName;
+                infoObjectTime = DateTime.UtcNow;
+            }
+
+            public TimeSpan GetRoundElapsedTime()
+            {
+                if (InfoObject == null)
+                {
+                    return TimeSpan.Zero;
+                }
+                return TimeSpan.FromSeconds(InfoObject.RoundTime) + (DateTime.UtcNow - infoObjectTime);
             }
         }
 
