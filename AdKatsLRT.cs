@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.6
- * 21-DEC-2014
+ * Version 1.0.5.7
+ * 22-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.6</version_code>
+ * <version_code>1.0.5.7</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.6";
+        private const String PluginVersion = "1.0.5.7";
 
         public enum ConsoleMessageType {
             Normal,
@@ -68,6 +68,7 @@ namespace PRoConEvents {
         private Int32 _countFixed;
         private Int32 _countQuit;
         private readonly AdKatsServer _serverInfo;
+        private Boolean _displayLoadoutDebug = false;
 
         //Settings
         private Boolean _enableAdKatsIntegration;
@@ -269,6 +270,10 @@ namespace PRoConEvents {
         public List<CPluginVariable> GetPluginVariables() {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
+            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
+            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             foreach (var pair in _WARSAWInvalidLoadoutIDMessages) {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value));
             }
@@ -294,6 +299,10 @@ namespace PRoConEvents {
                     Int32 tmp;
                     if (int.TryParse(strValue, out tmp))
                     {
+                        if (tmp == 269) {
+                            _displayLoadoutDebug = true;
+                            return;
+                        }
                         if (tmp != _debugLevel)
                         {
                             _debugLevel = tmp;
@@ -2339,47 +2348,56 @@ namespace PRoConEvents {
                     var loadout = new AdKatsLoadout();
                     responseData = FetchPlayerLoadout(personaID);
                     if (responseData == null) {
-                        //ConsoleError("Loadout fetch failed, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Loadout fetch failed, unable to parse player loadout.");
                         return null;
                     }
                     if (!responseData.ContainsKey("data")) {
-                        //ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
                         return null;
                     }
                     var data = (Hashtable) responseData["data"];
                     if (data == null) {
-                        //ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
                         return null;
                     }
                     //Get parsed back persona ID
                     if (!data.ContainsKey("personaId")) {
-                        //ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.PersonaID = data["personaId"].ToString();
                     //Get persona name
                     if (!data.ContainsKey("personaName")) {
-                        //ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.Name = data["personaName"].ToString();
                     //Get weapons and their attachements
                     if (!data.ContainsKey("currentLoadout")) {
-                        //ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutHashtable = (Hashtable) data["currentLoadout"];
                     if (currentLoadoutHashtable == null) {
-                        //ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     if (!currentLoadoutHashtable.ContainsKey("weapons")) {
-                        //ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutWeapons = (Hashtable) currentLoadoutHashtable["weapons"];
                     if (currentLoadoutWeapons == null) {
-                        //ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     foreach (DictionaryEntry weaponEntry in currentLoadoutWeapons) {
@@ -2407,7 +2425,8 @@ namespace PRoConEvents {
                         }
                     }
                     if (!currentLoadoutHashtable.ContainsKey("selectedKit")) {
-                        //ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
                         return null;
                     }
                     String selectedKit = currentLoadoutHashtable["selectedKit"].ToString();
@@ -2432,11 +2451,13 @@ namespace PRoConEvents {
                             currentLoadoutList = (ArrayList) ((ArrayList) currentLoadoutHashtable["kits"])[3];
                             break;
                         default:
-                            //ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
                             return null;
                     }
                     if (currentLoadoutList.Count < 6) {
-                        //ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
+                        if (_displayLoadoutDebug)
+                            ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
                         return null;
                     }
                     //Pull the specifics
@@ -2478,15 +2499,18 @@ namespace PRoConEvents {
                             specificDefault = defaultReconPrimary;
                             break;
                         default:
-                            //ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
                             return null;
                     }
                     if (!loadout.LoadoutItems.TryGetValue(loadoutPrimaryID, out loadoutPrimary)) {
                         if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                            //ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific PRIMARY for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -2495,10 +2519,12 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "ASSAULTRIFLE" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Assault kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
-                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
@@ -2507,10 +2533,12 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "PDW" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Engineer kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
-                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
@@ -2519,10 +2547,12 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "LMG" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Support kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
-                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
@@ -2531,16 +2561,19 @@ namespace PRoConEvents {
                             if (loadoutPrimary.category != "SNIPER" && loadoutPrimary.category != "CARBINE" && loadoutPrimary.category != "SHOTGUN" && loadoutPrimary.category != "DMR") {
                                 WarsawItem originalItem = loadoutPrimary;
                                 if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary)) {
-                                    //ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleWarn("Specific PRIMARY " + originalItem.slug + " for " + loadout.Name + " was not valid for Recon kit. Defaulting to " + loadoutPrimary.slug + ".");
                                 }
                                 else {
-                                    ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                    if (_displayLoadoutDebug)
+                                        ConsoleError("No valid PRIMARY usable for " + loadout.Name + ". Unable to parse player loadout.");
                                     return null;
                                 }
                             }
                             break;
                         default:
-                            ConsoleError("Specific kit type not set while confirming primary weapon type. Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("Specific kit type not set while confirming primary weapon type. Unable to parse player loadout.");
                             return null;
                     }
                     loadout.KitItemPrimary = loadoutPrimary;
@@ -2549,20 +2582,24 @@ namespace PRoConEvents {
                     WarsawItem loadoutSidearm;
                     if (!loadout.LoadoutItems.TryGetValue(loadoutSidearmID, out loadoutSidearm)) {
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
-                            //ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific SIDEARM for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
                     if (loadoutSidearm.category != "SIDEARM") {
                         WarsawItem originalItem = loadoutSidearm;
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm)) {
-                            //ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("SIDEARM " + originalItem.slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid SIDEARM usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -2572,20 +2609,24 @@ namespace PRoConEvents {
                     WarsawItem loadoutGadget1;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget1ID, out loadoutGadget1)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
-                            //ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific GADGET1 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
                     if (loadoutGadget1.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget1;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1)) {
-                            //ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("GADGET1 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GADGET1 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -2595,20 +2636,24 @@ namespace PRoConEvents {
                     WarsawItem loadoutGadget2;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGadget2ID, out loadoutGadget2)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
-                            //ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific GADGET2 for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
                     if (loadoutGadget2.category != "GADGET") {
                         WarsawItem originalItem = loadoutGadget2;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2)) {
-                            //ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("GADGET2 " + originalItem.slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GADGET2 usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -2618,20 +2663,24 @@ namespace PRoConEvents {
                     WarsawItem loadoutGrenade;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutGrenadeID, out loadoutGrenade)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
-                            //ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific GRENADE for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
                     if (loadoutGrenade.category != "GRENADE") {
                         WarsawItem originalItem = loadoutGrenade;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade)) {
-                            //ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("GRENADE " + originalItem.slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid GRENADE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -2641,20 +2690,24 @@ namespace PRoConEvents {
                     WarsawItem loadoutKnife;
                     if (!_WARSAWLibrary.Items.TryGetValue(loadoutKnifeID, out loadoutKnife)) {
                         if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
-                            //ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("Specific KNIFE for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
                     if (loadoutKnife.category != "KNIFE") {
                         WarsawItem originalItem = loadoutKnife;
                         if (_WARSAWLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife)) {
-                            //ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
+                            if (_displayLoadoutDebug)
+                                ConsoleWarn("KNIFE " + originalItem.slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.slug + ".");
                         }
                         else {
-                            ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
+                            if (_displayLoadoutDebug)
+                                ConsoleError("No valid KNIFE usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
