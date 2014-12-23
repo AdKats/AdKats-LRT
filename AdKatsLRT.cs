@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.7
- * 22-DEC-2014
+ * Version 1.0.5.8
+ * 23-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.7</version_code>
+ * <version_code>1.0.5.8</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.7";
+        private const String PluginVersion = "1.0.5.8";
 
         public enum ConsoleMessageType {
             Normal,
@@ -300,6 +300,7 @@ namespace PRoConEvents {
                     if (int.TryParse(strValue, out tmp))
                     {
                         if (tmp == 269) {
+                            ConsoleSuccess("Extended Debug Mode Activated");
                             _displayLoadoutDebug = true;
                             return;
                         }
@@ -1137,23 +1138,39 @@ namespace PRoConEvents {
                     return;
                 }
                 if (!processObject.process_player.player_online || 
-                    String.IsNullOrEmpty(processObject.process_player.player_personaID) ||
-                    (processObject.process_source == "spawn" && ((!_spawnEnforcementActOnReputablePlayers && processObject.process_player.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && processObject.process_player.player_isAdmin))) ||
-                    (processObject.process_source == "listing" && ((!_spawnEnforcementActOnReputablePlayers && processObject.process_player.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && processObject.process_player.player_isAdmin))))
+                    String.IsNullOrEmpty(processObject.process_player.player_personaID))
                 {
+                    DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is not online, or has no persona ID.", 4);
                     return;
+                }
+                if (processObject.process_source == "spawn" || processObject.process_source == "listing") {
+                    //Reputable players
+                    if (processObject.process_player.player_reputation >= 15) {
+                        //Option for reputation deny
+                        if (!_spawnEnforcementActOnReputablePlayers) {
+                            DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is reputable.", 4);
+                            return;
+                        }
+                    }
+                    //Admins
+                    if (processObject.process_player.player_isAdmin) {
+                        //Option for admin deny
+                        if (!_spawnEnforcementActOnAdmins) {
+                            DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is admin.", 4);
+                            return;
+                        }
+                    }
                 }
                 lock (_LoadoutProcessingQueue)
                 {
                     if (_LoadoutProcessingQueue.Any(obj => obj != null && obj.process_player != null && obj.process_player.player_id == processObject.process_player.player_id))
                     {
-                        DebugWrite(processObject.process_player.player_name + " already in queue. Cancelling.", 4);
+                        DebugWrite(processObject.process_player.player_name + " queue cancelled. Player already in queue.", 4);
                         return;
                     }
                     Int32 oldCount = _LoadoutProcessingQueue.Count();
                     _LoadoutProcessingQueue.Enqueue(processObject);
-                    var processDelay = DateTime.UtcNow.Subtract(processObject.process_time);
-                    DebugWrite(processObject.process_player.player_name + " queued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s", 5);
+                    DebugWrite(processObject.process_player.player_name + " queued [" + oldCount + "->" + _LoadoutProcessingQueue.Count + "] after " + Math.Round(DateTime.UtcNow.Subtract(processObject.process_time).TotalSeconds, 2) + "s", 5);
                     _LoadoutProcessingWaitHandle.Set();
                 }
             }
@@ -1194,7 +1211,7 @@ namespace PRoConEvents {
                                     continue;
                                 }
                                 var processDelay = DateTime.UtcNow.Subtract(importObject.process_time);
-                                if (processDelay.TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
+                                if (DateTime.UtcNow.Subtract(processObject.process_time).TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
                                 {
                                     ConsoleWarn(importObject.process_player.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
                                 }
@@ -1496,6 +1513,7 @@ namespace PRoConEvents {
                                 DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
                             }
                             DebugWrite(_LoadoutProcessingQueue.Count + " players still in queue.", 3);
+                            DebugWrite(processObject.process_player.player_name + " processed after " + Math.Round(DateTime.UtcNow.Subtract(processObject.process_time).TotalSeconds, 2) + "s", 5);
                         }
                         else {
                             //Wait for input
