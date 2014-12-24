@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.5.9
- * 23-DEC-2014
+ * Version 1.0.6.0
+ * 24-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.5.9</version_code>
+ * <version_code>1.0.6.0</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.5.9";
+        private const String PluginVersion = "1.0.6.0";
 
         public enum ConsoleMessageType {
             Normal,
@@ -1218,7 +1218,7 @@ namespace PRoConEvents {
                                     continue;
                                 }
                                 var processDelay = DateTime.UtcNow.Subtract(importObject.process_time);
-                                if (DateTime.UtcNow.Subtract(processObject.process_time).TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
+                                if (DateTime.UtcNow.Subtract(importObject.process_time).TotalSeconds > 30 && _LoadoutProcessingQueue.Count < 3)
                                 {
                                     ConsoleWarn(importObject.process_player.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
                                 }
@@ -3114,7 +3114,7 @@ namespace PRoConEvents {
                     byte[] response = client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
                     if (_isTestingAuthorized)
                     {
-                        ConsoleSuccess("Version Tracking: " + adkatslrt_version_current + " " + adkatslrt_enabled + " " + adkatslrt_uptime + " " + updates_disabled);
+                        ConsoleSuccess("Version Tracking: '" + adkatslrt_version_current + "' - '" + adkatslrt_enabled + "' - '" + adkatslrt_uptime + "' - '" + updates_disabled);
                     }
                 }
             }
