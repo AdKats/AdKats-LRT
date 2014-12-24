@@ -58,6 +58,7 @@ namespace PRoConEvents {
         private HashSet<String> _AdminList = new HashSet<string>();
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private Boolean _firstPlayerListComplete;
+        private Boolean _isTestingAuthorized;
         private readonly Dictionary<String, AdKatsSubscribedPlayer> _PlayerLeftDictionary = new Dictionary<String, AdKatsSubscribedPlayer>();
         private readonly Queue<ProcessObject> _LoadoutProcessingQueue = new Queue<ProcessObject>();
         private readonly Queue<AdKatsSubscribedPlayer> _BattlelogFetchQueue = new Queue<AdKatsSubscribedPlayer>();
@@ -660,6 +661,12 @@ namespace PRoConEvents {
                             Boolean hadServerName = !String.IsNullOrEmpty(_serverInfo.ServerName);
                             _serverInfo.ServerName = serverInfo.ServerName;
                             Boolean haveServerName = !String.IsNullOrEmpty(_serverInfo.ServerName);
+                            Boolean wasADK = _isTestingAuthorized;
+                            _isTestingAuthorized = serverInfo.ServerName.Contains("=ADK=");
+                            if (!wasADK && _isTestingAuthorized)
+                            {
+                                ConsoleInfo("LRT is testing authorized.");
+                            }
                             if (haveServerName && !hadServerName)
                             {
                                 PostVersionTracking();
@@ -3087,19 +3094,28 @@ namespace PRoConEvents {
             {
                 return;
             }
-            try
-            {
+            try {
                 using (var client = new WebClient())
                 {
+                    String server_ip = _serverInfo.ServerIP;
+                    String server_name = _serverInfo.ServerName;
+                    String adkatslrt_version_current = PluginVersion;
+                    String adkatslrt_enabled = _pluginEnabled.ToString().ToLower();
+                    String adkatslrt_uptime = (_threadsReady) ? (Math.Round((DateTime.UtcNow - _StartTime).TotalSeconds).ToString()) : ("0");
+                    String updates_disabled = false.ToString().ToLower();
                     var data = new NameValueCollection {
-                        {"server_ip", _serverInfo.ServerIP},
-                        {"server_name", _serverInfo.ServerName},
-                        {"adkatslrt_version_current", PluginVersion},
-                        {"adkatslrt_enabled", _pluginEnabled.ToString().ToLower()},
-                        {"adkatslrt_uptime", (_threadsReady)?(Math.Round((DateTime.UtcNow - _StartTime).TotalSeconds).ToString()):("0")},
-                        {"updates_disabled", false.ToString().ToLower()}
+                        {"server_ip", server_ip},
+                        {"server_name", server_name},
+                        {"adkatslrt_version_current", adkatslrt_version_current},
+                        {"adkatslrt_enabled", adkatslrt_enabled},
+                        {"adkatslrt_uptime", adkatslrt_uptime},
+                        {"updates_disabled", updates_disabled}
                     };
                     byte[] response = client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
+                    if (_isTestingAuthorized)
+                    {
+                        ConsoleSuccess("Version Tracking: " + adkatslrt_version_current + " " + adkatslrt_enabled + " " + adkatslrt_uptime + " " + updates_disabled);
+                    }
                 }
             }
             catch (Exception e) {
