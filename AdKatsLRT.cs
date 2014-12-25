@@ -1,5 +1,5 @@
 /* 
- * AdKatsLRT - Loadout Restriction Tool extention for AdKats.
+ * AdKatsLRT - On-Spawn Loadout Enforcer
  * 
  * AdKats and respective extensions are inspired by the gaming community A Different Kind (ADK). 
  * Visit http://www.ADKGamers.com/ for more information.
