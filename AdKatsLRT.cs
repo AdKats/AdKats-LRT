@@ -6,6 +6,7 @@
  *
  * The AdKats Frostbite Plugin is open source, and under public domain, but certain extensions are not. 
  * The AdKatsLRT extension is not open for free distribution, copyright Daniel J. Gradinjan, with all rights reserved.
+ * Version usage of this plugin is tracked by gamerethos.net
  * 
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
