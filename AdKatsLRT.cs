@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.0
- * 24-DEC-2014
+ * Version 1.0.6.2
+ * 25-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.0</version_code>
+ * <version_code>1.0.6.2</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.0";
+        private const String PluginVersion = "1.0.6.2";
 
         public enum ConsoleMessageType {
             Normal,
@@ -504,7 +504,7 @@ namespace PRoConEvents {
                                 return;
                             }
                             //Fetch all weapon names
-                            if (LoadWarsawLibrary()) {
+                            if (_WARSAWLibraryLoaded || LoadWarsawLibrary()) {
                                 if (!_pluginEnabled)
                                 {
                                     LogThreadExit();
@@ -582,14 +582,17 @@ namespace PRoConEvents {
                         _pluginEnabled = false;
                         _threadsReady = false;
 
-                        //Unsubscribe from online soldiers through AdKats
-                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                            {"caller_identity", "AdKatsLRT"},
-                            {"response_requested", false},
-                            {"subscription_group", "OnlineSoldiers"},
-                            {"subscription_method", "ReceiveOnlineSoldiers"},
-                            {"subscription_enabled", false}
-                        }));
+                        if (_enableAdKatsIntegration)
+                        {
+                            //Unsubscribe from online soldiers through AdKats
+                            ExecuteCommand("procon.protected.plugins.call", "AdKats", "SubscribeAsClient", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                {"caller_identity", "AdKatsLRT"},
+                                {"response_requested", false},
+                                {"subscription_group", "OnlineSoldiers"},
+                                {"subscription_method", "ReceiveOnlineSoldiers"},
+                                {"subscription_enabled", false}
+                            }));
+                        }
 
                         //Open all handles. Threads will finish on their own.
                         OpenAllHandles();
@@ -710,7 +713,7 @@ namespace PRoConEvents {
                                     }
                                     else if (_enableAdKatsIntegration)
                                     {
-                                        ConsoleSuccess("AdKats was disabled. AdKatsLRT has integration enabled, and must shut down if that plugin shuts down.");
+                                        ConsoleError("AdKats was disabled. AdKatsLRT has integration enabled, and must shut down if that plugin shuts down.");
                                         Disable();
                                     }
                                 }
@@ -1150,24 +1153,6 @@ namespace PRoConEvents {
                     DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is not online, or has no persona ID.", 4);
                     return;
                 }
-                if (processObject.process_source == "spawn" || processObject.process_source == "listing") {
-                    //Reputable players
-                    if (processObject.process_player.player_reputation >= 15) {
-                        //Option for reputation deny
-                        if (!_spawnEnforcementActOnReputablePlayers) {
-                            DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is reputable.", 4);
-                            return;
-                        }
-                    }
-                    //Admins
-                    if (processObject.process_player.player_isAdmin) {
-                        //Option for admin deny
-                        if (!_spawnEnforcementActOnAdmins) {
-                            DebugWrite(processObject.process_player.player_name + " queue cancelled. Player is admin.", 4);
-                            return;
-                        }
-                    }
-                }
                 lock (_LoadoutProcessingQueue)
                 {
                     if (_LoadoutProcessingQueue.Any(obj => obj != null && obj.process_player != null && obj.process_player.player_id == processObject.process_player.player_id))
@@ -1261,18 +1246,10 @@ namespace PRoConEvents {
                             else if (processObject.process_source == "spawn")
                             {
                                 reason = "[spawn] ";
-                                if ((!_spawnEnforcementActOnReputablePlayers && aPlayer.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && aPlayer.player_isAdmin))
-                                {
-                                    continue;
-                                }
                             }
                             else if (processObject.process_source == "listing")
                             {
                                 reason = "[join] ";
-                                if ((!_spawnEnforcementActOnReputablePlayers && aPlayer.player_reputation >= 15) || (!_spawnEnforcementActOnAdmins && aPlayer.player_isAdmin))
-                                {
-                                    continue;
-                                }
                             }
                             else
                             {
@@ -1360,6 +1337,29 @@ namespace PRoConEvents {
                                 }
                             }
 
+                            if (loadoutValid && !spawnLoadoutValid) {
+                                //Reputable players
+                                if (processObject.process_player.player_reputation >= 15)
+                                {
+                                    //Option for reputation deny
+                                    if (!_spawnEnforcementActOnReputablePlayers)
+                                    {
+                                        DebugWrite(processObject.process_player.player_name + " spawn enforcement cancelled. Player is reputable.", 4);
+                                        continue;
+                                    }
+                                }
+                                //Admins
+                                if (processObject.process_player.player_isAdmin)
+                                {
+                                    //Option for admin deny
+                                    if (!_spawnEnforcementActOnAdmins)
+                                    {
+                                        DebugWrite(processObject.process_player.player_name + " spawn enforcement cancelled. Player is admin.", 4);
+                                        continue;
+                                    }
+                                }
+                            }
+
                             aPlayer.player_loadoutEnforced = true;
                             if (!loadoutValid)
                             {
@@ -1435,7 +1435,7 @@ namespace PRoConEvents {
                                     if (killOverride || !adminsOnline) {
                                         //Manual trigger or no admins online, enforce all denied weapons
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " killed for denied items [" + deniedWeapons + "].");
-                                        PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
+                                        PlayerSayMessage(reason + aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
                                         foreach (String specificMessage in specificMessages) {
                                             PlayerTellMessage(loadout.Name, specificMessage);
                                         }
@@ -1447,7 +1447,7 @@ namespace PRoConEvents {
                                         }
                                         else
                                         {
-                                            PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                            PlayerSayMessage(reason + aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                             foreach (String specificMessage in spawnSpecificMessages)
                                             {
                                                 PlayerTellMessage(loadout.Name, specificMessage);
@@ -1457,7 +1457,7 @@ namespace PRoConEvents {
                                 }
                                 else {
                                     //Loadout enforcement was not triggered, enforce spawn denied weapons only
-                                    PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                    PlayerSayMessage(aPlayer.player_name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                     foreach (String specificMessage in spawnSpecificMessages)
                                     {
                                         PlayerTellMessage(loadout.Name, specificMessage);
