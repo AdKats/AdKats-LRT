@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.2
+ * Version 1.0.6.3
  * 25-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.2</version_code>
+ * <version_code>1.0.6.3</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.2";
+        private const String PluginVersion = "1.0.6.3";
 
         public enum ConsoleMessageType {
             Normal,
@@ -1337,7 +1337,7 @@ namespace PRoConEvents {
                                 }
                             }
 
-                            if (loadoutValid && !spawnLoadoutValid) {
+                            if (!trigger && !spawnLoadoutValid) {
                                 //Reputable players
                                 if (processObject.process_player.player_reputation >= 15)
                                 {
@@ -1435,7 +1435,7 @@ namespace PRoConEvents {
                                     if (killOverride || !adminsOnline) {
                                         //Manual trigger or no admins online, enforce all denied weapons
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " killed for denied items [" + deniedWeapons + "].");
-                                        PlayerSayMessage(reason + aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
+                                        PlayerSayMessage(aPlayer.player_name, reason + aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
                                         foreach (String specificMessage in specificMessages) {
                                             PlayerTellMessage(loadout.Name, specificMessage);
                                         }
@@ -1447,7 +1447,7 @@ namespace PRoConEvents {
                                         }
                                         else
                                         {
-                                            PlayerSayMessage(reason + aPlayer.player_name, aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                            PlayerSayMessage(aPlayer.player_name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                             foreach (String specificMessage in spawnSpecificMessages)
                                             {
                                                 PlayerTellMessage(loadout.Name, specificMessage);
