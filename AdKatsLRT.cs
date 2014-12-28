@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.4
+ * Version 1.0.6.5
  * 28-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.4</version_code>
+ * <version_code>1.0.6.5</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.4";
+        private const String PluginVersion = "1.0.6.5";
 
         public enum ConsoleMessageType
         {
@@ -196,7 +196,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("2. Weapons - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -218,7 +218,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("3. Gadgets - " + weapon.categoryType + "|ALWT" + weapon.warsawID + separator + weapon.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -245,7 +245,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
+                            lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.category + "|ALWT" + weaponAccessory.warsawID + separator + weaponAccessory.slug + separator + "Allow on spawn?", "enum.roleAllowCommandEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.warsawID) ? ("Deny") : ("Allow")));
                         }
                     }
                 }
@@ -1025,18 +1025,25 @@ namespace PRoConEvents
                         if (!_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer))
                         {
                             //Not online. Are they returning?
-                            if (!_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer))
+                            if (_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer))
+                            {
+                                //They are returning, move their player object
+                                DebugWrite(aPlayer.player_name + " is returning.", 6);
+                                dPlayer.player_online = true;
+                                _PlayerDictionary[aPlayer.player_name] = dPlayer;
+                                _PlayerLeftDictionary.Remove(aPlayer.player_guid);
+                            }
+                            else
                             {
                                 //Not online or returning. New player.
+                                DebugWrite(aPlayer.player_name + " is newly joining.", 6);
                                 newPlayer = true;
                             }
                         }
                         if (newPlayer)
                         {
                             _PlayerDictionary[aPlayer.player_name] = aPlayer;
-                            _PlayerLeftDictionary.Remove(aPlayer.player_guid);
-                            dPlayer = aPlayer;
-                            QueuePlayerForBattlelogInfoFetch(dPlayer);
+                            QueuePlayerForBattlelogInfoFetch(aPlayer);
                         }
                         else
                         {
@@ -1054,14 +1061,18 @@ namespace PRoConEvents
                             dPlayer.player_squad = aPlayer.player_squad;
                             dPlayer.player_team = aPlayer.player_team;
                         }
+                        DebugWrite(aPlayer.player_name + " online after listing: " + _PlayerDictionary.ContainsKey(aPlayer.player_name), 7);
                     }
                     foreach (string playerName in _PlayerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
-                        if (_PlayerDictionary.TryGetValue(playerName, out aPlayer))
-                        {
+                        if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
+                            DebugWrite(aPlayer.player_name + " removed from player list.", 6);
                             _PlayerDictionary.Remove(aPlayer.player_name);
                             _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
+                        }
+                        else {
+                            ConsoleError("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
                 }
@@ -1083,7 +1094,7 @@ namespace PRoConEvents
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
                 {
                     AdKatsSubscribedPlayer aPlayer;
-                    if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer) && aPlayer.player_online)
+                    if (_PlayerDictionary.TryGetValue(soldierName, out aPlayer))
                     {
                         aPlayer.player_spawnedOnce = true;
                         //Reject spawn processing if player has no persona ID
@@ -1093,56 +1104,44 @@ namespace PRoConEvents
                             {
                                 QueuePlayerForBattlelogInfoFetch(aPlayer);
                             }
-                            DebugWrite(aPlayer.player_name + " does not have a Persona ID yet.", 3);
+                            DebugWrite("Spawn process for " + aPlayer.player_name + " cancelled because their Persona ID is not loaded yet.", 3);
                             return;
                         }
-                        if (_WARSAWSpawnDeniedIDs.Any() ||
-                            (aPlayer.player_reported && aPlayer.player_reputation < 0) ||
-                            aPlayer.player_punished ||
-                            aPlayer.player_marked ||
-                            (aPlayer.player_infractionPoints >= _triggerEnforcementMinimumInfractionPoints && aPlayer.player_lastPunishment.TotalDays < 60))
+                        //Create process object
+                        var processObject = new ProcessObject()
                         {
-                            //Create process object
-                            var processObject = new ProcessObject()
-                            {
-                                process_player = aPlayer,
-                                process_source = "spawn",
-                                process_time = spawnTime
-                            };
-                            //Minimum wait time of 5 seconds
-                            if (_LoadoutProcessingQueue.Count >= 6)
-                            {
-                                QueueForProcessing(processObject);
+                            process_player = aPlayer,
+                            process_source = "spawn",
+                            process_time = spawnTime
+                        };
+                        //Minimum wait time of 5 seconds
+                        if (_LoadoutProcessingQueue.Count >= 6)
+                        {
+                            QueueForProcessing(processObject);
+                        }
+                        else
+                        {
+                            var waitTime = TimeSpan.FromSeconds(5 - _LoadoutProcessingQueue.Count);
+                            if (waitTime.TotalSeconds <= 0.1) {
+                                waitTime = TimeSpan.FromSeconds(5);
                             }
-                            else
+                            DebugWrite("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
+                            //Start a delay thread
+                            StartAndLogThread(new Thread(new ThreadStart(delegate
                             {
-                                var waitTime = TimeSpan.FromSeconds(5 - _LoadoutProcessingQueue.Count);
-                                if (waitTime.TotalSeconds > 0)
+                                Thread.CurrentThread.Name = "LoadoutCheckDelay";
+                                try
                                 {
-                                    DebugWrite("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
+                                    Thread.Sleep(waitTime);
+                                    QueueForProcessing(processObject);
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    return;
+                                    HandleException(new AdKatsException("Error running loadout check delay thread.", e));
                                 }
-                                //Start a delay thread
-                                StartAndLogThread(new Thread(new ThreadStart(delegate
-                                {
-                                    Thread.CurrentThread.Name = "LoadoutCheckDelay";
-                                    Thread.Sleep(100);
-                                    try
-                                    {
-                                        Thread.Sleep(waitTime);
-                                        QueueForProcessing(processObject);
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        HandleException(new AdKatsException("Error running loadout check delay thread.", e));
-                                    }
-                                    Thread.Sleep(100);
-                                    LogThreadExit();
-                                })));
-                            }
+                                Thread.Sleep(100);
+                                LogThreadExit();
+                            })));
                         }
                     }
                 }
@@ -1319,6 +1318,10 @@ namespace PRoConEvents
                                 if (importObject.process_player == null)
                                 {
                                     ConsoleError("Process player was null when entering player processing loop.");
+                                    continue;
+                                }
+                                if (!importObject.process_player.player_online)
+                                {
                                     continue;
                                 }
                                 var processDelay = DateTime.UtcNow.Subtract(importObject.process_time);
@@ -1932,14 +1935,18 @@ namespace PRoConEvents
                         if (!_PlayerDictionary.TryGetValue(aPlayer.player_name, out dPlayer))
                         {
                             //Not online. Are they returning?
-                            if (_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer)) {
+                            if (_PlayerLeftDictionary.TryGetValue(aPlayer.player_guid, out dPlayer))
+                            {
                                 //They are returning, move their player object
-                                _PlayerDictionary[dPlayer.player_name] = dPlayer;
+                                DebugWrite(aPlayer.player_name + " is returning.", 6);
+                                dPlayer.player_online = true;
+                                _PlayerDictionary[aPlayer.player_name] = dPlayer;
                                 _PlayerLeftDictionary.Remove(dPlayer.player_guid);
                             }
                             else
                             {
                                 //Not online or returning. New player.
+                                DebugWrite(aPlayer.player_name + " is newly joining.", 6);
                                 newPlayer = true;
                             }
                         }
@@ -1989,14 +1996,20 @@ namespace PRoConEvents
                                 process_time = DateTime.UtcNow
                             });
                         }
+                        DebugWrite(aPlayer.player_name + " online after listing: " + _PlayerDictionary.ContainsKey(aPlayer.player_name), 7);
                     }
                     foreach (string playerName in _PlayerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_PlayerDictionary.TryGetValue(playerName, out aPlayer))
                         {
-                            _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
+                            DebugWrite(aPlayer.player_name + " removed from player list.", 6);
                             _PlayerDictionary.Remove(aPlayer.player_name);
+                            _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
+                        }
+                        else
+                        {
+                            ConsoleError("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
                 }
