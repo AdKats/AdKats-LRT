@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.5
+ * Version 1.0.6.6
  * 28-DEC-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.5</version_code>
+ * <version_code>1.0.6.6</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.5";
+        private const String PluginVersion = "1.0.6.6";
 
         public enum ConsoleMessageType
         {
@@ -378,6 +378,10 @@ namespace PRoConEvents
                         {
                             _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
                         }
+                        if (_triggerEnforcementMinimumInfractionPoints < 1) {
+                            ConsoleError("Minimum infraction points for trigger level enforcement cannot be less than 1, use spawn enforcement instead.");
+                            _triggerEnforcementMinimumInfractionPoints = 1;
+                        }
                     }
                 }
                 else if (strVariable.StartsWith("ALWT"))
@@ -487,7 +491,7 @@ namespace PRoConEvents
                 //If the finalizer is still alive, inform the user and disable
                 if (_Finalizer != null && _Finalizer.IsAlive)
                 {
-                    ConsoleError("Cannot enable plugin while it is shutting down. Please Wait for it to shut down.");
+                    ConsoleError("Cannot enable the plugin while it is shutting down. Please Wait for it to shut down.");
                     _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
                     //Disable the plugin
                     Disable();
@@ -844,6 +848,7 @@ namespace PRoConEvents
             _threadMasterWaitHandle.Set();
             _LoadoutProcessingWaitHandle.Set();
             _PlayerProcessingWaitHandle.Set();
+            _BattlelogCommWaitHandle.Set();
         }
 
         public void InitThreads()
@@ -1570,12 +1575,8 @@ namespace PRoConEvents
                                     }
                                     else
                                     {
-                                        //Not manual trigger and admins online
-                                        if (spawnLoadoutValid)
-                                        {
-                                            //OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " has denied items [" + deniedWeapons + "].");
-                                        }
-                                        else
+                                        //Not manual trigger and admins online, enforce spawn denied weapons only
+                                        if (!spawnLoadoutValid)
                                         {
                                             PlayerSayMessage(aPlayer.player_name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                             foreach (String specificMessage in spawnSpecificMessages)
@@ -1661,7 +1662,7 @@ namespace PRoConEvents
                         {
                             //Wait for input
                             _LoadoutProcessingWaitHandle.Reset();
-                            _LoadoutProcessingWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
+                            _LoadoutProcessingWaitHandle.WaitOne(TimeSpan.FromSeconds(30));
                             loopStart = DateTime.UtcNow;
                         }
                     }
@@ -1758,7 +1759,7 @@ namespace PRoConEvents
                         {
                             //Wait for new actions
                             _BattlelogCommWaitHandle.Reset();
-                            _BattlelogCommWaitHandle.WaitOne(TimeSpan.FromSeconds(5));
+                            _BattlelogCommWaitHandle.WaitOne(TimeSpan.FromSeconds(30));
                             loopStart = DateTime.UtcNow;
                         }
                     }
