@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.8
- * 14-JAN-2014
+ * Version 1.0.6.9
+ * 15-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.8</version_code>
+ * <version_code>1.0.6.9</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.8";
+        private const String PluginVersion = "1.0.6.9";
 
         public enum ConsoleMessageType
         {
@@ -1203,7 +1203,8 @@ namespace PRoConEvents
                         {
                             process_player = aPlayer,
                             process_source = loadoutCheckReason,
-                            process_time = DateTime.UtcNow
+                            process_time = DateTime.UtcNow,
+                            process_manual = true
                         });
                     }
                     else
@@ -1657,7 +1658,7 @@ namespace PRoConEvents
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " fixed their loadout.");
                                     }
                                 }
-                                else if (killOverride) {
+                                else if (processObject.process_manual) {
                                     OnlineAdminSayMessage(aPlayer.GetVerboseName() + "'s has no banned items.");
                                 }
                             }
@@ -3710,6 +3711,7 @@ namespace PRoConEvents
         public class ProcessObject
         {
             public String process_source;
+            public Boolean process_manual;
             public DateTime process_time;
             public AdKatsSubscribedPlayer process_player;
         }
