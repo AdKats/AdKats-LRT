@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.7
+ * Version 1.0.6.8
  * 14-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.7</version_code>
+ * <version_code>1.0.6.8</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.7";
+        private const String PluginVersion = "1.0.6.8";
 
         public enum ConsoleMessageType
         {
@@ -1449,6 +1449,7 @@ namespace PRoConEvents
                             }
 
                             //Decide whether to kill the player
+                            Boolean acted = false;
                             Boolean killPlayer = false;
                             Boolean adminsOnline = AdminsOnline();
                             if (!spawnLoadoutValid || killOverride || (!adminsOnline && trigger))
@@ -1620,8 +1621,9 @@ namespace PRoConEvents
                                         PlayerTellMessage(loadout.Name, specificMessage);
                                     }
                                 }
-                                if (killPlayer)
+                                if (killPlayer) 
                                 {
+                                    acted = true;
                                     aPlayer.player_loadoutKilled = true;
                                     DebugWrite(loadout.Name + " KILLED for invalid loadout.", 1);
                                     if (aPlayer.player_spawnedOnce)
@@ -1672,7 +1674,7 @@ namespace PRoConEvents
                                         {"loadout_player", loadout.Name},
                                         {"loadout_valid", loadoutValid},
                                         {"loadout_spawnValid", spawnLoadoutValid},
-                                        {"loadout_acted", killPlayer},
+                                        {"loadout_acted", acted},
                                         {"loadout_items", loadoutShortMessage},
                                         {"loadout_deniedItems", deniedWeapons}
                                     }));
