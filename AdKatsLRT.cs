@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 1.0.6.6
- * 28-DEC-2014
+ * Version 1.0.6.7
+ * 14-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>1.0.6.6</version_code>
+ * <version_code>1.0.6.7</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "1.0.6.6";
+        private const String PluginVersion = "1.0.6.7";
 
         public enum ConsoleMessageType
         {
@@ -508,7 +508,7 @@ namespace PRoConEvents
                 {
                     try
                     {
-                        Thread.CurrentThread.Name = "enabler";
+                        Thread.CurrentThread.Name = "Enabler";
 
                         _pluginEnabled = true;
 
@@ -626,7 +626,7 @@ namespace PRoConEvents
                 {
                     try
                     {
-                        Thread.CurrentThread.Name = "finalizer";
+                        Thread.CurrentThread.Name = "Finalizer";
                         ConsoleInfo("Shutting down AdKatsLRT.");
                         //Disable settings
                         _pluginEnabled = false;
@@ -901,14 +901,14 @@ namespace PRoConEvents
 
         private void Enable()
         {
-            if (Thread.CurrentThread.Name == "finalizer")
+            if (Thread.CurrentThread.Name == "Finalizer")
             {
                 var pluginRebootThread = new Thread(new ThreadStart(delegate
                 {
                     DebugWrite("Starting a reboot thread.", 5);
                     try
                     {
-                        Thread.CurrentThread.Name = "RebootThread";
+                        Thread.CurrentThread.Name = "Reboot";
                         Thread.Sleep(1000);
                         //Call Enable
                         ExecuteCommand("procon.protected.plugins.enable", "AdKatsLRT", "True");
@@ -1399,6 +1399,7 @@ namespace PRoConEvents
                             String grenadeMessage = "[" + loadout.KitGrenade.slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.slug + "]";
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
+                            String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.slug + "] sidearm [" + loadout.KitItemSidearm.slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             DebugWrite(loadoutMessage, 4);
 
                             HashSet<String> specificMessages = new HashSet<String>();
@@ -1417,24 +1418,6 @@ namespace PRoConEvents
                                             specificMessages.Add(warsawDeniedIDMessage.Value);
                                         }
                                     }
-                                }
-
-                                if (_enableAdKatsIntegration)
-                                {
-                                    //Inform AdKats of the loadout
-                                    StartAndLogThread(new Thread(new ThreadStart(delegate
-                                    {
-                                        Thread.CurrentThread.Name = "AdKatsInformThread";
-                                        Thread.Sleep(100);
-                                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                            {"caller_identity", "AdKatsLRT"},
-                                            {"response_requested", false},
-                                            {"loadout_player", loadout.Name},
-                                            {"loadout_valid", loadoutValid}
-                                        }));
-                                        Thread.Sleep(100);
-                                        LogThreadExit();
-                                    })));
                                 }
 
                                 foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
@@ -1465,6 +1448,14 @@ namespace PRoConEvents
                                 }
                             }
 
+                            //Decide whether to kill the player
+                            Boolean killPlayer = false;
+                            Boolean adminsOnline = AdminsOnline();
+                            if (!spawnLoadoutValid || killOverride || (!adminsOnline && trigger))
+                            {
+                                killPlayer = true;
+                            }
+
                             if (!trigger && !spawnLoadoutValid)
                             {
                                 //Reputable players
@@ -1474,6 +1465,27 @@ namespace PRoConEvents
                                     if (!_spawnEnforcementActOnReputablePlayers)
                                     {
                                         DebugWrite(processObject.process_player.player_name + " spawn enforcement cancelled. Player is reputable.", 4);
+                                        if (_enableAdKatsIntegration)
+                                        {
+                                            //Inform AdKats of the loadout
+                                            StartAndLogThread(new Thread(new ThreadStart(delegate
+                                            {
+                                                Thread.CurrentThread.Name = "AdKatsInform";
+                                                Thread.Sleep(100);
+                                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                                    {"caller_identity", "AdKatsLRT"},
+                                                    {"response_requested", false},
+                                                    {"loadout_player", loadout.Name},
+                                                    {"loadout_valid", loadoutValid},
+                                                    {"loadout_spawnValid", spawnLoadoutValid},
+                                                    {"loadout_acted", false},
+                                                    {"loadout_items", loadoutShortMessage},
+                                                    {"loadout_deniedItems", ""}
+                                                }));
+                                                Thread.Sleep(100);
+                                                LogThreadExit();
+                                            })));
+                                        }
                                         continue;
                                     }
                                 }
@@ -1484,16 +1496,37 @@ namespace PRoConEvents
                                     if (!_spawnEnforcementActOnAdmins)
                                     {
                                         DebugWrite(processObject.process_player.player_name + " spawn enforcement cancelled. Player is admin.", 4);
+                                        if (_enableAdKatsIntegration)
+                                        {
+                                            //Inform AdKats of the loadout
+                                            StartAndLogThread(new Thread(new ThreadStart(delegate
+                                            {
+                                                Thread.CurrentThread.Name = "AdKatsInform";
+                                                Thread.Sleep(100);
+                                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                                    {"caller_identity", "AdKatsLRT"},
+                                                    {"response_requested", false},
+                                                    {"loadout_player", loadout.Name},
+                                                    {"loadout_valid", loadoutValid},
+                                                    {"loadout_spawnValid", spawnLoadoutValid},
+                                                    {"loadout_acted", false},
+                                                    {"loadout_items", loadoutShortMessage},
+                                                    {"loadout_deniedItems", ""}
+                                                }));
+                                                Thread.Sleep(100);
+                                                LogThreadExit();
+                                            })));
+                                        }
                                         continue;
                                     }
                                 }
                             }
 
                             aPlayer.player_loadoutEnforced = true;
+                            String deniedWeapons = String.Empty;
+                            String spawnDeniedWeapons = String.Empty;
                             if (!loadoutValid)
                             {
-                                String deniedWeapons = String.Empty;
-                                String spawnDeniedWeapons = String.Empty;
                                 //Fill the denied messages
                                 if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.warsawID))
                                 {
@@ -1551,14 +1584,6 @@ namespace PRoConEvents
                                 //Trim the messages
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
                                 spawnDeniedWeapons = spawnDeniedWeapons.Trim().TrimEnd(',');
-
-                                //Decide whether to kill the player
-                                Boolean killPlayer = false;
-                                Boolean adminsOnline = AdminsOnline();
-                                if (!spawnLoadoutValid || killOverride || (!adminsOnline && trigger))
-                                {
-                                    killPlayer = true;
-                                }
 
                                 if (trigger)
                                 {
@@ -1624,14 +1649,36 @@ namespace PRoConEvents
                             }
                             else
                             {
-                                if (!aPlayer.player_loadoutValid)
-                                {
+                                if (!aPlayer.player_loadoutValid) {
                                     PlayerSayMessage(aPlayer.player_name, aPlayer.GetVerboseName() + " thank you for fixing your loadout.");
-                                    if (killOverride)
-                                    {
+                                    if (killOverride) {
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " fixed their loadout.");
                                     }
                                 }
+                                else if (killOverride) {
+                                    OnlineAdminSayMessage(aPlayer.GetVerboseName() + "'s has no banned items.");
+                                }
+                            }
+                            if (_enableAdKatsIntegration)
+                            {
+                                //Inform AdKats of the loadout
+                                StartAndLogThread(new Thread(new ThreadStart(delegate
+                                {
+                                    Thread.CurrentThread.Name = "AdKatsInform";
+                                    Thread.Sleep(100);
+                                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                        {"caller_identity", "AdKatsLRT"},
+                                        {"response_requested", false},
+                                        {"loadout_player", loadout.Name},
+                                        {"loadout_valid", loadoutValid},
+                                        {"loadout_spawnValid", spawnLoadoutValid},
+                                        {"loadout_acted", killPlayer},
+                                        {"loadout_items", loadoutShortMessage},
+                                        {"loadout_deniedItems", deniedWeapons}
+                                    }));
+                                    Thread.Sleep(100);
+                                    LogThreadExit();
+                                })));
                             }
                             aPlayer.player_loadoutValid = loadoutValid;
                             Int32 totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
@@ -1639,10 +1686,9 @@ namespace PRoConEvents
                             Int32 countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
                             Int32 countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
                             Int32 countQuit = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
-                            Boolean displayStats = (_countEnforced != countEnforced) ||
-                                                (_countKilled != countKilled) ||
-                                                (_countFixed != countFixed) ||
-                                                (_countQuit != countQuit);
+                            Boolean displayStats = (_countKilled != countKilled) ||
+                                                   (_countFixed != countFixed) ||
+                                                   (_countQuit != countQuit);
                             _countEnforced = countEnforced;
                             _countKilled = countKilled;
                             _countFixed = countFixed;
@@ -3435,7 +3481,7 @@ namespace PRoConEvents
         {
             if (_debugLevel >= level)
             {
-                ConsoleWrite(msg, ConsoleMessageType.Normal);
+                ConsoleWrite(level + ":(" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("main") : (Thread.CurrentThread.Name)) + ":" + Thread.CurrentThread.ManagedThreadId + ") " + msg, ConsoleMessageType.Normal);
             }
         }
 
