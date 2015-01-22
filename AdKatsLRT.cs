@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.0.0
+ * Version 2.0.0.1
  * 22-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.0.0</version_code>
+ * <version_code>2.0.0.1</version_code>
  */
 
 using System;
@@ -38,7 +38,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.0.0";
+        private const String PluginVersion = "2.0.0.1";
 
         public enum ConsoleMessageType
         {
@@ -4254,9 +4254,6 @@ namespace PRoConEvents
                     if (!loadout.AllKitItemIDs.Contains(loadoutKnife.WarsawID))
                     {
                         loadout.AllKitItemIDs.Add(loadoutKnife.WarsawID);
-                    }
-                    foreach (WarsawItem item in loadout.LoadoutItems.Values.Where(item => !loadout.AllKitItemIDs.Contains(item.WarsawID))) {
-                        loadout.AllKitItemIDs.Add(item.WarsawID);
                     }
                     return loadout;
                 }
