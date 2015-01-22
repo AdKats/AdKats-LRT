@@ -2764,7 +2764,7 @@ namespace PRoConEvents
 
                     ConsoleInfo("WARSAW library downloaded. Parsing.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     library.Items.Clear();
                     foreach (DictionaryEntry entry in compactWeapons)
@@ -2950,7 +2950,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW items parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     library.ItemAccessories.Clear();
                     foreach (DictionaryEntry entry in compactWeaponAccessory)
@@ -3026,7 +3026,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW accessories parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     library.Vehicles.Clear();
                     foreach (DictionaryEntry entry in compactVehicles) 
@@ -3116,7 +3116,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW vehicles parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     library.VehicleUnlocks.Clear();
                     foreach (DictionaryEntry entry in compactVehicleUnlocks)
@@ -3190,7 +3190,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW vehicle unlocks parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     //Fill allowed accessories for each weapon
                     foreach (DictionaryEntry entry in loadoutWeapons)
@@ -3285,7 +3285,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW allowed weapon accessories parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     //Fill allowed items for each class
                     foreach (Hashtable entry in loadoutKits)
@@ -3402,7 +3402,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW allowed kit weapons parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     //Fill allowed items for each vehicle
                     foreach (Hashtable entry in loadoutVehicles)
@@ -3553,7 +3553,7 @@ namespace PRoConEvents
                     }
                     ConsoleInfo("WARSAW allowed vehicle unlocks parsed.");
                     //Pause for effect, nothing else
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
 
                     _WARSAWLibrary = library;
                     _WARSAWLibraryLoaded = true;
