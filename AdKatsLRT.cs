@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.0.1
- * 22-JAN-2014
+ * Version 2.0.0.2
+ * 23-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.0.1</version_code>
+ * <version_code>2.0.0.2</version_code>
  */
 
 using System;
@@ -38,7 +38,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.0.1";
+        private const String PluginVersion = "2.0.0.2";
 
         public enum ConsoleMessageType
         {
@@ -3724,11 +3724,7 @@ namespace PRoConEvents
                     }
 
                     //Parse vehicles
-                    for (Int32 index = 0; index < 8; index++) {
-                        if (index >= currentLoadoutVehicles.Count) {
-                            ConsoleError("Player loadout did not contain proper vehicles, unable to parse player loadout.");
-                            return null;
-                        }
+                    for (Int32 index = 0; index < currentLoadoutVehicles.Count; index++) {
                         WarsawVehicle libraryVehicle;
                         switch (index)
                         {
