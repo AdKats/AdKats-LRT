@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.0.2
- * 23-JAN-2014
+ * Version 2.0.1.0
+ * 26-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.0.2</version_code>
+ * <version_code>2.0.1.0</version_code>
  */
 
 using System;
@@ -26,7 +26,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Security.Policy;
 using System.Text.RegularExpressions;
 using System.Threading;
 using PRoCon.Core;
@@ -38,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.0.2";
+        private const String PluginVersion = "2.0.1.0";
 
         public enum ConsoleMessageType
         {
@@ -56,6 +55,19 @@ namespace PRoConEvents
             BF4
         };
 
+        //Constants
+        private const String SettingsInstancePrefix = "0. Instance Settings|";
+        private const String SettingsDisplayPrefix = "1. Display Settings|";
+        private const String SettingsPresetPrefix = "2. Preset Settings|";
+        private const String SettingsMapModePrefix = "3. Map/Mode Settings";
+        private const String SettingsWeaponPrefix = "4. Weapons - ";
+        private const String SettingsAccessoryPrefix = "5. Weapon Accessories - ";
+        private const String SettingsGadgetPrefix = "6. Gadgets - ";
+        private const String SettingsVehiclePrefix = "7. Vehicle Weapons/Unlocks";
+        private const String SettingsDeniedItemMessagePrefix = "8A. Denied Item Kill Messages|";
+        private const String SettingsDeniedItemAccMessagePrefix = "8B. Denied Item Accessory Kill Messages|";
+        private const String SettingsDeniedVehicleItemMessagePrefix = "8C. Denied Vehicle Item Kill Messages|";
+        
         //State
         private GameVersion _gameVersion = GameVersion.BF3;
         private volatile Boolean _pluginEnabled;
@@ -71,7 +83,6 @@ namespace PRoConEvents
         private readonly Dictionary<String, String> _WARSAWInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly Dictionary<String, String> _WARSAWInvalidVehicleLoadoutIDMessages = new Dictionary<String, String>(); 
         private readonly HashSet<String> _WARSAWSpawnDeniedIDs = new HashSet<String>();
-        private Int32 _countEnforced;
         private Int32 _countKilled;
         private Int32 _countFixed;
         private Int32 _countQuit;
@@ -87,10 +98,16 @@ namespace PRoConEvents
 
         //Display
         private Boolean _displayPresets;
+        private Boolean _displayMapsModes;
         private Boolean _displayWeapons;
         private Boolean _displayWeaponAccessories;
         private Boolean _displayGadgets;
         private Boolean _displayVehicles;
+
+        //Maps Modes
+        private Boolean _restrictSpecificMapModes;
+        private List<MapMode> _availableMapModes = new List<MapMode>();
+        private readonly Dictionary<String, MapMode> _restrictedMapModes = new Dictionary<String, MapMode>(); 
 
         //Presets
         private Boolean _presetDenyFragRounds;
@@ -147,6 +164,9 @@ namespace PRoConEvents
             //Create the server reference
             _serverInfo = new AdKatsServer(this);
 
+            //Populate maps/modes
+            PopulateMapModes();
+
             //Set defaults for webclient
             ServicePointManager.Expect100Continue = false;
 
@@ -157,7 +177,7 @@ namespace PRoConEvents
             //Debug level is 0 by default
             _debugLevel = 0;
 
-            //Prepare the keep-alive
+            //Prepare the status monitor
             SetupStatusMonitor();
         }
 
@@ -193,33 +213,45 @@ namespace PRoConEvents
             {
                 const string separator = " | ";
 
-                lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
                 if (_enableAdKatsIntegration)
                 {
-                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
-                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
-                    lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
-                lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
                 if (!_WARSAWLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
                     return lstReturn;
                 }
-                
-                lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Preset Settings", typeof(Boolean), _displayPresets));
-                lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
-                lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
-                lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
-                lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
+
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Preset Settings", typeof(Boolean), _displayPresets));
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
+                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
 
                 if (_displayPresets)
                 {
-                    lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Presets Coming Soon", typeof(String), "Presets Coming Soon"));
-                    //lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
-                    //lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
-                    //lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
-                    //lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
+                    lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Presets Coming Soon", typeof(String), "Presets Coming Soon"));
+                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
+                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
+                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
+                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
+                }
+
+                if (_displayMapsModes)
+                {
+                    lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + separator.Trim() + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
+                    if (_restrictSpecificMapModes)
+                    {
+                        foreach (MapMode mapMode in _availableMapModes.OrderBy(mm => mm.ModeName).ThenBy(mm => mm.MapName))
+                        {
+                            lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + " - " + mapMode.ModeName + separator.Trim() + "RMM" + mapMode.MapModeID.ToString().PadLeft(3, '0') + separator + mapMode.MapName + separator + "Enforce?", "enum.EnforceMapEnum(Enforce|Ignore)", _restrictedMapModes.ContainsKey(mapMode.ModeKey + "|" + mapMode.MapKey) ? ("Enforce") : ("Ignore")));
+                        }
+                    }
                 }
 
                 //Run removals
@@ -233,15 +265,15 @@ namespace PRoConEvents
                         {
                             if (_enableAdKatsIntegration)
                             {
-                                lstReturn.Add(new CPluginVariable("3. Weapons - " + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable("3. Weapons - " + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable("3. Weapons - " + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
@@ -254,15 +286,15 @@ namespace PRoConEvents
                         {
                             if (_enableAdKatsIntegration)
                             {
-                                lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.CategoryReadable + "|ALWS" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWS" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable("4. Weapon Accessories - " + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
@@ -279,27 +311,27 @@ namespace PRoConEvents
                             }
                             if (_enableAdKatsIntegration)
                             {
-                                lstReturn.Add(new CPluginVariable("5. Gadgets - " + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_WARSAWInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable("5. Gadgets - " + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable("5. Gadgets - " + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
                 }
                 if (_displayVehicles)
                 {
-                    String vehiclePrefix = "6. Vehicle Weapons/Unlocks";
+                    lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
                     if (_WARSAWLibrary.Vehicles.Any())
                     {
                         foreach (var vehicle in _WARSAWLibrary.Vehicles.Values.OrderBy(vec => vec.CategoryType))
                         {
-                            String currentPrefix = vehiclePrefix + " - " + vehicle.CategoryType + "|";
+                            String currentPrefix = SettingsVehiclePrefix + " - " + vehicle.CategoryType + "|";
                             foreach (var unlock in vehicle.AllowedPrimaries.Values)
                             {
                                 lstReturn.Add(new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles)?("spawn"):("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _WARSAWInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow")));
@@ -340,7 +372,7 @@ namespace PRoConEvents
                     WarsawItem deniedItem;
                     if (_WARSAWLibrary.Items.TryGetValue(pair.Key, out deniedItem))
                     {
-                        lstReturn.Add(new CPluginVariable("7A. Denied Item Kill Messages|MSG" + deniedItem.WarsawID + separator + deniedItem.Slug + separator + "Kill Message", typeof(String), pair.Value));
+                        lstReturn.Add(new CPluginVariable(SettingsDeniedItemMessagePrefix + "MSG" + deniedItem.WarsawID + separator + deniedItem.Slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
                 foreach (var pair in _WARSAWInvalidLoadoutIDMessages.Where(denied => _WARSAWLibrary.ItemAccessories.ContainsKey(denied.Key)))
@@ -348,7 +380,7 @@ namespace PRoConEvents
                     WarsawItemAccessory deniedItemAccessory;
                     if (_WARSAWLibrary.ItemAccessories.TryGetValue(pair.Key, out deniedItemAccessory))
                     {
-                        lstReturn.Add(new CPluginVariable("7B. Denied Item Accessory Kill Messages|MSG" + deniedItemAccessory.WarsawID + separator + deniedItemAccessory.Slug + separator + "Kill Message", typeof(String), pair.Value));
+                        lstReturn.Add(new CPluginVariable(SettingsDeniedItemAccMessagePrefix + "MSG" + deniedItemAccessory.WarsawID + separator + deniedItemAccessory.Slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
                 foreach (var pair in _WARSAWInvalidVehicleLoadoutIDMessages.Where(denied => _WARSAWLibrary.VehicleUnlocks.ContainsKey(denied.Key)))
@@ -356,7 +388,7 @@ namespace PRoConEvents
                     WarsawItem deniedVehicleUnlock;
                     if (_WARSAWLibrary.VehicleUnlocks.TryGetValue(pair.Key, out deniedVehicleUnlock))
                     {
-                        lstReturn.Add(new CPluginVariable("7C. Denied Vehicle Item Kill Messages|VMSG" + deniedVehicleUnlock.WarsawID + separator + deniedVehicleUnlock.Slug + separator + "Kill Message", typeof(String), pair.Value));
+                        lstReturn.Add(new CPluginVariable(SettingsDeniedVehicleItemMessagePrefix + "VMSG" + deniedVehicleUnlock.WarsawID + separator + deniedVehicleUnlock.Slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
                 lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
@@ -372,20 +404,22 @@ namespace PRoConEvents
         {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
-            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
-            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
-            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
-            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
-            lstReturn.Add(new CPluginVariable("0. Instance Settings" + separator + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
-            lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Preset Settings", typeof(Boolean), _displayPresets));
-            lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
-            lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
-            lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
-            lstReturn.Add(new CPluginVariable("1. Display Settings" + separator + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
-            lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
-            lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
-            lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
-            lstReturn.Add(new CPluginVariable("2. Preset Settings" + separator + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Preset Settings", typeof(Boolean), _displayPresets));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
+            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
+            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
+            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
+            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
+            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
+            lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
+            lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
             foreach (var pair in _WARSAWInvalidLoadoutIDMessages)
             {
                 lstReturn.Add(new CPluginVariable("MSG" + pair.Key, typeof(String), pair.Value));
@@ -398,6 +432,10 @@ namespace PRoConEvents
             foreach (var deniedSpawnID in _WARSAWSpawnDeniedIDs)
             {
                 lstReturn.Add(new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny"));
+            }
+            foreach (var restrictedMapMode in _restrictedMapModes.Values)
+            {
+                lstReturn.Add(new CPluginVariable("RMM" + restrictedMapMode.MapModeID, typeof(String), "Enforce"));
             }
             lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
             return lstReturn;
@@ -461,7 +499,25 @@ namespace PRoConEvents
                     if (displayPresets != _displayPresets)
                     {
                         _displayPresets = displayPresets;
-                        if (_displayPresets) {
+                        if (_displayPresets)
+                        {
+                            _displayMapsModes = false;
+                            _displayWeapons = false;
+                            _displayWeaponAccessories = false;
+                            _displayGadgets = false;
+                            _displayVehicles = false;
+                        }
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Display Map/Mode Settings").Success)
+                {
+                    Boolean displayMapsModes = Boolean.Parse(strValue);
+                    if (displayMapsModes != _displayMapsModes)
+                    {
+                        _displayMapsModes = displayMapsModes;
+                        if (_displayMapsModes)
+                        {
+                            _displayPresets = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
@@ -478,6 +534,7 @@ namespace PRoConEvents
                         if (_displayWeapons)
                         {
                             _displayPresets = false;
+                            _displayMapsModes = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
                             _displayVehicles = false;
@@ -493,6 +550,7 @@ namespace PRoConEvents
                         if (_displayWeaponAccessories)
                         {
                             _displayPresets = false;
+                            _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayGadgets = false;
                             _displayVehicles = false;
@@ -508,6 +566,7 @@ namespace PRoConEvents
                         if (_displayGadgets)
                         {
                             _displayPresets = false;
+                            _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
                             _displayVehicles = false;
@@ -523,6 +582,7 @@ namespace PRoConEvents
                         if (_displayVehicles)
                         {
                             _displayPresets = false;
+                            _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
@@ -583,6 +643,14 @@ namespace PRoConEvents
                     if (spawnEnforceAllVehicles != _spawnEnforceAllVehicles)
                     {
                         _spawnEnforceAllVehicles = spawnEnforceAllVehicles;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Enforce on Specific Maps/Modes Only").Success)
+                {
+                    Boolean restrictSpecificMapModes = Boolean.Parse(strValue);
+                    if (restrictSpecificMapModes != _restrictSpecificMapModes)
+                    {
+                        _restrictSpecificMapModes = restrictSpecificMapModes;
                     }
                 }
                 else if (Regex.Match(strVariable, @"Trigger Enforce Minimum Infraction Points").Success)
@@ -689,6 +757,43 @@ namespace PRoConEvents
                             break;
                         default:
                             ConsoleError("Unknown setting when assigning WARSAW allowance.");
+                            return;
+                    }
+                }
+                else if (strVariable.StartsWith("RMM"))
+                {
+                    //Trim off all but the warsaw ID
+                    //ALWS3495820391
+                    String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
+                    Int32 mapModeID = Int32.Parse(commandSplit[0].TrimStart("RMM".ToCharArray()).Trim());
+                    MapMode mapMode = _availableMapModes.FirstOrDefault(mm => mm.MapModeID == mapModeID);
+                    if (mapMode == null) {
+                        ConsoleError("Invalid map/mode ID when parsing map enforce settings.");
+                        return;
+                    }
+                    //Fetch needed role
+                    switch (strValue.ToLower())
+                    {
+                        case "enforce":
+                            //parse deny
+                            if (!_restrictedMapModes.ContainsKey(mapMode.ModeKey + "|" + mapMode.MapKey))
+                            {
+                                _restrictedMapModes[mapMode.ModeKey + "|" + mapMode.MapKey] = mapMode;
+                                if (_WARSAWLibraryLoaded)
+                                {
+                                    ConsoleInfo("Enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
+                                }
+                            }
+                            break;
+                        case "ignore":
+                            //parse allow
+                            if (_restrictedMapModes.Remove(mapMode.ModeKey + "|" + mapMode.MapKey) && _WARSAWLibraryLoaded)
+                            {
+                                ConsoleInfo("No longer enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
+                            }
+                            break;
+                        default:
+                            ConsoleError("Unknown setting when parsing map enforce settings.");
                             return;
                     }
                 }
@@ -951,7 +1056,6 @@ namespace PRoConEvents
                         _PlayerLeftDictionary.Clear();
                         _LoadoutProcessingQueue.Clear();
                         _firstPlayerListComplete = false;
-                        _countEnforced = 0;
                         _countFixed = 0;
                         _countKilled = 0;
                         _countQuit = 0;
@@ -1738,84 +1842,90 @@ namespace PRoConEvents
                             Boolean loadoutValid = true;
                             Boolean spawnLoadoutValid = true;
                             Boolean vehicleLoadoutValid = true;
-                            if (trigger)
-                            {
-                                foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages)
-                                {
-                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
-                                    {
-                                        loadoutValid = false;
-                                        if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
-                                        {
-                                            specificMessages.Add(warsawDeniedIDMessage.Value);
-                                        }
-                                    }
-                                }
 
-                                foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
+                            if (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map))
+                            {
+                                if (trigger)
                                 {
-                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                    foreach (var warsawDeniedIDMessage in _WARSAWInvalidLoadoutIDMessages)
                                     {
-                                        spawnLoadoutValid = false;
-                                        if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                         {
-                                            spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
+                                            loadoutValid = false;
+                                            if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
+                                            {
+                                                specificMessages.Add(warsawDeniedIDMessage.Value);
+                                            }
                                         }
                                     }
-                                }
-                            }
-                            else
-                            {
-                                foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
-                                {
-                                    if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+
+                                    foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
                                     {
-                                        loadoutValid = false;
-                                        spawnLoadoutValid = false;
-                                        if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                         {
-                                            spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
-                                        }
-                                    }
-                                }
-                            }
-                            foreach (var warsawDeniedIDMessage in _WARSAWInvalidVehicleLoadoutIDMessages)
-                            {
-                                if (_spawnEnforceAllVehicles)
-                                {
-                                    if (loadout.VehicleItems.ContainsKey(warsawDeniedIDMessage.Key))
-                                    {
-                                        loadoutValid = false;
-                                        vehicleLoadoutValid = false;
-                                        if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
-                                        {
-                                            vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
+                                            spawnLoadoutValid = false;
+                                            if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                            {
+                                                spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
+                                            }
                                         }
                                     }
                                 }
                                 else
                                 {
-                                    //Wow this needs optimization...
-                                    foreach (String category in aPlayer.WatchedVehicles) {
-                                        WarsawVehicle vehicle;
-                                        if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle)) {
-                                            ConsoleError("Could not fetch used vehicle " + category + " from player loadout, skipping.");
-                                            continue;
+                                    foreach (var warsawDeniedID in _WARSAWSpawnDeniedIDs)
+                                    {
+                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                        {
+                                            loadoutValid = false;
+                                            spawnLoadoutValid = false;
+                                            if (!spawnSpecificMessages.Contains(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]))
+                                            {
+                                                spawnSpecificMessages.Add(_WARSAWInvalidLoadoutIDMessages[warsawDeniedID]);
+                                            }
                                         }
-                                        if ((vehicle.AssignedPrimary != null && vehicle.AssignedPrimary.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedSecondary != null && vehicle.AssignedSecondary.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedOptic != null && vehicle.AssignedOptic.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedCountermeasure != null && vehicle.AssignedCountermeasure.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedUpgrade != null && vehicle.AssignedUpgrade.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedSecondaryGunner != null && vehicle.AssignedSecondaryGunner.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == warsawDeniedIDMessage.Key) ||
-                                            (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == warsawDeniedIDMessage.Key))
+                                    }
+                                }
+                                foreach (var warsawDeniedIDMessage in _WARSAWInvalidVehicleLoadoutIDMessages)
+                                {
+                                    if (_spawnEnforceAllVehicles)
+                                    {
+                                        if (loadout.VehicleItems.ContainsKey(warsawDeniedIDMessage.Key))
                                         {
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
                                             if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                             {
                                                 vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        //Wow this needs optimization...
+                                        foreach (String category in aPlayer.WatchedVehicles)
+                                        {
+                                            WarsawVehicle vehicle;
+                                            if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle))
+                                            {
+                                                ConsoleError("Could not fetch used vehicle " + category + " from player loadout, skipping.");
+                                                continue;
+                                            }
+                                            if ((vehicle.AssignedPrimary != null && vehicle.AssignedPrimary.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedSecondary != null && vehicle.AssignedSecondary.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedOptic != null && vehicle.AssignedOptic.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedCountermeasure != null && vehicle.AssignedCountermeasure.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedUpgrade != null && vehicle.AssignedUpgrade.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedSecondaryGunner != null && vehicle.AssignedSecondaryGunner.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == warsawDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == warsawDeniedIDMessage.Key))
+                                            {
+                                                loadoutValid = false;
+                                                vehicleLoadoutValid = false;
+                                                if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
+                                                {
+                                                    vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
+                                                }
                                             }
                                         }
                                     }
@@ -2084,7 +2194,6 @@ namespace PRoConEvents
                             Boolean displayStats = (_countKilled != countKilled) ||
                                                    (_countFixed != countFixed) ||
                                                    (_countQuit != countQuit);
-                            _countEnforced = countEnforced;
                             _countKilled = countKilled;
                             _countFixed = countFixed;
                             _countQuit = countQuit;
@@ -4862,6 +4971,293 @@ namespace PRoConEvents
             {
                 return ((String.IsNullOrEmpty(player_clanTag)) ? ("") : ("[" + player_clanTag + "]")) + player_name;
             }
+        }
+
+        public class MapMode {
+            public Int32 MapModeID;
+            public String ModeKey;
+            public String MapKey;
+            public String ModeName;
+            public String MapName;
+
+            public MapMode(Int32 mapModeID, String modeKey, String mapKey, String modeName, String mapName) {
+                MapModeID = mapModeID;
+                ModeKey = modeKey;
+                MapKey = mapKey;
+                ModeName = modeName;
+                MapName = mapName;
+            }
+        }
+
+        public void PopulateMapModes() {
+            _availableMapModes = new List<MapMode>(); 
+            _availableMapModes.Add(new MapMode(1, "ConquestLarge0", "MP_Abandoned", "Conquest Large", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(2, "ConquestLarge0", "MP_Damage", "Conquest Large", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(3, "ConquestLarge0", "MP_Flooded", "Conquest Large", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(4, "ConquestLarge0", "MP_Journey", "Conquest Large", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(5, "ConquestLarge0", "MP_Naval", "Conquest Large", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(6, "ConquestLarge0", "MP_Prison", "Conquest Large", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(7, "ConquestLarge0", "MP_Resort", "Conquest Large", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(8, "ConquestLarge0", "MP_Siege", "Conquest Large", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(9, "ConquestLarge0", "MP_TheDish", "Conquest Large", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(10, "ConquestLarge0", "MP_Tremors", "Conquest Large", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(11, "ConquestSmall0", "MP_Abandoned", "Conquest Small", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(12, "ConquestSmall0", "MP_Damage", "Conquest Small", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(13, "ConquestSmall0", "MP_Flooded", "Conquest Small", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(14, "ConquestSmall0", "MP_Journey", "Conquest Small", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(15, "ConquestSmall0", "MP_Naval", "Conquest Small", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(16, "ConquestSmall0", "MP_Prison", "Conquest Small", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(17, "ConquestSmall0", "MP_Resort", "Conquest Small", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(18, "ConquestSmall0", "MP_Siege", "Conquest Small", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(19, "ConquestSmall0", "MP_TheDish", "Conquest Small", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(20, "ConquestSmall0", "MP_Tremors", "Conquest Small", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(21, "Domination0", "MP_Abandoned", "Domination", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(22, "Domination0", "MP_Damage", "Domination", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(23, "Domination0", "MP_Flooded", "Domination", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(24, "Domination0", "MP_Journey", "Domination", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(25, "Domination0", "MP_Naval", "Domination", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(26, "Domination0", "MP_Prison", "Domination", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(27, "Domination0", "MP_Resort", "Domination", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(28, "Domination0", "MP_Siege", "Domination", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(29, "Domination0", "MP_TheDish", "Domination", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(30, "Domination0", "MP_Tremors", "Domination", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(31, "Elimination0", "MP_Abandoned", "Defuse", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(32, "Elimination0", "MP_Damage", "Defuse", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(33, "Elimination0", "MP_Flooded", "Defuse", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(34, "Elimination0", "MP_Journey", "Defuse", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(35, "Elimination0", "MP_Naval", "Defuse", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(36, "Elimination0", "MP_Prison", "Defuse", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(37, "Elimination0", "MP_Resort", "Defuse", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(38, "Elimination0", "MP_Siege", "Defuse", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(39, "Elimination0", "MP_TheDish", "Defuse", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(40, "Obliteration", "MP_Abandoned", "Obliteration", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(41, "Obliteration", "MP_Damage", "Obliteration", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(42, "Obliteration", "MP_Flooded", "Obliteration", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(43, "Obliteration", "MP_Journey", "Obliteration", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(44, "Obliteration", "MP_Naval", "Obliteration", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(45, "Obliteration", "MP_Prison", "Obliteration", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(46, "Obliteration", "MP_Resort", "Obliteration", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(47, "Obliteration", "MP_Siege", "Obliteration", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(48, "Obliteration", "MP_TheDish", "Obliteration", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(49, "Obliteration", "MP_Tremors", "Obliteration", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(50, "RushLarge0", "MP_Abandoned", "Rush", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(51, "RushLarge0", "MP_Damage", "Rush", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(52, "RushLarge0", "MP_Flooded", "Rush", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(53, "RushLarge0", "MP_Journey", "Rush", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(54, "RushLarge0", "MP_Naval", "Rush", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(55, "RushLarge0", "MP_Prison", "Rush", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(56, "RushLarge0", "MP_Resort", "Rush", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(57, "RushLarge0", "MP_Siege", "Rush", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(58, "RushLarge0", "MP_TheDish", "Rush", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(59, "RushLarge0", "MP_Tremors", "Rush", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(60, "SquadDeathMatch0", "MP_Abandoned", "Squad Deathmatch", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(61, "SquadDeathMatch0", "MP_Damage", "Squad Deathmatch", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(62, "SquadDeathMatch0", "MP_Flooded", "Squad Deathmatch", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(63, "SquadDeathMatch0", "MP_Journey", "Squad Deathmatch", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(64, "SquadDeathMatch0", "MP_Naval", "Squad Deathmatch", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(65, "SquadDeathMatch0", "MP_Prison", "Squad Deathmatch", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(66, "SquadDeathMatch0", "MP_Resort", "Squad Deathmatch", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(67, "SquadDeathMatch0", "MP_Siege", "Squad Deathmatch", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(68, "SquadDeathMatch0", "MP_TheDish", "Squad Deathmatch", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(69, "SquadDeathMatch0", "MP_Tremors", "Squad Deathmatch", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(70, "TeamDeathMatch0", "MP_Abandoned", "Team Deathmatch", "Zavod 311"));
+            _availableMapModes.Add(new MapMode(71, "TeamDeathMatch0", "MP_Damage", "Team Deathmatch", "Lancang Dam"));
+            _availableMapModes.Add(new MapMode(72, "TeamDeathMatch0", "MP_Flooded", "Team Deathmatch", "Flood Zone"));
+            _availableMapModes.Add(new MapMode(73, "TeamDeathMatch0", "MP_Journey", "Team Deathmatch", "Golmud Railway"));
+            _availableMapModes.Add(new MapMode(74, "TeamDeathMatch0", "MP_Naval", "Team Deathmatch", "Paracel Storm"));
+            _availableMapModes.Add(new MapMode(75, "TeamDeathMatch0", "MP_Prison", "Team Deathmatch", "Operation Locker"));
+            _availableMapModes.Add(new MapMode(76, "TeamDeathMatch0", "MP_Resort", "Team Deathmatch", "Hainan Resort"));
+            _availableMapModes.Add(new MapMode(77, "TeamDeathMatch0", "MP_Siege", "Team Deathmatch", "Siege of Shanghai"));
+            _availableMapModes.Add(new MapMode(78, "TeamDeathMatch0", "MP_TheDish", "Team Deathmatch", "Rogue Transmission"));
+            _availableMapModes.Add(new MapMode(79, "TeamDeathMatch0", "MP_Tremors", "Team Deathmatch", "Dawnbreaker"));
+            _availableMapModes.Add(new MapMode(80, "ConquestLarge0", "XP1_001", "Conquest Large", "Silk Road"));
+            _availableMapModes.Add(new MapMode(81, "ConquestLarge0", "XP1_002", "Conquest Large", "Altai Range"));
+            _availableMapModes.Add(new MapMode(82, "ConquestLarge0", "XP1_003", "Conquest Large", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(83, "ConquestLarge0", "XP1_004", "Conquest Large", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(84, "ConquestSmall0", "XP1_001", "Conquest Small", "Silk Road"));
+            _availableMapModes.Add(new MapMode(85, "ConquestSmall0", "XP1_002", "Conquest Small", "Altai Range"));
+            _availableMapModes.Add(new MapMode(86, "ConquestSmall0", "XP1_003", "Conquest Small", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(87, "ConquestSmall0", "XP1_004", "Conquest Small", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(88, "Domination0", "XP1_001", "Domination", "Silk Road"));
+            _availableMapModes.Add(new MapMode(89, "Domination0", "XP1_002", "Domination", "Altai Range"));
+            _availableMapModes.Add(new MapMode(90, "Domination0", "XP1_003", "Domination", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(91, "Domination0", "XP1_004", "Domination", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(92, "Elimination0", "XP1_001", "Defuse", "Silk Road"));
+            _availableMapModes.Add(new MapMode(93, "Elimination0", "XP1_002", "Defuse", "Altai Range"));
+            _availableMapModes.Add(new MapMode(94, "Elimination0", "XP1_003", "Defuse", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(95, "Elimination0", "XP1_004", "Defuse", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(96, "Obliteration", "XP1_001", "Obliteration", "Silk Road"));
+            _availableMapModes.Add(new MapMode(97, "Obliteration", "XP1_002", "Obliteration", "Altai Range"));
+            _availableMapModes.Add(new MapMode(98, "Obliteration", "XP1_003", "Obliteration", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(99, "Obliteration", "XP1_004", "Obliteration", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(100, "RushLarge0", "XP1_001", "Rush", "Silk Road"));
+            _availableMapModes.Add(new MapMode(101, "RushLarge0", "XP1_002", "Rush", "Altai Range"));
+            _availableMapModes.Add(new MapMode(102, "RushLarge0", "XP1_003", "Rush", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(103, "RushLarge0", "XP1_004", "Rush", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(104, "SquadDeathMatch0", "XP1_001", "Squad Deathmatch", "Silk Road"));
+            _availableMapModes.Add(new MapMode(105, "SquadDeathMatch0", "XP1_002", "Squad Deathmatch", "Altai Range"));
+            _availableMapModes.Add(new MapMode(106, "SquadDeathMatch0", "XP1_003", "Squad Deathmatch", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(107, "SquadDeathMatch0", "XP1_004", "Squad Deathmatch", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(108, "TeamDeathMatch0", "XP1_001", "Team Deathmatch", "Silk Road"));
+            _availableMapModes.Add(new MapMode(109, "TeamDeathMatch0", "XP1_002", "Team Deathmatch", "Altai Range"));
+            _availableMapModes.Add(new MapMode(110, "TeamDeathMatch0", "XP1_003", "Team Deathmatch", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(111, "TeamDeathMatch0", "XP1_004", "Team Deathmatch", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(112, "AirSuperiority0", "XP1_001", "Air Superiority", "Silk Road"));
+            _availableMapModes.Add(new MapMode(113, "AirSuperiority0", "XP1_002", "Air Superiority", "Altai Range"));
+            _availableMapModes.Add(new MapMode(114, "AirSuperiority0", "XP1_003", "Air Superiority", "Guilin Peaks"));
+            _availableMapModes.Add(new MapMode(115, "AirSuperiority0", "XP1_004", "Air Superiority", "Dragon Pass"));
+            _availableMapModes.Add(new MapMode(116, "ConquestLarge0", "XP0_Caspian", "Conquest Large", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(117, "ConquestLarge0", "XP0_Firestorm", "Conquest Large", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(118, "ConquestLarge0", "XP0_Metro", "Conquest Large", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(119, "ConquestLarge0", "XP0_Oman", "Conquest Large", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(120, "ConquestSmall0", "XP0_Caspian", "Conquest Small", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(121, "ConquestSmall0", "XP0_Firestorm", "Conquest Small", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(122, "ConquestSmall0", "XP0_Metro", "Conquest Small", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(123, "ConquestSmall0", "XP0_Oman", "Conquest Small", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(124, "Domination0", "XP0_Caspian", "Domination", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(125, "Domination0", "XP0_Firestorm", "Domination", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(126, "Domination0", "XP0_Metro", "Domination", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(127, "Domination0", "XP0_Oman", "Domination", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(128, "Elimination0", "XP0_Caspian", "Defuse", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(129, "Elimination0", "XP0_Firestorm", "Defuse", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(130, "Elimination0", "XP0_Metro", "Defuse", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(131, "Elimination0", "XP0_Oman", "Defuse", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(132, "Obliteration", "XP0_Caspian", "Obliteration", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(133, "Obliteration", "XP0_Firestorm", "Obliteration", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(134, "Obliteration", "XP0_Metro", "Obliteration", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(135, "Obliteration", "XP0_Oman", "Obliteration", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(136, "RushLarge0", "XP0_Caspian", "Rush", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(137, "RushLarge0", "XP0_Firestorm", "Rush", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(138, "RushLarge0", "XP0_Metro", "Rush", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(139, "RushLarge0", "XP0_Oman", "Rush", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(140, "SquadDeathMatch0", "XP0_Caspian", "Squad Deathmatch", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(141, "SquadDeathMatch0", "XP0_Firestorm", "Squad Deathmatch", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(142, "SquadDeathMatch0", "XP0_Metro", "Squad Deathmatch", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(143, "SquadDeathMatch0", "XP0_Oman", "Squad Deathmatch", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(144, "TeamDeathMatch0", "XP0_Caspian", "Team Deathmatch", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(145, "TeamDeathMatch0", "XP0_Firestorm", "Team Deathmatch", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(146, "TeamDeathMatch0", "XP0_Metro", "Team Deathmatch", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(147, "TeamDeathMatch0", "XP0_Oman", "Team Deathmatch", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(148, "CaptureTheFlag0", "XP0_Caspian", "CTF", "Caspian Border 2014"));
+            _availableMapModes.Add(new MapMode(149, "CaptureTheFlag0", "XP0_Firestorm", "CTF", "Operation Firestorm 2014"));
+            _availableMapModes.Add(new MapMode(150, "CaptureTheFlag0", "XP0_Metro", "CTF", "Operation Metro 2014"));
+            _availableMapModes.Add(new MapMode(151, "CaptureTheFlag0", "XP0_Oman", "CTF", "Gulf of Oman 2014"));
+            _availableMapModes.Add(new MapMode(152, "ConquestLarge0", "XP2_001", "Conquest Large", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(153, "ConquestLarge0", "XP2_002", "Conquest Large", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(154, "ConquestLarge0", "XP2_003", "Conquest Large", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(155, "ConquestLarge0", "XP2_004", "Conquest Large", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(156, "ConquestSmall0", "XP2_001", "Conquest Small", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(157, "ConquestSmall0", "XP2_002", "Conquest Small", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(158, "ConquestSmall0", "XP2_003", "Conquest Small", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(159, "ConquestSmall0", "XP2_004", "Conquest Small", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(160, "Domination0", "XP2_001", "Domination", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(161, "Domination0", "XP2_002", "Domination", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(162, "Domination0", "XP2_003", "Domination", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(163, "Domination0", "XP2_004", "Domination", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(164, "Elimination0", "XP2_001", "Defuse", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(165, "Elimination0", "XP2_002", "Defuse", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(166, "Elimination0", "XP2_003", "Defuse", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(167, "Elimination0", "XP2_004", "Defuse", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(168, "Obliteration", "XP2_001", "Obliteration", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(169, "Obliteration", "XP2_002", "Obliteration", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(170, "Obliteration", "XP2_003", "Obliteration", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(171, "Obliteration", "XP2_004", "Obliteration", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(172, "RushLarge0", "XP2_001", "Rush", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(173, "RushLarge0", "XP2_002", "Rush", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(174, "RushLarge0", "XP2_003", "Rush", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(175, "RushLarge0", "XP2_004", "Rush", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(176, "SquadDeathMatch0", "XP2_001", "Squad Deathmatch", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(177, "SquadDeathMatch0", "XP2_002", "Squad Deathmatch", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(178, "SquadDeathMatch0", "XP2_003", "Squad Deathmatch", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(179, "SquadDeathMatch0", "XP2_004", "Squad Deathmatch", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(180, "TeamDeathMatch0", "XP2_001", "Team Deathmatch", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(181, "TeamDeathMatch0", "XP2_002", "Team Deathmatch", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(182, "TeamDeathMatch0", "XP2_003", "Team Deathmatch", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(183, "TeamDeathMatch0", "XP2_004", "Team Deathmatch", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(184, "CarrierAssaultLarge0", "XP2_001", "Carrier Assault Large", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(185, "CarrierAssaultLarge0", "XP2_002", "Carrier Assault Large", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(186, "CarrierAssaultLarge0", "XP2_003", "Carrier Assault Large", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(187, "CarrierAssaultLarge0", "XP2_004", "Carrier Assault Large", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(188, "CarrierAssaultSmall0", "XP2_001", "Carrier Assault Small", "Lost Islands"));
+            _availableMapModes.Add(new MapMode(189, "CarrierAssaultSmall0", "XP2_002", "Carrier Assault Small", "Nansha Strike"));
+            _availableMapModes.Add(new MapMode(190, "CarrierAssaultSmall0", "XP2_003", "Carrier Assault Small", "Wavebreaker"));
+            _availableMapModes.Add(new MapMode(191, "CarrierAssaultSmall0", "XP2_004", "Carrier Assault Small", "Operation Mortar"));
+            _availableMapModes.Add(new MapMode(192, "ConquestLarge0", "XP3_MarketPl", "Conquest Large", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(193, "ConquestLarge0", "XP3_Prpganda", "Conquest Large", "Propaganda"));
+            _availableMapModes.Add(new MapMode(194, "ConquestLarge0", "XP3_UrbanGdn", "Conquest Large", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(195, "ConquestLarge0", "XP3_WtrFront", "Conquest Large", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(196, "ConquestSmall0", "XP3_MarketPl", "Conquest Small", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(197, "ConquestSmall0", "XP3_Prpganda", "Conquest Small", "Propaganda"));
+            _availableMapModes.Add(new MapMode(198, "ConquestSmall0", "XP3_UrbanGdn", "Conquest Small", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(199, "ConquestSmall0", "XP3_WtrFront", "Conquest Small", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(200, "Domination0", "XP3_MarketPl", "Domination", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(201, "Domination0", "XP3_Prpganda", "Domination", "Propaganda"));
+            _availableMapModes.Add(new MapMode(202, "Domination0", "XP3_UrbanGdn", "Domination", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(203, "Domination0", "XP3_WtrFront", "Domination", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(204, "Elimination0", "XP3_MarketPl", "Defuse", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(205, "Elimination0", "XP3_Prpganda", "Defuse", "Propaganda"));
+            _availableMapModes.Add(new MapMode(206, "Elimination0", "XP3_UrbanGdn", "Defuse", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(207, "Elimination0", "XP3_WtrFront", "Defuse", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(208, "Obliteration", "XP3_MarketPl", "Obliteration", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(209, "Obliteration", "XP3_Prpganda", "Obliteration", "Propaganda"));
+            _availableMapModes.Add(new MapMode(210, "Obliteration", "XP3_UrbanGdn", "Obliteration", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(211, "Obliteration", "XP3_WtrFront", "Obliteration", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(212, "RushLarge0", "XP3_MarketPl", "Rush", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(213, "RushLarge0", "XP3_Prpganda", "Rush", "Propaganda"));
+            _availableMapModes.Add(new MapMode(214, "RushLarge0", "XP3_UrbanGdn", "Rush", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(215, "RushLarge0", "XP3_WtrFront", "Rush", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(216, "SquadDeathMatch0", "XP3_MarketPl", "Squad Deathmatch", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(217, "SquadDeathMatch0", "XP3_Prpganda", "Squad Deathmatch", "Propaganda"));
+            _availableMapModes.Add(new MapMode(218, "SquadDeathMatch0", "XP3_UrbanGdn", "Squad Deathmatch", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(219, "SquadDeathMatch0", "XP3_WtrFront", "Squad Deathmatch", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(220, "TeamDeathMatch0", "XP3_MarketPl", "Team Deathmatch", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(221, "TeamDeathMatch0", "XP3_Prpganda", "Team Deathmatch", "Propaganda"));
+            _availableMapModes.Add(new MapMode(222, "TeamDeathMatch0", "XP3_UrbanGdn", "Team Deathmatch", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(223, "TeamDeathMatch0", "XP3_WtrFront", "Team Deathmatch", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(224, "CaptureTheFlag0", "XP3_MarketPl", "CTF", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(225, "CaptureTheFlag0", "XP3_Prpganda", "CTF", "Propaganda"));
+            _availableMapModes.Add(new MapMode(226, "CaptureTheFlag0", "XP3_UrbanGdn", "CTF", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(227, "CaptureTheFlag0", "XP3_WtrFront", "CTF", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(228, "Chainlink0", "XP3_MarketPl", "Chain Link", "Pearl Market"));
+            _availableMapModes.Add(new MapMode(229, "Chainlink0", "XP3_Prpganda", "Chain Link", "Propaganda"));
+            _availableMapModes.Add(new MapMode(230, "Chainlink0", "XP3_UrbanGdn", "Chain Link", "Lumphini Garden"));
+            _availableMapModes.Add(new MapMode(231, "Chainlink0", "XP3_WtrFront", "Chain Link", "Sunken Dragon"));
+            _availableMapModes.Add(new MapMode(232, "ConquestLarge0", "XP4_Arctic", "Conquest Large", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(233, "ConquestLarge0", "XP4_SubBase", "Conquest Large", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(234, "ConquestLarge0", "XP4_Titan", "Conquest Large", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(235, "ConquestLarge0", "XP4_WlkrFtry", "Conquest Large", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(236, "ConquestSmall0", "XP4_Arctic", "Conquest Small", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(237, "ConquestSmall0", "XP4_SubBase", "Conquest Small", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(238, "ConquestSmall0", "XP4_Titan", "Conquest Small", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(239, "ConquestSmall0", "XP4_WlkrFtry", "Conquest Small", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(240, "Domination0", "XP4_Arctic", "Domination", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(241, "Domination0", "XP4_SubBase", "Domination", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(242, "Domination0", "XP4_Titan", "Domination", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(243, "Domination0", "XP4_WlkrFtry", "Domination", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(244, "Elimination0", "XP4_Arctic", "Defuse", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(245, "Elimination0", "XP4_SubBase", "Defuse", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(246, "Elimination0", "XP4_Titan", "Defuse", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(247, "Elimination0", "XP4_WlkrFtry", "Defuse", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(248, "Obliteration", "XP4_Arctic", "Obliteration", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(249, "Obliteration", "XP4_SubBase", "Obliteration", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(250, "Obliteration", "XP4_Titan", "Obliteration", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(251, "Obliteration", "XP4_WlkrFtry", "Obliteration", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(252, "RushLarge0", "XP4_Arctic", "Rush", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(253, "RushLarge0", "XP4_SubBase", "Rush", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(254, "RushLarge0", "XP4_Titan", "Rush", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(255, "RushLarge0", "XP4_WlkrFtry", "Rush", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(256, "SquadDeathMatch0", "XP4_Arctic", "Squad Deathmatch", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(257, "SquadDeathMatch0", "XP4_SubBase", "Squad Deathmatch", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(258, "SquadDeathMatch0", "XP4_Titan", "Squad Deathmatch", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(259, "SquadDeathMatch0", "XP4_WlkrFtry", "Squad Deathmatch", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(260, "TeamDeathMatch0", "XP4_Arctic", "Team Deathmatch", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(261, "TeamDeathMatch0", "XP4_SubBase", "Team Deathmatch", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(262, "TeamDeathMatch0", "XP4_Titan", "Team Deathmatch", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(263, "TeamDeathMatch0", "XP4_WlkrFtry", "Team Deathmatch", "Giants Of Karelia"));
+            _availableMapModes.Add(new MapMode(264, "CaptureTheFlag0", "XP4_Arctic", "CTF", "Operation Whiteout"));
+            _availableMapModes.Add(new MapMode(265, "CaptureTheFlag0", "XP4_SubBase", "CTF", "Hammerhead"));
+            _availableMapModes.Add(new MapMode(266, "CaptureTheFlag0", "XP4_Titan", "CTF", "Hangar 21"));
+            _availableMapModes.Add(new MapMode(267, "CaptureTheFlag0", "XP4_WlkrFtry", "CTF", "Giants Of Karelia"));
         }
 
         internal enum SupportedGames
