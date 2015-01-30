@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.0
- * 26-JAN-2014
+ * Version 2.0.1.1
+ * 30-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.0</version_code>
+ * <version_code>2.0.1.1</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.0";
+        private const String PluginVersion = "2.0.1.1";
 
         public enum ConsoleMessageType
         {
@@ -2186,24 +2186,27 @@ namespace PRoConEvents
                                 })));
                             }
                             aPlayer.player_loadoutValid = loadoutValid;
-                            Int32 totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
-                            Int32 countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
-                            Int32 countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
-                            Int32 countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
-                            Int32 countQuit = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
-                            Boolean displayStats = (_countKilled != countKilled) ||
-                                                   (_countFixed != countFixed) ||
-                                                   (_countQuit != countQuit);
-                            _countKilled = countKilled;
-                            _countFixed = countFixed;
-                            _countQuit = countQuit;
-                            Double percentEnforced = Math.Round(((Double)countEnforced / (Double)totalPlayerCount) * 100.0);
-                            Double percentKilled = Math.Round(((Double)countKilled / (Double)totalPlayerCount) * 100.0);
-                            Double percentFixed = Math.Round(((Double)countFixed / (Double)countKilled) * 100.0);
-                            Double percentRaged = Math.Round(((Double)countQuit / (Double)countKilled) * 100.0);
-                            if (displayStats)
+                            lock (_PlayerDictionary)
                             {
-                                DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
+                                Int32 totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
+                                Int32 countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
+                                Int32 countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
+                                Int32 countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
+                                Int32 countQuit = _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && !dPlayer.player_loadoutValid);
+                                Boolean displayStats = (_countKilled != countKilled) ||
+                                                       (_countFixed != countFixed) ||
+                                                       (_countQuit != countQuit);
+                                _countKilled = countKilled;
+                                _countFixed = countFixed;
+                                _countQuit = countQuit;
+                                Double percentEnforced = Math.Round(((Double)countEnforced / (Double)totalPlayerCount) * 100.0);
+                                Double percentKilled = Math.Round(((Double)countKilled / (Double)totalPlayerCount) * 100.0);
+                                Double percentFixed = Math.Round(((Double)countFixed / (Double)countKilled) * 100.0);
+                                Double percentRaged = Math.Round(((Double)countQuit / (Double)countKilled) * 100.0);
+                                if (displayStats)
+                                {
+                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
+                                }
                             }
                             DebugWrite(_LoadoutProcessingQueue.Count + " players still in queue.", 3);
                             DebugWrite(processObject.process_player.player_name + " processed after " + Math.Round(DateTime.UtcNow.Subtract(processObject.process_time).TotalSeconds, 2) + "s", 5);
@@ -2223,7 +2226,7 @@ namespace PRoConEvents
                             HandleException(new AdKatsException("Spawn processing thread aborted. Exiting."));
                             break;
                         }
-                        HandleException(new AdKatsException("Error occured in spawn processing thread.", e));
+                        HandleException(new AdKatsException("Error occured in spawn processing thread. Skipping current loop.", e));
                     }
                 }
                 DebugWrite("SPROC: Ending Spawn Processing Thread", 1);
@@ -4765,10 +4768,6 @@ namespace PRoConEvents
                         {"updates_disabled", updates_disabled}
                     };
                     byte[] response = client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
-                    if (_isTestingAuthorized)
-                    {
-                        ConsoleSuccess("Version Tracking: '" + adkatslrt_version_current + "' - '" + adkatslrt_enabled + "' - '" + adkatslrt_uptime + "' - '" + updates_disabled);
-                    }
                 }
             }
             catch (Exception e)
