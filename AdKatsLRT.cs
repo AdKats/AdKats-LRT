@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.1
+ * Version 2.0.1.2
  * 30-JAN-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.1</version_code>
+ * <version_code>2.0.1.2</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.1";
+        private const String PluginVersion = "2.0.1.2";
 
         public enum ConsoleMessageType
         {
@@ -1500,6 +1500,16 @@ namespace PRoConEvents
                         if (_PlayerDictionary.TryGetValue(playerName, out aPlayer)) {
                             DebugWrite(aPlayer.player_name + " removed from player list.", 6);
                             _PlayerDictionary.Remove(aPlayer.player_name);
+                            List<String> removeNames = _PlayerLeftDictionary.Where(pair => (DateTime.UtcNow - pair.Value.LastUsage).TotalMinutes > 120).Select(pair => pair.Key).ToList();
+                            foreach (String removeName in removeNames)
+                            {
+                                _PlayerLeftDictionary.Remove(removeName);
+                            }
+                            if (_isTestingAuthorized && removeNames.Any())
+                            {
+                                ConsoleWarn(removeNames.Count() + " left players removed, " + _PlayerLeftDictionary.Count() + " still in cache.");
+                            }
+                            aPlayer.LastUsage = DateTime.UtcNow;
                             _PlayerLeftDictionary[aPlayer.player_guid] = aPlayer;
                         }
                         else {
@@ -4961,9 +4971,11 @@ namespace PRoConEvents
 
             public AdKatsLoadout Loadout;
             public HashSet<String> WatchedVehicles;
+            public DateTime LastUsage;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
+                LastUsage = DateTime.UtcNow;
             }
 
             public String GetVerboseName()
