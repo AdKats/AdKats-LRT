@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.2
- * 30-JAN-2014
+ * Version 2.0.1.3
+ * 1-FEB-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.2</version_code>
+ * <version_code>2.0.1.3</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.2";
+        private const String PluginVersion = "2.0.1.3";
 
         public enum ConsoleMessageType
         {
@@ -71,6 +71,7 @@ namespace PRoConEvents
         //State
         private GameVersion _gameVersion = GameVersion.BF3;
         private volatile Boolean _pluginEnabled;
+        private DateTime _pluginStartTime = DateTime.UtcNow;
         private WarsawLibrary _WARSAWLibrary = new WarsawLibrary();
         private Boolean _WARSAWLibraryLoaded;
         private HashSet<String> _AdminList = new HashSet<string>();
@@ -949,6 +950,8 @@ namespace PRoConEvents
                                     LogThreadExit();
                                     return;
                                 }
+
+                                _pluginStartTime = DateTime.UtcNow;
 
                                 //Init and start all the threads
                                 InitWaitHandles();
@@ -2078,6 +2081,7 @@ namespace PRoConEvents
                                     //Player will be killed
                                     acted = true;
                                     aPlayer.player_loadoutKilled = true;
+                                    aPlayer.LoadoutKills++;
                                     DebugWrite(loadout.Name + " KILLED for invalid loadout.", 1);
                                     if (aPlayer.player_spawnedOnce)
                                     {
@@ -2199,6 +2203,7 @@ namespace PRoConEvents
                             lock (_PlayerDictionary)
                             {
                                 Int32 totalPlayerCount = _PlayerDictionary.Count + _PlayerLeftDictionary.Count;
+                                Int32 countKills = _PlayerDictionary.Values.Sum(dPlayer => dPlayer.LoadoutKills) + _PlayerLeftDictionary.Values.Sum(dPlayer => dPlayer.LoadoutKills);
                                 Int32 countEnforced = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutEnforced);
                                 Int32 countKilled = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled);
                                 Int32 countFixed = _PlayerDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid) + _PlayerLeftDictionary.Values.Count(dPlayer => dPlayer.player_loadoutKilled && dPlayer.player_loadoutValid);
@@ -2213,9 +2218,11 @@ namespace PRoConEvents
                                 Double percentKilled = Math.Round(((Double)countKilled / (Double)totalPlayerCount) * 100.0);
                                 Double percentFixed = Math.Round(((Double)countFixed / (Double)countKilled) * 100.0);
                                 Double percentRaged = Math.Round(((Double)countQuit / (Double)countKilled) * 100.0);
+                                Double denialKPM = Math.Round((Double)countKills/(DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
+                                Double killsPerDenial = Math.Round((Double)countKills/(Double)countKilled, 2);
                                 if (displayStats)
                                 {
-                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% processed. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit.", 2);
+                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% denied. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + killsPerDenial + " kills per denial. " + denialKPM + " denial KPM.", 2);
                                 }
                             }
                             DebugWrite(_LoadoutProcessingQueue.Count + " players still in queue.", 3);
@@ -4972,6 +4979,7 @@ namespace PRoConEvents
             public AdKatsLoadout Loadout;
             public HashSet<String> WatchedVehicles;
             public DateTime LastUsage;
+            public Int32 LoadoutKills;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
