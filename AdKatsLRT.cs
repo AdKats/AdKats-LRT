@@ -1800,12 +1800,12 @@ namespace PRoConEvents
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if (aPlayer.player_reported || processObject.process_source == "reported")
+                            else if ((aPlayer.player_reported || processObject.process_source == "reported") && aPlayer.player_reputation <= 0)
                             {
                                 reason = "[reported] ";
                                 trigger = true;
                             }
-                            else if (aPlayer.player_infractionPoints >= _triggerEnforcementMinimumInfractionPoints && aPlayer.player_lastPunishment.TotalDays < 60 && aPlayer.player_reputation < 0)
+                            else if (aPlayer.player_infractionPoints >= _triggerEnforcementMinimumInfractionPoints && aPlayer.player_lastPunishment.TotalDays < 60 && aPlayer.player_reputation <= 0)
                             {
                                 reason = "[" + aPlayer.player_infractionPoints + " infractions] ";
                                 trigger = true;
