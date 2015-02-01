@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.3
+ * Version 2.0.1.4
  * 1-FEB-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.3</version_code>
+ * <version_code>2.0.1.4</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.3";
+        private const String PluginVersion = "2.0.1.4";
 
         public enum ConsoleMessageType
         {
@@ -2081,10 +2081,10 @@ namespace PRoConEvents
                                     //Player will be killed
                                     acted = true;
                                     aPlayer.player_loadoutKilled = true;
-                                    aPlayer.LoadoutKills++;
                                     DebugWrite(loadout.Name + " KILLED for invalid loadout.", 1);
                                     if (aPlayer.player_spawnedOnce)
                                     {
+                                        aPlayer.LoadoutKills++;
                                         //Start a repeat kill
                                         StartAndLogThread(new Thread(new ThreadStart(delegate
                                         {
