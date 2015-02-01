@@ -1800,7 +1800,7 @@ namespace PRoConEvents
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if ((aPlayer.player_reported || processObject.process_source == "reported") && aPlayer.player_reputation < 0)
+                            else if (aPlayer.player_reported || processObject.process_source == "reported")
                             {
                                 reason = "[reported] ";
                                 trigger = true;
