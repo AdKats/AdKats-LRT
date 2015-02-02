@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.5
+ * Version 2.0.1.6
  * 2-FEB-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.5</version_code>
+ * <version_code>2.0.1.6</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.5";
+        private const String PluginVersion = "2.0.1.6";
 
         public enum ConsoleMessageType
         {
@@ -1385,21 +1385,21 @@ namespace PRoConEvents
                             dPlayer.Team = aPlayer.Team;
                         }
                     }
+                    List<String> removeNames = _playerLeftDictionary.Where(pair => (DateTime.UtcNow - pair.Value.LastUsage).TotalMinutes > 120).Select(pair => pair.Key).ToList();
+                    foreach (String removeName in removeNames)
+                    {
+                        _playerLeftDictionary.Remove(removeName);
+                    }
+                    if (_isTestingAuthorized && removeNames.Any())
+                    {
+                        ConsoleWarn(removeNames.Count() + " left players removed, " + _playerLeftDictionary.Count() + " still in cache.");
+                    }
                     foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer)) {
                             DebugWrite(aPlayer.Name + " removed from player list.", 6);
                             _playerDictionary.Remove(aPlayer.Name);
-                            List<String> removeNames = _playerLeftDictionary.Where(pair => (DateTime.UtcNow - pair.Value.LastUsage).TotalMinutes > 120).Select(pair => pair.Key).ToList();
-                            foreach (String removeName in removeNames)
-                            {
-                                _playerLeftDictionary.Remove(removeName);
-                            }
-                            if (_isTestingAuthorized && removeNames.Any())
-                            {
-                                ConsoleWarn(removeNames.Count() + " left players removed, " + _playerLeftDictionary.Count() + " still in cache.");
-                            }
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
                         }
@@ -1965,11 +1965,13 @@ namespace PRoConEvents
                                 {
                                     //Player will be killed
                                     acted = true;
-                                    aPlayer.LoadoutKilled = true;
-                                    DebugWrite(loadout.Name + " KILLED for invalid loadout.", 1);
-                                    if (aPlayer.SpawnedOnce)
+                                    DebugWrite(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):("")) + " KILLED for invalid loadout.", 1);
+                                    if (processObject.ProcessSource != "listing")
                                     {
                                         aPlayer.LoadoutKills++;
+                                    }
+                                    if (aPlayer.SpawnedOnce)
+                                    {
                                         //Start a repeat kill
                                         StartAndLogThread(new Thread(new ThreadStart(delegate
                                         {
@@ -2038,6 +2040,11 @@ namespace PRoConEvents
                                     {
                                         OnlineAdminSayMessage(adminMessage);
                                     }
+                                    //Set max denied items
+                                    if (tellMessages.Count > aPlayer.MaxDeniedItems) 
+                                    {
+                                        aPlayer.MaxDeniedItems = tellMessages.Count;
+                                    }
                                     //Inform Player
                                     Int32 tellIndex = 1;
                                     foreach (String tellMessage in tellMessages)
@@ -2090,9 +2097,9 @@ namespace PRoConEvents
                                 Int32 totalPlayerCount = _playerDictionary.Count + _playerLeftDictionary.Count;
                                 Int32 countKills = _playerDictionary.Values.Sum(dPlayer => dPlayer.LoadoutKills) + _playerLeftDictionary.Values.Sum(dPlayer => dPlayer.LoadoutKills);
                                 Int32 countEnforced = _playerDictionary.Values.Count(dPlayer => dPlayer.LoadoutEnforced) + _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutEnforced);
-                                Int32 countKilled = _playerDictionary.Values.Count(dPlayer => dPlayer.LoadoutKilled) + _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKilled);
-                                Int32 countFixed = _playerDictionary.Values.Count(dPlayer => dPlayer.LoadoutKilled && dPlayer.LoadoutValid) + _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKilled && dPlayer.LoadoutValid);
-                                Int32 countQuit = _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKilled && !dPlayer.LoadoutValid);
+                                Int32 countKilled = _playerDictionary.Values.Count(dPlayer => dPlayer.LoadoutKills > 0) + _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKills > 0);
+                                Int32 countFixed = _playerDictionary.Values.Count(dPlayer => dPlayer.LoadoutKills > 0 && dPlayer.LoadoutValid) + _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKills > 0 && dPlayer.LoadoutValid);
+                                Int32 countQuit = _playerLeftDictionary.Values.Count(dPlayer => dPlayer.LoadoutKills > 0 && !dPlayer.LoadoutValid);
                                 Boolean displayStats = (_countKilled != countKilled) ||
                                                        (_countFixed != countFixed) ||
                                                        (_countQuit != countQuit);
@@ -2104,10 +2111,11 @@ namespace PRoConEvents
                                 Double percentFixed = Math.Round((countFixed / (Double)countKilled) * 100.0);
                                 Double percentRaged = Math.Round((countQuit / (Double)countKilled) * 100.0);
                                 Double denialKPM = Math.Round(countKills/(DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
-                                Double killsPerDenial = Math.Round(countKills/(Double)countKilled, 2);
+                                Double killsPerDenial = Math.Round(countKills / (Double)countKilled, 2);
+                                Double avgDeniedItems = Math.Round((_playerDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems) + _playerLeftDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems)) / (Double) countKilled, 2);
                                 if (displayStats)
                                 {
-                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% denied. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + killsPerDenial + " kills per denial. " + denialKPM + " denial KPM.", 2);
+                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + denialKPM + " denial KPM. " + killsPerDenial + " kills per denial. " + avgDeniedItems + " AVG denied items.", 2);
                                 }
                             }
                             DebugWrite(_loadoutProcessingQueue.Count + " players still in queue.", 3);
@@ -2440,6 +2448,7 @@ namespace PRoConEvents
                             dPlayer.Squad = aPlayer.Squad;
                             dPlayer.Team = aPlayer.Team;
                         }
+                        dPlayer.LastUsage = DateTime.UtcNow;
                         if (process)
                         {
                             QueueForProcessing(new ProcessObject()
@@ -2457,6 +2466,7 @@ namespace PRoConEvents
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer))
                         {
                             DebugWrite(aPlayer.Name + " removed from player list.", 6);
+                            aPlayer.LastUsage = DateTime.UtcNow;
                             _playerDictionary.Remove(aPlayer.Name);
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
                         }
@@ -4797,7 +4807,6 @@ namespace PRoConEvents
             public TimeSpan LastForgive = TimeSpan.Zero;
             public TimeSpan LastPunishment = TimeSpan.Zero;
             public Boolean LoadoutEnforced = false;
-            public Boolean LoadoutKilled = false;
             public Boolean LoadoutValid = true;
             public Boolean Marked;
             public String Name;
@@ -4821,6 +4830,7 @@ namespace PRoConEvents
             public HashSet<String> WatchedVehicles;
             public DateTime LastUsage;
             public Int32 LoadoutKills;
+            public Int32 MaxDeniedItems;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
