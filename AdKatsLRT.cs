@@ -11,11 +11,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.6
+ * Version 2.0.1.7
  * 2-FEB-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.6</version_code>
+ * <version_code>2.0.1.7</version_code>
  */
 
 using System;
@@ -37,7 +37,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.6";
+        private const String PluginVersion = "2.0.1.7";
 
         public enum ConsoleMessageType
         {
@@ -1965,7 +1965,7 @@ namespace PRoConEvents
                                 {
                                     //Player will be killed
                                     acted = true;
-                                    DebugWrite(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):("")) + " KILLED for invalid loadout.", 1);
+                                    DebugWrite(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
                                     if (processObject.ProcessSource != "listing")
                                     {
                                         aPlayer.LoadoutKills++;
@@ -2040,8 +2040,8 @@ namespace PRoConEvents
                                     {
                                         OnlineAdminSayMessage(adminMessage);
                                     }
-                                    //Set max denied items
-                                    if (tellMessages.Count > aPlayer.MaxDeniedItems) 
+                                    //Set max denied items if player has been killed
+                                    if (tellMessages.Count > aPlayer.MaxDeniedItems && aPlayer.LoadoutKills > 0) 
                                     {
                                         aPlayer.MaxDeniedItems = tellMessages.Count;
                                     }
