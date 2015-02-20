@@ -6,16 +6,15 @@
  *
  * The AdKats Frostbite Plugin is open source, and under public domain, but certain extensions are not. 
  * The AdKatsLRT extension is not open for free distribution, copyright Daniel J. Gradinjan, with all rights reserved.
- * Version usage of this plugin is tracked by gamerethos.net
  * 
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.7
- * 2-FEB-2014
+ * Version 2.0.1.8
+ * 19-FEB-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.7</version_code>
+ * <version_code>2.0.1.8</version_code>
  */
 
 using System;
@@ -37,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.7";
+        private const String PluginVersion = "2.0.1.8";
 
         public enum ConsoleMessageType
         {
@@ -4255,7 +4254,7 @@ namespace PRoConEvents
                     try
                     {
                         DoBattlelogWait();
-                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/");
+                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?nocacherandom=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
                     }
                     catch (Exception e)
