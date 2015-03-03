@@ -5126,14 +5126,7 @@ namespace PRoConEvents
                 new MapMode(264, "CaptureTheFlag0", "XP4_Arctic", "CTF", "Operation Whiteout"),
                 new MapMode(265, "CaptureTheFlag0", "XP4_SubBase", "CTF", "Hammerhead"),
                 new MapMode(266, "CaptureTheFlag0", "XP4_Titan", "CTF", "Hangar 21"),
-                new MapMode(267, "CaptureTheFlag0", "XP4_WlkrFtry", "CTF", "Giants Of Karelia"),
-                new MapMode(268, "SquadObliteration0", "MP_Abandoned", "Squad Obliteration", "Zavod 311"),
-                new MapMode(269, "SquadObliteration0", "MP_Journey", "Squad Obliteration", "Golmud Railway"),
-                new MapMode(270, "SquadObliteration0", "MP_Naval", "Squad Obliteration", "Paracel Storm"),
-                new MapMode(271, "SquadObliteration0", "MP_Prison", "Squad Obliteration", "Operation Locker"),
-                new MapMode(272, "SquadObliteration0", "MP_Resort", "Squad Obliteration", "Hainan Resort"),
-                new MapMode(273, "SquadObliteration0", "MP_Siege", "Squad Obliteration", "Siege of Shanghai"),
-                new MapMode(274, "SquadObliteration0", "MP_Tremors", "Squad Obliteration", "Dawnbreaker")
+                new MapMode(267, "CaptureTheFlag0", "XP4_WlkrFtry", "CTF", "Giants Of Karelia")
             };
         }
 
