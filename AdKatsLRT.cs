@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.8
- * 19-FEB-2014
+ * Version 2.0.1.9
+ * 16-MAR-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.8</version_code>
+ * <version_code>2.0.1.9</version_code>
  */
 
 using System;
@@ -36,17 +36,9 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.8";
+        private const String PluginVersion = "2.0.1.9";
 
-        public enum ConsoleMessageType
-        {
-            Normal,
-            Info,
-            Success,
-            Warning,
-            Error,
-            Exception
-        };
+        public readonly Logger Log;
 
         public enum GameVersion
         {
@@ -151,11 +143,12 @@ namespace PRoConEvents
 
         //Debug
         private const Boolean SlowMoOnException = false;
-        private volatile Int32 _debugLevel;
         private Boolean _slowmo;
 
         public AdKatsLRT()
         {
+            Log = new Logger(this);
+
             //Create the server reference
             _serverInfo = new AdKatsServer(this);
 
@@ -170,7 +163,7 @@ namespace PRoConEvents
             _threadsReady = false;
 
             //Debug level is 0 by default
-            _debugLevel = 0;
+            Log.DebugLevel = 0;
 
             //Prepare the status monitor
             SetupStatusMonitor();
@@ -299,7 +292,7 @@ namespace PRoConEvents
                         {
                             if (String.IsNullOrEmpty(weapon.CategoryTypeReadable))
                             {
-                                ConsoleError(weapon.WarsawID + " did not have a category type.");
+                                Log.Error(weapon.WarsawID + " did not have a category type.");
                             }
                             if (_enableAdKatsIntegration)
                             {
@@ -359,11 +352,11 @@ namespace PRoConEvents
                         lstReturn.Add(new CPluginVariable(SettingsDeniedVehicleItemMessagePrefix + "VMSG" + deniedVehicleUnlock.WarsawID + separator + deniedVehicleUnlock.Slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
-                lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
+                lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), Log.DebugLevel));
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while getting display plugin variables", e));
+                Log.Exception("Error while getting display plugin variables", e);
             }
             return lstReturn;
         }
@@ -393,7 +386,7 @@ namespace PRoConEvents
             _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID));
             lstReturn.AddRange(_warsawSpawnDeniedIDs.Select(deniedSpawnID => new CPluginVariable("ALWS" + deniedSpawnID, typeof (String), "Deny")));
             lstReturn.AddRange(_restrictedMapModes.Values.Select(restrictedMapMode => new CPluginVariable("RMM" + restrictedMapMode.MapModeID, typeof (String), "Enforce")));
-            lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), _debugLevel));
+            lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), Log.DebugLevel));
             return lstReturn;
         }
 
@@ -416,11 +409,11 @@ namespace PRoConEvents
                     {
                         if (tmp == 269)
                         {
-                            ConsoleSuccess("Extended Debug Mode Activated");
+                            Log.Success("Extended Debug Mode Activated");
                             _displayLoadoutDebug = true;
                             return;
                         }
-                        _debugLevel = tmp;
+                        Log.DebugLevel = tmp;
                     }
                 }
                 else if (Regex.Match(strVariable, @"Integrate with AdKats").Success)
@@ -430,7 +423,7 @@ namespace PRoConEvents
                     {
                         if (_threadsReady)
                         {
-                            ConsoleInfo("AdKatsLRT must be rebooted to modify this setting.");
+                            Log.Info("AdKatsLRT must be rebooted to modify this setting.");
                             Disable();
                         }
                         _enableAdKatsIntegration = enableAdKatsIntegration;
@@ -571,7 +564,7 @@ namespace PRoConEvents
                     {
                         if (triggerEnforcementMinimumInfractionPoints < 1)
                         {
-                            ConsoleError("Minimum infraction points for trigger level enforcement cannot be less than 1, use spawn enforcement instead.");
+                            Log.Error("Minimum infraction points for trigger level enforcement cannot be less than 1, use spawn enforcement instead.");
                             triggerEnforcementMinimumInfractionPoints = 1;
                         }
                         _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
@@ -602,7 +595,7 @@ namespace PRoConEvents
                             }
                             break;
                         default:
-                            ConsoleError("Unknown setting when assigning WARSAW allowance.");
+                            Log.Error("Unknown setting when assigning WARSAW allowance.");
                             return;
                     }
                 }
@@ -623,11 +616,11 @@ namespace PRoConEvents
                             //parse deny
                             WarsawItem item;
                             if (!_warsawLibrary.VehicleUnlocks.TryGetValue(warsawID, out item)) {
-                                ConsoleError("Unable to find vehicle unlock " + warsawID);
+                                Log.Error("Unable to find vehicle unlock " + warsawID);
                                 return;
                             }
                             if (item.AssignedVehicle == null) {
-                                ConsoleError("Unlock item " + warsawID + " was not assigned to a vehicle.");
+                                Log.Error("Unlock item " + warsawID + " was not assigned to a vehicle.");
                                 return;
                             }
                             _warsawInvalidVehicleLoadoutIDMessages[warsawID] = "Please remove " + commandSplit[commandSplit.Count() - 2].Trim() + " from your " + item.AssignedVehicle.CategoryType;
@@ -640,7 +633,7 @@ namespace PRoConEvents
                             }
                             break;
                         default:
-                            ConsoleError("Unknown setting when assigning WARSAW allowance.");
+                            Log.Error("Unknown setting when assigning WARSAW allowance.");
                             return;
                     }
                 }
@@ -665,7 +658,7 @@ namespace PRoConEvents
                             }
                             break;
                         default:
-                            ConsoleError("Unknown setting when assigning WARSAW allowance.");
+                            Log.Error("Unknown setting when assigning WARSAW allowance.");
                             return;
                     }
                 }
@@ -677,7 +670,7 @@ namespace PRoConEvents
                     Int32 mapModeID = Int32.Parse(commandSplit[0].TrimStart("RMM".ToCharArray()).Trim());
                     MapMode mapMode = _availableMapModes.FirstOrDefault(mm => mm.MapModeID == mapModeID);
                     if (mapMode == null) {
-                        ConsoleError("Invalid map/mode ID when parsing map enforce settings.");
+                        Log.Error("Invalid map/mode ID when parsing map enforce settings.");
                         return;
                     }
                     //Fetch needed role
@@ -690,7 +683,7 @@ namespace PRoConEvents
                                 _restrictedMapModes[mapMode.ModeKey + "|" + mapMode.MapKey] = mapMode;
                                 if (_warsawLibraryLoaded)
                                 {
-                                    ConsoleInfo("Enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
+                                    Log.Info("Enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
                                 }
                             }
                             break;
@@ -698,11 +691,11 @@ namespace PRoConEvents
                             //parse allow
                             if (_restrictedMapModes.Remove(mapMode.ModeKey + "|" + mapMode.MapKey) && _warsawLibraryLoaded)
                             {
-                                ConsoleInfo("No longer enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
+                                Log.Info("No longer enforcing loadout on " + mapMode.ModeName + " " + mapMode.MapName);
                             }
                             break;
                         default:
-                            ConsoleError("Unknown setting when parsing map enforce settings.");
+                            Log.Error("Unknown setting when parsing map enforce settings.");
                             return;
                     }
                 }
@@ -712,7 +705,7 @@ namespace PRoConEvents
                     //MSG3495820391
                     if (String.IsNullOrEmpty(strValue))
                     {
-                        ConsoleError("Kill messages cannot be empty.");
+                        Log.Error("Kill messages cannot be empty.");
                         return;
                     }
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
@@ -725,7 +718,7 @@ namespace PRoConEvents
                     //MSG3495820391
                     if (String.IsNullOrEmpty(strValue))
                     {
-                        ConsoleError("Kill messages cannot be empty.");
+                        Log.Error("Kill messages cannot be empty.");
                         return;
                     }
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
@@ -734,18 +727,18 @@ namespace PRoConEvents
                 }
                 else
                 {
-                    ConsoleInfo(strVariable + " =+= " + strValue);
+                    Log.Info(strVariable + " =+= " + strValue);
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured while updating AdKatsLRT settings.", e));
+                Log.Exception("Error occured while updating AdKatsLRT settings.", e);
             }
         }
 
         public void OnPluginLoaded(String strHostName, String strPort, String strPRoConVersion)
         {
-            DebugWrite("Entering OnPluginLoaded", 7);
+            Log.Debug("Entering OnPluginLoaded", 7);
             try
             {
                 //Set the server IP
@@ -761,9 +754,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("FATAL ERROR on plugin load.", e));
+                Log.Exception("FATAL ERROR on plugin load.", e);
             }
-            DebugWrite("Exiting OnPluginLoaded", 7);
+            Log.Debug("Exiting OnPluginLoaded", 7);
         }
 
         public void OnPluginEnable()
@@ -773,7 +766,7 @@ namespace PRoConEvents
                 //If the finalizer is still alive, inform the user and disable
                 if (_finalizer != null && _finalizer.IsAlive)
                 {
-                    ConsoleError("Cannot enable the plugin while it is shutting down. Please Wait for it to shut down.");
+                    Log.Error("Cannot enable the plugin while it is shutting down. Please Wait for it to shut down.");
                     _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
                     //Disable the plugin
                     Disable();
@@ -781,7 +774,7 @@ namespace PRoConEvents
                 }
                 if (_gameVersion != GameVersion.BF4)
                 {
-                    ConsoleError("The AdKatsLRT extension cannot be enabled outside BF4.");
+                    Log.Error("The AdKatsLRT extension cannot be enabled outside BF4.");
                     Disable();
                     return;
                 }
@@ -796,11 +789,11 @@ namespace PRoConEvents
 
                         if ((DateTime.UtcNow - _proconStartTime).TotalSeconds <= 20)
                         {
-                            ConsoleWrite("Waiting a few seconds for requirements and other plugins to initialize, please wait...");
+                            Log.Write("Waiting a few seconds for requirements and other plugins to initialize, please wait...");
                             //Wait on all settings to be imported by procon for initial start, and for all other plugins to start and register.
                             for (Int32 index = 20 - (Int32)(DateTime.UtcNow - _proconStartTime).TotalSeconds; index > 0; index--)
                             {
-                                ConsoleWrite(index + "...");
+                                Log.Write(index + "...");
                                 _threadMasterWaitHandle.WaitOne(1000);
                             }
                         }
@@ -833,7 +826,7 @@ namespace PRoConEvents
                                     LogThreadExit();
                                     return;
                                 }
-                                ConsoleSuccess("WARSAW library loaded. " + _warsawLibrary.Items.Count + " items, " + _warsawLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _warsawLibrary.ItemAccessories.Count + " accessories.");
+                                Log.Success("WARSAW library loaded. " + _warsawLibrary.Items.Count + " items, " + _warsawLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _warsawLibrary.ItemAccessories.Count + " accessories.");
                                 UpdateSettingPage();
 
                                 if (_enableAdKatsIntegration)
@@ -846,11 +839,11 @@ namespace PRoConEvents
                                         {"subscription_method", "ReceiveOnlineSoldiers"},
                                         {"subscription_enabled", true}
                                     }));
-                                    ConsoleInfo("Waiting for player listing response from AdKats.");
+                                    Log.Info("Waiting for player listing response from AdKats.");
                                 }
                                 else
                                 {
-                                    ConsoleInfo("Waiting for first player list event.");
+                                    Log.Info("Waiting for first player list event.");
                                 }
                                 _playerProcessingWaitHandle.WaitOne(Timeout.Infinite);
                                 if (!_pluginEnabled)
@@ -867,34 +860,34 @@ namespace PRoConEvents
                                 InitThreads();
                                 StartThreads();
 
-                                ConsoleSuccess("AdKatsLRT " + GetPluginVersion() + " startup complete [" + FormatTimeString(DateTime.UtcNow - _startTime, 3) + "]. Loadout restriction now online.");
+                                Log.Success("AdKatsLRT " + GetPluginVersion() + " startup complete [" + FormatTimeString(DateTime.UtcNow - _startTime, 3) + "]. Loadout restriction now online.");
                             }
                             else
                             {
-                                ConsoleError("Failed to load WARSAW library. AdKatsLRT cannot be started.");
+                                Log.Error("Failed to load WARSAW library. AdKatsLRT cannot be started.");
                                 Disable();
                             }
                         }
                         else
                         {
-                            ConsoleError("AdKats not installed or enabled. AdKatsLRT cannot be started.");
+                            Log.Error("AdKats not installed or enabled. AdKatsLRT cannot be started.");
                             Disable();
                         }
                     }
                     catch (Exception e)
                     {
-                        HandleException(new AdKatsException("Error while enabling AdKatsLRT.", e));
+                        Log.Exception("Error while enabling AdKatsLRT.", e);
                     }
                     LogThreadExit();
                 }));
 
-                ConsoleWrite("^b^2ENABLED!^n^0 Beginning startup sequence...");
+                Log.Write("^b^2ENABLED!^n^0 Beginning startup sequence...");
                 //Start the thread
                 StartAndLogThread(_activator);
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while initializing activator thread.", e));
+                Log.Exception("Error while initializing activator thread.", e);
             }
         }
 
@@ -911,7 +904,7 @@ namespace PRoConEvents
                     try
                     {
                         Thread.CurrentThread.Name = "Finalizer";
-                        ConsoleInfo("Shutting down AdKatsLRT.");
+                        Log.Info("Shutting down AdKatsLRT.");
                         //Disable settings
                         _pluginEnabled = false;
                         _threadsReady = false;
@@ -957,11 +950,11 @@ namespace PRoConEvents
                             {
                                 if (attempts > 20)
                                 {
-                                    ConsoleWarn("Threads still exiting: " + aliveThreads);
+                                    Log.Warn("Threads still exiting: " + aliveThreads);
                                 }
                                 else
                                 {
-                                    DebugWrite("Threads still exiting: " + aliveThreads, 2);
+                                    Log.Debug("Threads still exiting: " + aliveThreads, 2);
                                 }
                             }
                         } while (alive);
@@ -974,11 +967,11 @@ namespace PRoConEvents
                         _countKilled = 0;
                         _countQuit = 0;
                         _slowmo = false;
-                        ConsoleWrite("^b^1AdKatsLRT " + GetPluginVersion() + " Disabled! =(^n^0");
+                        Log.Write("^b^1AdKatsLRT " + GetPluginVersion() + " Disabled! =(^n^0");
                     }
                     catch (Exception e)
                     {
-                        HandleException(new AdKatsException("Error occured while disabling AdkatsLRT.", e));
+                        Log.Exception("Error occured while disabling AdkatsLRT.", e);
                     }
                 }));
 
@@ -987,13 +980,13 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured while initializing AdKatsLRT disable thread.", e));
+                Log.Exception("Error occured while initializing AdKatsLRT disable thread.", e);
             }
         }
 
         public override void OnServerInfo(CServerInfo serverInfo)
         {
-            DebugWrite("Entering OnServerInfo", 7);
+            Log.Debug("Entering OnServerInfo", 7);
             try
             {
                 if (_pluginEnabled)
@@ -1012,7 +1005,7 @@ namespace PRoConEvents
                             _isTestingAuthorized = serverInfo.ServerName.Contains("=ADK=");
                             if (!wasADK && _isTestingAuthorized)
                             {
-                                ConsoleInfo("LRT is testing authorized.");
+                                Log.Info("LRT is testing authorized.");
                             }
                             if (haveServerName && !hadServerName)
                             {
@@ -1021,21 +1014,21 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            HandleException(new AdKatsException("Server info was null"));
+                            Log.Error("Server info was null");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while processing server info.", e));
+                Log.Exception("Error while processing server info.", e);
             }
-            DebugWrite("Exiting OnServerInfo", 7);
+            Log.Debug("Exiting OnServerInfo", 7);
         }
 
         public override void OnPlayerKilled(Kill kill)
         {
-            DebugWrite("Entering OnPlayerKilled", 7);
+            Log.Debug("Entering OnPlayerKilled", 7);
             try
             {
                 //If the plugin is not enabled and running just return
@@ -1048,7 +1041,7 @@ namespace PRoConEvents
                 AdKatsSubscribedPlayer victim;
                 if (kill.Killer != null && !String.IsNullOrEmpty(kill.Killer.SoldierName)) {
                     if (!_playerDictionary.TryGetValue(kill.Killer.SoldierName, out killer)) {
-                        ConsoleError("Unable to fetch killer on kill.");
+                        Log.Error("Unable to fetch killer on kill.");
                         return;
                     }
                 }
@@ -1057,7 +1050,7 @@ namespace PRoConEvents
                 }
                 if (kill.Victim != null && !String.IsNullOrEmpty(kill.Victim.SoldierName)) {
                     if (!_playerDictionary.TryGetValue(kill.Victim.SoldierName, out victim)) {
-                        ConsoleError("Unable to fetch victim on kill.");
+                        Log.Error("Unable to fetch victim on kill.");
                         return;
                     }
                 }
@@ -1067,10 +1060,10 @@ namespace PRoConEvents
                 WarsawVehicle vehicle;
                 if (killer.Loadout != null &&
                     killer.Loadout.LoadoutRCONVehicles.TryGetValue(kill.DamageType, out vehicle)) {
-                    DebugWrite(killer.Name + " is using trackable vehicle type " + vehicle.CategoryType + ".", 5);
+                    Log.Debug(killer.Name + " is using trackable vehicle type " + vehicle.CategoryType + ".", 5);
                     if (!killer.WatchedVehicles.Contains(vehicle.Category)) {
                         killer.WatchedVehicles.Add(vehicle.Category);
-                        DebugWrite("Loadout check automatically called on " + killer.Name + " for trackable vehicle kill.", 4);
+                        Log.Debug("Loadout check automatically called on " + killer.Name + " for trackable vehicle kill.", 4);
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = killer,
@@ -1082,9 +1075,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while handling OnPlayerKilled.", e));
+                Log.Exception("Error while handling OnPlayerKilled.", e);
             }
-            DebugWrite("Exiting OnPlayerKilled", 7);
+            Log.Debug("Exiting OnPlayerKilled", 7);
         }
 
         private void SetupStatusMonitor()
@@ -1112,13 +1105,13 @@ namespace PRoConEvents
                                     {
                                         if (!_enableAdKatsIntegration)
                                         {
-                                            ConsoleError("AdKats found, but integration not enabled, disabling.");
+                                            Log.Error("AdKats found, but integration not enabled, disabling.");
                                             Disable();
                                         }
                                     }
                                     else if (_enableAdKatsIntegration)
                                     {
-                                        ConsoleError("AdKats was disabled. AdKatsLRT has integration enabled, and must shut down if that plugin shuts down.");
+                                        Log.Error("AdKats was disabled. AdKatsLRT has integration enabled, and must shut down if that plugin shuts down.");
                                         Disable();
                                     }
                                 }
@@ -1137,7 +1130,7 @@ namespace PRoConEvents
                                         {
                                             aliveThreads = _aliveThreads.Values.ToList().Aggregate(aliveThreads, (current, value) => current + (value.Name + "[" + value.ManagedThreadId + "] "));
                                         }
-                                        ConsoleWarn("Thread warning: " + aliveThreads);
+                                        Log.Warn("Thread warning: " + aliveThreads);
                                     }
                                 }
                             }
@@ -1167,13 +1160,13 @@ namespace PRoConEvents
                         }
                         catch (Exception e)
                         {
-                            HandleException(new AdKatsException("Error in keep-alive. Skipping current loop.", e));
+                            Log.Exception("Error in keep-alive. Skipping current loop.", e);
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    HandleException(new AdKatsException("Error while running keep-alive.", e));
+                    Log.Exception("Error while running keep-alive.", e);
                 }
             }));
             //Start the thread
@@ -1213,13 +1206,13 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured while initializing threads.", e));
+                Log.Exception("Error occured while initializing threads.", e);
             }
         }
 
         public void StartThreads()
         {
-            DebugWrite("Entering StartThreads", 7);
+            Log.Debug("Entering StartThreads", 7);
             try
             {
                 //Reset the master wait handle
@@ -1231,9 +1224,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while starting processing threads.", e));
+                Log.Exception("Error while starting processing threads.", e);
             }
-            DebugWrite("Exiting StartThreads", 7);
+            Log.Debug("Exiting StartThreads", 7);
         }
 
         private void Disable()
@@ -1249,7 +1242,7 @@ namespace PRoConEvents
         {
             foreach (String env in lstPluginEnv)
             {
-                DebugWrite("^9OnPluginLoadingEnv: " + env, 7);
+                Log.Debug("^9OnPluginLoadingEnv: " + env, 7);
             }
             switch (lstPluginEnv[1])
             {
@@ -1260,7 +1253,7 @@ namespace PRoConEvents
                     _gameVersion = GameVersion.BF4;
                     break;
             }
-            DebugWrite("^1Game Version: " + _gameVersion, 1);
+            Log.Debug("^1Game Version: " + _gameVersion, 1);
         }
 
         public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset cpsSubset)
@@ -1270,7 +1263,7 @@ namespace PRoConEvents
             {
                 return;
             }
-            DebugWrite("Entering OnListPlayers", 7);
+            Log.Debug("Entering OnListPlayers", 7);
             try
             {
                 if (cpsSubset.Subset != CPlayerSubset.PlayerSubsetType.All)
@@ -1318,7 +1311,7 @@ namespace PRoConEvents
                                 aPlayer.Type = "CommanderMobile";
                                 break;
                             default:
-                                ConsoleError("Player type " + cPlayer.Type + " is not valid.");
+                                Log.Error("Player type " + cPlayer.Type + " is not valid.");
                                 break;
                         }
                         aPlayer.IsAdmin = false;
@@ -1349,7 +1342,7 @@ namespace PRoConEvents
                             if (_playerLeftDictionary.TryGetValue(aPlayer.GUID, out dPlayer))
                             {
                                 //They are returning, move their player object
-                                DebugWrite(aPlayer.Name + " is returning.", 6);
+                                Log.Debug(aPlayer.Name + " is returning.", 6);
                                 dPlayer.Online = true;
                                 dPlayer.WatchedVehicles.Clear();
                                 _playerDictionary[aPlayer.Name] = dPlayer;
@@ -1358,7 +1351,7 @@ namespace PRoConEvents
                             else
                             {
                                 //Not online or returning. New player.
-                                DebugWrite(aPlayer.Name + " is newly joining.", 6);
+                                Log.Debug(aPlayer.Name + " is newly joining.", 6);
                                 newPlayer = true;
                             }
                         }
@@ -1391,19 +1384,19 @@ namespace PRoConEvents
                     }
                     if (_isTestingAuthorized && removeNames.Any())
                     {
-                        ConsoleWarn(removeNames.Count() + " left players removed, " + _playerLeftDictionary.Count() + " still in cache.");
+                        Log.Warn(removeNames.Count() + " left players removed, " + _playerLeftDictionary.Count() + " still in cache.");
                     }
                     foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer)) {
-                            DebugWrite(aPlayer.Name + " removed from player list.", 6);
+                            Log.Debug(aPlayer.Name + " removed from player list.", 6);
                             _playerDictionary.Remove(aPlayer.Name);
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
                         }
                         else {
-                            ConsoleError("Unable to find " + playerName + " in online players when requesting removal.");
+                            Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
                 }
@@ -1412,9 +1405,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured while listing players.", e));
+                Log.Exception("Error occured while listing players.", e);
             }
-            DebugWrite("Exiting OnListPlayers", 7);
+            Log.Debug("Exiting OnListPlayers", 7);
         }
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
@@ -1435,7 +1428,7 @@ namespace PRoConEvents
                             {
                                 QueuePlayerForBattlelogInfoFetch(aPlayer);
                             }
-                            DebugWrite("Spawn process for " + aPlayer.Name + " cancelled because their Persona ID is not loaded yet.", 3);
+                            Log.Debug("Spawn process for " + aPlayer.Name + " cancelled because their Persona ID is not loaded yet.", 3);
                             return;
                         }
                         //Create process object
@@ -1456,7 +1449,7 @@ namespace PRoConEvents
                             if (waitTime.TotalSeconds <= 0.1) {
                                 waitTime = TimeSpan.FromSeconds(5);
                             }
-                            DebugWrite("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
+                            Log.Debug("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
                             //Start a delay thread
                             StartAndLogThread(new Thread(new ThreadStart(delegate
                             {
@@ -1468,7 +1461,7 @@ namespace PRoConEvents
                                 }
                                 catch (Exception e)
                                 {
-                                    HandleException(new AdKatsException("Error running loadout check delay thread.", e));
+                                    Log.Exception("Error running loadout check delay thread.", e);
                                 }
                                 Thread.Sleep(100);
                                 LogThreadExit();
@@ -1479,13 +1472,13 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while handling player spawn.", e));
+                Log.Exception("Error while handling player spawn.", e);
             }
         }
 
         public override void OnPlayerLeft(CPlayerInfo playerInfo)
         {
-            DebugWrite("Entering OnPlayerLeft", 7);
+            Log.Debug("Entering OnPlayerLeft", 7);
             try
             {
                 AdKatsSubscribedPlayer aPlayer;
@@ -1496,24 +1489,24 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while handling player left.", e));
+                Log.Exception("Error while handling player left.", e);
             }
-            DebugWrite("Exiting OnPlayerLeft", 7);
+            Log.Debug("Exiting OnPlayerLeft", 7);
         }
 
         public void CallLoadoutCheckOnPlayer(params String[] parameters)
         {
-            DebugWrite("CallLoadoutCheckOnPlayer starting!", 6);
+            Log.Debug("CallLoadoutCheckOnPlayer starting!", 6);
             try
             {
                 if (parameters.Length != 2)
                 {
-                    ConsoleError("Call loadout check canceled. Parameters invalid.");
+                    Log.Error("Call loadout check canceled. Parameters invalid.");
                     return;
                 }
-                String unparsedCommandJSON = parameters[1];
+                String unparsedCommandJson = parameters[1];
 
-                var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJSON);
+                var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJson);
 
                 var playerName = (String)decodedCommand["player_name"];
                 var loadoutCheckReason = (String)decodedCommand["loadoutCheck_reason"];
@@ -1523,7 +1516,7 @@ namespace PRoConEvents
                     AdKatsSubscribedPlayer aPlayer;
                     if (_playerDictionary.TryGetValue(playerName, out aPlayer))
                     {
-                        ConsoleWrite("Loadout check manually called on " + playerName + ".");
+                        Log.Write("Loadout check manually called on " + playerName + ".");
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = aPlayer,
@@ -1534,30 +1527,30 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        ConsoleError("Attempted to call MANUAL loadout check on " + playerName + " without their player object loaded.");
+                        Log.Error("Attempted to call MANUAL loadout check on " + playerName + " without their player object loaded.");
                     }
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while calling loadout check on player.", e));
+                Log.Exception("Error while calling loadout check on player.", e);
             }
-            DebugWrite("CallLoadoutCheckOnPlayer finished!", 6);
+            Log.Debug("CallLoadoutCheckOnPlayer finished!", 6);
         }
 
         public void ReceiveAdminList(params String[] parameters)
         {
-            DebugWrite("ReceiveAdminList starting!", 6);
+            Log.Debug("ReceiveAdminList starting!", 6);
             try
             {
                 if (parameters.Length != 2)
                 {
-                    ConsoleError("Online admin receiving cancelled. Parameters invalid.");
+                    Log.Error("Online admin receiving cancelled. Parameters invalid.");
                     return;
                 }
-                String unparsedCommandJSON = parameters[1];
+                String unparsedCommandJson = parameters[1];
 
-                var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJSON);
+                var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJson);
 
                 var unparsedAdminList = (String)decodedCommand["response_value"];
 
@@ -1573,61 +1566,61 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while calling loadout check on player.", e));
+                Log.Exception("Error while calling loadout check on player.", e);
             }
-            DebugWrite("ReceiveAdminList finished!", 6);
+            Log.Debug("ReceiveAdminList finished!", 6);
         }
 
         private void QueueForProcessing(ProcessObject processObject)
         {
-            DebugWrite("Entering QueueForProcessing", 7);
+            Log.Debug("Entering QueueForProcessing", 7);
             try
             {
                 if (processObject == null || processObject.ProcessPlayer == null)
                 {
-                    ConsoleError("Attempted to process null object or player.");
+                    Log.Error("Attempted to process null object or player.");
                     return;
                 }
                 if (!processObject.ProcessPlayer.Online ||
                     String.IsNullOrEmpty(processObject.ProcessPlayer.PersonaID))
                 {
-                    DebugWrite(processObject.ProcessPlayer.Name + " queue cancelled. Player is not online, or has no persona ID.", 4);
+                    Log.Debug(processObject.ProcessPlayer.Name + " queue cancelled. Player is not online, or has no persona ID.", 4);
                     return;
                 }
                 lock (_loadoutProcessingQueue)
                 {
                     if (_loadoutProcessingQueue.Any(obj => obj != null && obj.ProcessPlayer != null && obj.ProcessPlayer.ID == processObject.ProcessPlayer.ID))
                     {
-                        DebugWrite(processObject.ProcessPlayer.Name + " queue cancelled. Player already in queue.", 4);
+                        Log.Debug(processObject.ProcessPlayer.Name + " queue cancelled. Player already in queue.", 4);
                         return;
                     }
                     Int32 oldCount = _loadoutProcessingQueue.Count();
                     _loadoutProcessingQueue.Enqueue(processObject);
-                    DebugWrite(processObject.ProcessPlayer.Name + " queued [" + oldCount + "->" + _loadoutProcessingQueue.Count + "] after " + Math.Round(DateTime.UtcNow.Subtract(processObject.ProcessTime).TotalSeconds, 2) + "s", 5);
+                    Log.Debug(processObject.ProcessPlayer.Name + " queued [" + oldCount + "->" + _loadoutProcessingQueue.Count + "] after " + Math.Round(DateTime.UtcNow.Subtract(processObject.ProcessTime).TotalSeconds, 2) + "s", 5);
                     _loadoutProcessingWaitHandle.Set();
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while queueing player for processing.", e));
+                Log.Exception("Error while queueing player for processing.", e);
             }
-            DebugWrite("Exiting QueueForProcessing", 7);
+            Log.Debug("Exiting QueueForProcessing", 7);
         }
 
         public void ProcessingThreadLoop()
         {
             try
             {
-                DebugWrite("SPROC: Starting Spawn Processing Thread", 1);
+                Log.Debug("SPROC: Starting Spawn Processing Thread", 1);
                 Thread.CurrentThread.Name = "SpawnProcessing";
                 while (true)
                 {
                     try
                     {
-                        DebugWrite("SPROC: Entering Spawn Processing Thread Loop", 7);
+                        Log.Debug("SPROC: Entering Spawn Processing Thread Loop", 7);
                         if (!_pluginEnabled)
                         {
-                            DebugWrite("SPROC: Detected AdKatsLRT not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                            Log.Debug("SPROC: Detected AdKatsLRT not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                             break;
                         }
 
@@ -1641,12 +1634,12 @@ namespace PRoConEvents
                                 ProcessObject importObject = _loadoutProcessingQueue.Dequeue();
                                 if (importObject == null)
                                 {
-                                    ConsoleError("Process object was null when entering player processing loop.");
+                                    Log.Error("Process object was null when entering player processing loop.");
                                     continue;
                                 }
                                 if (importObject.ProcessPlayer == null)
                                 {
-                                    ConsoleError("Process player was null when entering player processing loop.");
+                                    Log.Error("Process player was null when entering player processing loop.");
                                     continue;
                                 }
                                 if (!importObject.ProcessPlayer.Online)
@@ -1656,11 +1649,11 @@ namespace PRoConEvents
                                 var processDelay = DateTime.UtcNow.Subtract(importObject.ProcessTime);
                                 if (DateTime.UtcNow.Subtract(importObject.ProcessTime).TotalSeconds > 30 && _loadoutProcessingQueue.Count < 3)
                                 {
-                                    ConsoleWarn(importObject.ProcessPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
+                                    Log.Warn(importObject.ProcessPlayer.GetVerboseName() + " took abnormally long to start processing. [" + FormatTimeString(processDelay, 2) + "]");
                                 }
                                 else
                                 {
-                                    DebugWrite(importObject.ProcessPlayer.Name + " dequeued [" + oldCount + "->" + _loadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s", 5);
+                                    Log.Debug(importObject.ProcessPlayer.Name + " dequeued [" + oldCount + "->" + _loadoutProcessingQueue.Count + "] after " + Math.Round(processDelay.TotalSeconds, 2) + "s", 5);
                                 }
                                 processObject = importObject;
                             }
@@ -1708,7 +1701,7 @@ namespace PRoConEvents
                             }
                             else
                             {
-                                ConsoleError("Unknown reason for processing player. Cancelling processing.");
+                                Log.Error("Unknown reason for processing player. Cancelling processing.");
                                 continue;
                             }
 
@@ -1728,7 +1721,7 @@ namespace PRoConEvents
                             String knifeMessage = "[" + loadout.KitKnife.Slug + "]";
                             String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKit.KitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
-                            DebugWrite(loadoutMessage, 4);
+                            Log.Debug(loadoutMessage, 4);
 
                             //Action taken?
                             Boolean acted = false;
@@ -1805,7 +1798,7 @@ namespace PRoConEvents
                                             WarsawVehicle vehicle;
                                             if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle))
                                             {
-                                                ConsoleError("Could not fetch used vehicle " + category + " from player loadout, skipping.");
+                                                Log.Error("Could not fetch used vehicle " + category + " from player loadout, skipping.");
                                                 continue;
                                             }
                                             if ((vehicle.AssignedPrimary != null && vehicle.AssignedPrimary.WarsawID == warsawDeniedIDMessage.Key) ||
@@ -1837,7 +1830,7 @@ namespace PRoConEvents
                                     //Option for reputation deny
                                     if (!_spawnEnforcementActOnReputablePlayers)
                                     {
-                                        DebugWrite(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is reputable.", 4);
+                                        Log.Debug(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is reputable.", 4);
                                         if (_enableAdKatsIntegration)
                                         {
                                             //Inform AdKats of the loadout
@@ -1868,7 +1861,7 @@ namespace PRoConEvents
                                     //Option for admin deny
                                     if (!_spawnEnforcementActOnAdmins)
                                     {
-                                        DebugWrite(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is admin.", 4);
+                                        Log.Debug(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is admin.", 4);
                                         if (_enableAdKatsIntegration)
                                         {
                                             //Inform AdKats of the loadout
@@ -1964,7 +1957,7 @@ namespace PRoConEvents
                                 {
                                     //Player will be killed
                                     acted = true;
-                                    DebugWrite(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
+                                    Log.Debug(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
                                     if (processObject.ProcessSource != "listing")
                                     {
                                         aPlayer.LoadoutKills++;
@@ -2109,16 +2102,16 @@ namespace PRoConEvents
                                 Double percentKilled = Math.Round((countKilled / (Double)totalPlayerCount) * 100.0);
                                 Double percentFixed = Math.Round((countFixed / (Double)countKilled) * 100.0);
                                 Double percentRaged = Math.Round((countQuit / (Double)countKilled) * 100.0);
-                                Double denialKPM = Math.Round(countKills/(DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
+                                Double denialKpm = Math.Round(countKills/(DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
                                 Double killsPerDenial = Math.Round(countKills / (Double)countKilled, 2);
                                 Double avgDeniedItems = Math.Round((_playerDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems) + _playerLeftDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems)) / (Double) countKilled, 2);
                                 if (displayStats)
                                 {
-                                    DebugWrite("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + denialKPM + " denial KPM. " + killsPerDenial + " kills per denial. " + avgDeniedItems + " AVG denied items.", 2);
+                                    Log.Debug("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + denialKpm + " denial KPM. " + killsPerDenial + " kills per denial. " + avgDeniedItems + " AVG denied items.", 2);
                                 }
                             }
-                            DebugWrite(_loadoutProcessingQueue.Count + " players still in queue.", 3);
-                            DebugWrite(processObject.ProcessPlayer.Name + " processed after " + Math.Round(DateTime.UtcNow.Subtract(processObject.ProcessTime).TotalSeconds, 2) + "s", 5);
+                            Log.Debug(_loadoutProcessingQueue.Count + " players still in queue.", 3);
+                            Log.Debug(processObject.ProcessPlayer.Name + " processed after " + Math.Round(DateTime.UtcNow.Subtract(processObject.ProcessTime).TotalSeconds, 2) + "s", 5);
                         }
                         else
                         {
@@ -2131,27 +2124,27 @@ namespace PRoConEvents
                     {
                         if (e is ThreadAbortException)
                         {
-                            HandleException(new AdKatsException("Spawn processing thread aborted. Exiting."));
+                            Log.Exception("Spawn processing thread aborted. Exiting.", e);
                             break;
                         }
-                        HandleException(new AdKatsException("Error occured in spawn processing thread. Skipping current loop.", e));
+                        Log.Exception("Error occured in spawn processing thread. Skipping current loop.", e);
                     }
                 }
-                DebugWrite("SPROC: Ending Spawn Processing Thread", 1);
+                Log.Debug("SPROC: Ending Spawn Processing Thread", 1);
                 LogThreadExit();
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured in kill processing thread.", e));
+                Log.Exception("Error occured in kill processing thread.", e);
             }
         }
 
         private void QueuePlayerForBattlelogInfoFetch(AdKatsSubscribedPlayer aPlayer)
         {
-            DebugWrite("Entering QueuePlayerForBattlelogInfoFetch", 6);
+            Log.Debug("Entering QueuePlayerForBattlelogInfoFetch", 6);
             try
             {
-                DebugWrite("Preparing to queue player for battlelog info fetch.", 6);
+                Log.Debug("Preparing to queue player for battlelog info fetch.", 6);
                 if (_battlelogFetchQueue.Any(bPlayer => bPlayer.GUID == aPlayer.GUID))
                 {
                     return;
@@ -2159,31 +2152,31 @@ namespace PRoConEvents
                 lock (_battlelogFetchQueue)
                 {
                     _battlelogFetchQueue.Enqueue(aPlayer);
-                    DebugWrite("Player queued for battlelog info fetch.", 6);
+                    Log.Debug("Player queued for battlelog info fetch.", 6);
                     _battlelogCommWaitHandle.Set();
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while queuing player for battlelog info fetch.", e));
+                Log.Exception("Error while queuing player for battlelog info fetch.", e);
             }
-            DebugWrite("Exiting QueuePlayerForBattlelogInfoFetch", 6);
+            Log.Debug("Exiting QueuePlayerForBattlelogInfoFetch", 6);
         }
 
         public void BattlelogCommThreadLoop()
         {
             try
             {
-                DebugWrite("BTLOG: Starting Battlelog Comm Thread", 1);
+                Log.Debug("BTLOG: Starting Battlelog Comm Thread", 1);
                 Thread.CurrentThread.Name = "BattlelogComm";
                 while (true)
                 {
                     try
                     {
-                        DebugWrite("BTLOG: Entering Battlelog Comm Thread Loop", 7);
+                        Log.Debug("BTLOG: Entering Battlelog Comm Thread Loop", 7);
                         if (!_pluginEnabled)
                         {
-                            DebugWrite("BTLOG: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                            Log.Debug("BTLOG: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                             break;
                         }
                         //Sleep for 10ms
@@ -2195,7 +2188,7 @@ namespace PRoConEvents
                             Queue<AdKatsSubscribedPlayer> unprocessedPlayers;
                             lock (_battlelogFetchQueue)
                             {
-                                DebugWrite("BTLOG: Inbound players found. Grabbing.", 6);
+                                Log.Debug("BTLOG: Inbound players found. Grabbing.", 6);
                                 //Grab all items in the queue
                                 unprocessedPlayers = new Queue<AdKatsSubscribedPlayer>(_battlelogFetchQueue.ToArray());
                                 //Clear the queue for next run
@@ -2208,7 +2201,7 @@ namespace PRoConEvents
                                 {
                                     break;
                                 }
-                                DebugWrite("BTLOG: Preparing to fetch battlelog info for player", 6);
+                                Log.Debug("BTLOG: Preparing to fetch battlelog info for player", 6);
                                 //Dequeue the record
                                 AdKatsSubscribedPlayer aPlayer = unprocessedPlayers.Dequeue();
                                 //Run the appropriate action
@@ -2226,18 +2219,18 @@ namespace PRoConEvents
                     {
                         if (e is ThreadAbortException)
                         {
-                            HandleException(new AdKatsException("Battlelog comm thread aborted. Exiting."));
+                            Log.Exception("Battlelog comm thread aborted. Exiting.", e);
                             break;
                         }
-                        HandleException(new AdKatsException("Error occured in Battlelog comm thread. Skipping current loop.", e));
+                        Log.Exception("Error occured in Battlelog comm thread. Skipping current loop.", e);
                     }
                 }
-                DebugWrite("BTLOG: Ending Battlelog Comm Thread", 1);
+                Log.Debug("BTLOG: Ending Battlelog Comm Thread", 1);
                 LogThreadExit();
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error occured in battlelog comm thread.", e));
+                Log.Exception("Error occured in battlelog comm thread.", e);
             }
         }
 
@@ -2251,7 +2244,7 @@ namespace PRoConEvents
                 }
                 if (String.IsNullOrEmpty(aPlayer.Name))
                 {
-                    ConsoleError("Attempted to get battlelog information of nameless player.");
+                    Log.Error("Attempted to get battlelog information of nameless player.");
                     return;
                 }
                 using (var client = new WebClient())
@@ -2263,11 +2256,11 @@ namespace PRoConEvents
                         Match pid = Regex.Match(personaResponse, @"bf4/soldier/" + aPlayer.Name + @"/stats/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
                         if (!pid.Success)
                         {
-                            HandleException(new AdKatsException("Could not find persona ID for " + aPlayer.Name));
+                            Log.Error("Could not find persona ID for " + aPlayer.Name);
                             return;
                         }
                         aPlayer.PersonaID = pid.Groups[1].Value.Trim();
-                        DebugWrite("Persona ID fetched for " + aPlayer.Name, 4);
+                        Log.Debug("Persona ID fetched for " + aPlayer.Name, 4);
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = aPlayer,
@@ -2283,7 +2276,7 @@ namespace PRoConEvents
                         if (!data.ContainsKey("viewedPersonaInfo") || (info = (Hashtable)data["viewedPersonaInfo"]) == null)
                         {
                             aPlayer.ClanTag = String.Empty;
-                            DebugWrite("Could not find BF4 clan tag for " + aPlayer.Name, 4);
+                            Log.Debug("Could not find BF4 clan tag for " + aPlayer.Name, 4);
                         }
                         else
                         {
@@ -2291,12 +2284,12 @@ namespace PRoConEvents
                             if (!info.ContainsKey("tag") || String.IsNullOrEmpty(tag = (String)info["tag"]))
                             {
                                 aPlayer.ClanTag = String.Empty;
-                                DebugWrite("Could not find BF4 clan tag for " + aPlayer.Name, 4);
+                                Log.Debug("Could not find BF4 clan tag for " + aPlayer.Name, 4);
                             }
                             else
                             {
                                 aPlayer.ClanTag = tag;
-                                DebugWrite("Clan tag [" + aPlayer.ClanTag + "] found for " + aPlayer.Name, 4);
+                                Log.Debug("Clan tag [" + aPlayer.ClanTag + "] found for " + aPlayer.Name, 4);
                             }
                         }
                     }
@@ -2308,13 +2301,13 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while fetching battlelog information for " + aPlayer.Name, e));
+                Log.Exception("Error while fetching battlelog information for " + aPlayer.Name, e);
             }
         }
 
         public void ReceiveOnlineSoldiers(params String[] parameters)
         {
-            DebugWrite("ReceiveOnlineSoldiers starting!", 6);
+            Log.Debug("ReceiveOnlineSoldiers starting!", 6);
             try
             {
                 if (!_enableAdKatsIntegration)
@@ -2323,7 +2316,7 @@ namespace PRoConEvents
                 }
                 if (parameters.Length != 2)
                 {
-                    ConsoleError("Online soldier handling canceled. Parameters invalid.");
+                    Log.Error("Online soldier handling canceled. Parameters invalid.");
                     return;
                 }
                 String unparsedResponseJSON = parameters[1];
@@ -2333,7 +2326,7 @@ namespace PRoConEvents
                 var decodedSoldierList = (ArrayList)decodedResponse["response_value"];
                 if (decodedSoldierList == null)
                 {
-                    ConsoleError("Soldier params could not be properly converted from JSON. Unable to continue.");
+                    Log.Error("Soldier params could not be properly converted from JSON. Unable to continue.");
                     return;
                 }
                 lock (_playerDictionary)
@@ -2398,7 +2391,7 @@ namespace PRoConEvents
                             if (_playerLeftDictionary.TryGetValue(aPlayer.GUID, out dPlayer))
                             {
                                 //They are returning, move their player object
-                                DebugWrite(aPlayer.Name + " is returning.", 6);
+                                Log.Debug(aPlayer.Name + " is returning.", 6);
                                 dPlayer.Online = true;
                                 _playerDictionary[aPlayer.Name] = dPlayer;
                                 _playerLeftDictionary.Remove(dPlayer.GUID);
@@ -2406,7 +2399,7 @@ namespace PRoConEvents
                             else
                             {
                                 //Not online or returning. New player.
-                                DebugWrite(aPlayer.Name + " is newly joining.", 6);
+                                Log.Debug(aPlayer.Name + " is newly joining.", 6);
                                 newPlayer = true;
                             }
                         }
@@ -2457,21 +2450,21 @@ namespace PRoConEvents
                                 ProcessTime = DateTime.UtcNow
                             });
                         }
-                        DebugWrite(aPlayer.Name + " online after listing: " + _playerDictionary.ContainsKey(aPlayer.Name), 7);
+                        Log.Debug(aPlayer.Name + " online after listing: " + _playerDictionary.ContainsKey(aPlayer.Name), 7);
                     }
                     foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer))
                         {
-                            DebugWrite(aPlayer.Name + " removed from player list.", 6);
+                            Log.Debug(aPlayer.Name + " removed from player list.", 6);
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerDictionary.Remove(aPlayer.Name);
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
                         }
                         else
                         {
-                            ConsoleError("Unable to find " + playerName + " in online players when requesting removal.");
+                            Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
                 }
@@ -2480,9 +2473,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while receiving online soldiers.", e));
+                Log.Exception("Error while receiving online soldiers.", e);
             }
-            DebugWrite("ReceiveOnlineSoldiers finished!", 6);
+            Log.Debug("ReceiveOnlineSoldiers finished!", 6);
         }
 
         public void AdminSayMessage(String message)
@@ -2492,12 +2485,12 @@ namespace PRoConEvents
 
         public void AdminSayMessage(String message, Boolean displayProconChat)
         {
-            DebugWrite("Entering adminSay", 7);
+            Log.Debug("Entering adminSay", 7);
             try
             {
                 if (String.IsNullOrEmpty(message))
                 {
-                    ConsoleError("message null in adminSay");
+                    Log.Error("message null in adminSay");
                     return;
                 }
                 if (displayProconChat)
@@ -2512,9 +2505,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while sending admin say.", e));
+                Log.Exception("Error while sending admin say.", e);
             }
-            DebugWrite("Exiting adminSay", 7);
+            Log.Debug("Exiting adminSay", 7);
         }
 
         public void PlayerSayMessage(String target, String message)
@@ -2524,12 +2517,12 @@ namespace PRoConEvents
 
         public void PlayerSayMessage(String target, String message, Boolean displayProconChat, Int32 spamCount)
         {
-            DebugWrite("Entering playerSayMessage", 7);
+            Log.Debug("Entering playerSayMessage", 7);
             try
             {
                 if (String.IsNullOrEmpty(target) || String.IsNullOrEmpty(message))
                 {
-                    ConsoleError("target or message null in playerSayMessage");
+                    Log.Error("target or message null in playerSayMessage");
                     return;
                 }
                 if (displayProconChat)
@@ -2548,9 +2541,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while sending message to player.", e));
+                Log.Exception("Error while sending message to player.", e);
             }
-            DebugWrite("Exiting playerSayMessage", 7);
+            Log.Debug("Exiting playerSayMessage", 7);
         }
 
         public void AdminYellMessage(String message)
@@ -2560,12 +2553,12 @@ namespace PRoConEvents
 
         public void AdminYellMessage(String message, Boolean displayProconChat)
         {
-            DebugWrite("Entering adminYell", 7);
+            Log.Debug("Entering adminYell", 7);
             try
             {
                 if (String.IsNullOrEmpty(message))
                 {
-                    ConsoleError("message null in adminYell");
+                    Log.Error("message null in adminYell");
                     return;
                 }
                 if (displayProconChat)
@@ -2576,9 +2569,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while sending admin yell.", e));
+                Log.Exception("Error while sending admin yell.", e);
             }
-            DebugWrite("Exiting adminYell", 7);
+            Log.Debug("Exiting adminYell", 7);
         }
 
         public void PlayerYellMessage(String target, String message)
@@ -2588,12 +2581,12 @@ namespace PRoConEvents
 
         public void PlayerYellMessage(String target, String message, Boolean displayProconChat, Int32 spamCount)
         {
-            DebugWrite("Entering PlayerYellMessage", 7);
+            Log.Debug("Entering PlayerYellMessage", 7);
             try
             {
                 if (String.IsNullOrEmpty(message))
                 {
-                    ConsoleError("message null in PlayerYellMessage");
+                    Log.Error("message null in PlayerYellMessage");
                     return;
                 }
                 if (displayProconChat)
@@ -2608,9 +2601,9 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while sending admin yell.", e));
+                Log.Exception("Error while sending admin yell.", e);
             }
-            DebugWrite("Exiting PlayerYellMessage", 7);
+            Log.Debug("Exiting PlayerYellMessage", 7);
         }
 
         public void AdminTellMessage(String message)
@@ -2645,139 +2638,139 @@ namespace PRoConEvents
 
         public Boolean LoadWarsawLibrary()
         {
-            DebugWrite("Entering LoadWarsawLibrary", 7);
+            Log.Debug("Entering LoadWarsawLibrary", 7);
             try
             {
                 if (_gameVersion == GameVersion.BF4)
                 {
                     var library = new WarsawLibrary();
-                    ConsoleInfo("Downloading WARSAW library.");
+                    Log.Info("Downloading WARSAW library.");
                     Hashtable responseData = FetchWarsawLibrary();
 
                     //Response data
                     if (responseData == null)
                     {
-                        ConsoleError("WARSAW library fetch failed, unable to generate library.");
+                        Log.Error("WARSAW library fetch failed, unable to generate library.");
                         return false;
                     }
                     //Compact element
                     if (!responseData.ContainsKey("compact"))
                     {
-                        ConsoleError("WARSAW library fetch did not contain 'compact' element, unable to generate library.");
+                        Log.Error("WARSAW library fetch did not contain 'compact' element, unable to generate library.");
                         return false;
                     }
                     var compact = (Hashtable)responseData["compact"];
                     if (compact == null)
                     {
-                        ConsoleError("Compact section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Compact section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Compact weapons element
                     if (!compact.ContainsKey("weapons"))
                     {
-                        ConsoleError("Warsaw compact section did not contain 'weapons' element, unable to generate library.");
+                        Log.Error("Warsaw compact section did not contain 'weapons' element, unable to generate library.");
                         return false;
                     }
                     var compactWeapons = (Hashtable)compact["weapons"];
                     if (compactWeapons == null)
                     {
-                        ConsoleError("Compact weapons section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Compact weapons section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Compact weapon accessory element
                     if (!compact.ContainsKey("weaponaccessory"))
                     {
-                        ConsoleError("Warsaw compact section did not contain 'weaponaccessory' element, unable to generate library.");
+                        Log.Error("Warsaw compact section did not contain 'weaponaccessory' element, unable to generate library.");
                         return false;
                     }
                     var compactWeaponAccessory = (Hashtable)compact["weaponaccessory"];
                     if (compactWeaponAccessory == null)
                     {
-                        ConsoleError("Weapon accessory section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Weapon accessory section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Compact vehicles element
                     if (!compact.ContainsKey("vehicles"))
                     {
-                        ConsoleError("Warsaw compact section did not contain 'vehicles' element, unable to generate library.");
+                        Log.Error("Warsaw compact section did not contain 'vehicles' element, unable to generate library.");
                         return false;
                     }
                     var compactVehicles = (Hashtable)compact["vehicles"];
                     if (compactVehicles == null)
                     {
-                        ConsoleError("Compact vehicles section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Compact vehicles section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Compact kit items element
                     if (!compact.ContainsKey("kititems"))
                     {
-                        ConsoleError("Warsaw compact section did not contain 'kititems' element, unable to generate library.");
+                        Log.Error("Warsaw compact section did not contain 'kititems' element, unable to generate library.");
                         return false;
                     }
                     var compactKitItems = (Hashtable)compact["kititems"];
                     if (compactKitItems == null)
                     {
-                        ConsoleError("Kit items section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Kit items section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Compact vehicle unlocks element
                     if (!compact.ContainsKey("vehicleunlocks"))
                     {
-                        ConsoleError("Warsaw compact section did not contain 'vehicleunlocks' element, unable to generate library.");
+                        Log.Error("Warsaw compact section did not contain 'vehicleunlocks' element, unable to generate library.");
                         return false;
                     }
                     var compactVehicleUnlocks = (Hashtable)compact["vehicleunlocks"];
                     if (compactVehicleUnlocks == null)
                     {
-                        ConsoleError("Vehicle unlocks section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Vehicle unlocks section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Loadout element
                     if (!responseData.ContainsKey("loadout"))
                     {
-                        ConsoleError("WARSAW library fetch did not contain 'loadout' element, unable to generate library.");
+                        Log.Error("WARSAW library fetch did not contain 'loadout' element, unable to generate library.");
                         return false;
                     }
                     var loadout = (Hashtable)responseData["loadout"];
                     if (loadout == null)
                     {
-                        ConsoleError("Loadout section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Loadout section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Loadout weapons element
                     if (!loadout.ContainsKey("weapons"))
                     {
-                        ConsoleError("Warsaw loadout section did not contain 'weapons' element, unable to generate library.");
+                        Log.Error("Warsaw loadout section did not contain 'weapons' element, unable to generate library.");
                         return false;
                     }
                     var loadoutWeapons = (Hashtable)loadout["weapons"];
                     if (loadoutWeapons == null)
                     {
-                        ConsoleError("Loadout weapons section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Loadout weapons section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Loadout kits element
                     if (!loadout.ContainsKey("kits"))
                     {
-                        ConsoleError("Warsaw loadout section did not contain 'kits' element, unable to generate library.");
+                        Log.Error("Warsaw loadout section did not contain 'kits' element, unable to generate library.");
                         return false;
                     }
                     var loadoutKits = (ArrayList)loadout["kits"];
                     if (loadoutKits == null)
                     {
-                        ConsoleError("Loadout kits section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Loadout kits section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
                     //Loadout vehicles element
                     if (!loadout.ContainsKey("vehicles"))
                     {
-                        ConsoleError("Warsaw loadout section did not contain 'vehicles' element, unable to generate library.");
+                        Log.Error("Warsaw loadout section did not contain 'vehicles' element, unable to generate library.");
                         return false;
                     }
                     var loadoutVehicles = (ArrayList)loadout["vehicles"];
                     if (loadoutVehicles == null)
                     {
-                        ConsoleError("Loadout vehicles section of WARSAW library failed parse, unable to generate library.");
+                        Log.Error("Loadout vehicles section of WARSAW library failed parse, unable to generate library.");
                         return false;
                     }
 
@@ -2797,7 +2790,7 @@ namespace PRoConEvents
 
                         if (_displayLoadoutDebug)
                         {
-                            ConsoleInfo("Loading debug warsaw ID " + item.WarsawID);
+                            Log.Info("Loading debug warsaw ID " + item.WarsawID);
                         }
 
                         //Grab the contents
@@ -2806,14 +2799,14 @@ namespace PRoConEvents
                         if (!weaponData.ContainsKey("category"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'category'.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
                         item.Category = (String)weaponData["category"];
                         if (String.IsNullOrEmpty(item.Category))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. 'category' was invalid.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         item.CategoryReadable = item.Category.Split('_').Last().Replace('_', ' ').ToUpper();
@@ -2822,14 +2815,14 @@ namespace PRoConEvents
                         if (!weaponData.ContainsKey("name"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'name'.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
                         item.Name = (String)weaponData["name"];
                         if (String.IsNullOrEmpty(item.Name))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. 'name' was invalid.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
                         //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
@@ -2839,7 +2832,7 @@ namespace PRoConEvents
                         if (!weaponData.ContainsKey("categoryType"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'categoryType'.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. Element did not contain 'categoryType'.");
                             continue;
                         }
                         item.CategoryTypeReadable = (String)weaponData["categoryType"];
@@ -2853,14 +2846,14 @@ namespace PRoConEvents
                         if (!weaponData.ContainsKey("slug"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. Element did not contain 'slug'.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
                         item.Slug = (String)weaponData["slug"];
                         if (String.IsNullOrEmpty(item.Slug))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon '" + warsawID + "'. 'slug' was invalid.");
+                                Log.Error("Rejecting weapon '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
                         //Parsed slug replaces "_" with " ", replaces "-" with " ", and upper cases the rest
@@ -2885,7 +2878,7 @@ namespace PRoConEvents
 
                         if (_displayLoadoutDebug)
                         {
-                            ConsoleInfo("Loading debug warsaw ID " + kitItem.WarsawID);
+                            Log.Info("Loading debug warsaw ID " + kitItem.WarsawID);
                         }
 
                         //Grab the contents
@@ -2894,21 +2887,21 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("category"))
                         {
                             if(_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'category'.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
                         kitItem.Category = (String)weaponAccessoryData["category"];
                         if (String.IsNullOrEmpty(kitItem.Category))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. 'category' was invalid.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         kitItem.CategoryReadable = kitItem.Category.Split('_').Last().Replace('_', ' ').ToUpper();
                         if (kitItem.CategoryReadable != "GADGET" && kitItem.CategoryReadable != "GRENADE")
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. 'category' not gadget or grenade.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. 'category' not gadget or grenade.");
                             continue;
                         }
 
@@ -2916,14 +2909,14 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("name"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'name'.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
                         kitItem.Name = (String)weaponAccessoryData["name"];
                         if (String.IsNullOrEmpty(kitItem.Name))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. 'name' was invalid.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
                         //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
@@ -2933,14 +2926,14 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("slug"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. Element did not contain 'slug'.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
                         kitItem.Slug = (String)weaponAccessoryData["slug"];
                         if (String.IsNullOrEmpty(kitItem.Slug))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting kit item '" + warsawID + "'. 'slug' was invalid.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
                         //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
@@ -2978,14 +2971,14 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("category"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'category'.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
                         itemAccessory.Category = (String)weaponAccessoryData["category"];
                         if (String.IsNullOrEmpty(itemAccessory.Category))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'category' was invalid.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         itemAccessory.CategoryReadable = itemAccessory.Category.Split('_').Last().Replace('_', ' ').ToUpper();
@@ -2994,14 +2987,14 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("name"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'name'.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
                         itemAccessory.Name = (String)weaponAccessoryData["name"];
                         if (String.IsNullOrEmpty(itemAccessory.Name))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'name' was invalid.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
                         //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
@@ -3011,14 +3004,14 @@ namespace PRoConEvents
                         if (!weaponAccessoryData.ContainsKey("slug"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'slug'.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
                         itemAccessory.Slug = (String)weaponAccessoryData["slug"];
                         if (String.IsNullOrEmpty(itemAccessory.Slug))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting weapon accessory '" + warsawID + "'. 'slug' was invalid.");
+                                Log.Error("Rejecting weapon accessory '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
                         //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
@@ -3036,7 +3029,7 @@ namespace PRoConEvents
                         {
                             //Reject the entry
                             if (_displayLoadoutDebug)
-                                ConsoleInfo("Rejecting vehicle element '" + entry.Key + "', key not a valid ID.");
+                                Log.Info("Rejecting vehicle element '" + entry.Key + "', key not a valid ID.");
                             continue;
                         }
 
@@ -3051,14 +3044,14 @@ namespace PRoConEvents
                         if (!vehicleData.ContainsKey("categoryType"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle '" + category + "'. Element did not contain 'categoryType'.");
+                                Log.Error("Rejecting vehicle '" + category + "'. Element did not contain 'categoryType'.");
                             continue;
                         }
                         vehicle.CategoryType = (String)vehicleData["categoryType"];
                         if (String.IsNullOrEmpty(vehicle.CategoryType))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle '" + category + "'. 'categoryType' was invalid.");
+                                Log.Error("Rejecting vehicle '" + category + "'. 'categoryType' was invalid.");
                             continue;
                         }
                         vehicle.CategoryTypeReadable = vehicle.CategoryType;
@@ -3113,7 +3106,7 @@ namespace PRoConEvents
                         //Assign the vehicle
                         library.Vehicles[vehicle.Category] = vehicle;
                         if (_displayLoadoutDebug)
-                            ConsoleSuccess("Vehicle " + vehicle.Category + " added. " + library.Vehicles.ContainsKey(vehicle.Category));
+                            Log.Success("Vehicle " + vehicle.Category + " added. " + library.Vehicles.ContainsKey(vehicle.Category));
                     }
 
                     library.VehicleUnlocks.Clear();
@@ -3136,14 +3129,14 @@ namespace PRoConEvents
                         if (!vehicleUnlockData.ContainsKey("category"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'category'.");
+                                Log.Error("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
                         vehicleUnlock.Category = (String)vehicleUnlockData["category"];
                         if (String.IsNullOrEmpty(vehicleUnlock.Category))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'category' was invalid.");
+                                Log.Error("Rejecting vehicle unlock '" + warsawID + "'. 'category' was invalid.");
                             continue;
                         }
                         vehicleUnlock.CategoryReadable = vehicleUnlock.Category.Split('_').Last().Replace('_', ' ').ToUpper();
@@ -3152,14 +3145,14 @@ namespace PRoConEvents
                         if (!vehicleUnlockData.ContainsKey("name"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock'" + warsawID + "'. Element did not contain 'name'.");
+                                Log.Error("Rejecting vehicle unlock'" + warsawID + "'. Element did not contain 'name'.");
                             continue;
                         }
                         var name = (String)vehicleUnlockData["name"];
                         if (String.IsNullOrEmpty(name))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'name' was invalid.");
+                                Log.Error("Rejecting vehicle unlock '" + warsawID + "'. 'name' was invalid.");
                             continue;
                         }
                         //Parsed name removes leading "WARSAW_ID_P_INAME_", "WARSAW_ID_P_WNAME_", or "WARSAW_ID_P_ANAME_", replaces "_" with " ", and lower cases the rest
@@ -3169,14 +3162,14 @@ namespace PRoConEvents
                         if (!vehicleUnlockData.ContainsKey("slug"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'slug'.");
+                                Log.Error("Rejecting vehicle unlock '" + warsawID + "'. Element did not contain 'slug'.");
                             continue;
                         }
                         vehicleUnlock.Slug = (String)vehicleUnlockData["slug"];
                         if (String.IsNullOrEmpty(vehicleUnlock.Slug))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting vehicle unlock '" + warsawID + "'. 'slug' was invalid.");
+                                Log.Error("Rejecting vehicle unlock '" + warsawID + "'. 'slug' was invalid.");
                             continue;
                         }
                         //Parsed slug removes ending digit if one exists, replaces "_" with " ", replaces "-" with " ", and upper cases the rest
@@ -3202,7 +3195,7 @@ namespace PRoConEvents
                         {
                             //Reject the entry
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting loadout weapon element '" + warsawID + "', ID not found in weapon library.");
+                                Log.Error("Rejecting loadout weapon element '" + warsawID + "', ID not found in weapon library.");
                             continue;
                         }
 
@@ -3210,14 +3203,14 @@ namespace PRoConEvents
                         var weaponData = (Hashtable)entry.Value;
                         if (weaponData == null)
                         {
-                            ConsoleError("Rejecting loadout weapon element " + warsawID + ", could not parse weapon data.");
+                            Log.Error("Rejecting loadout weapon element " + warsawID + ", could not parse weapon data.");
                             continue;
                         }
                         //Grab slots------------------------------------------------------------------------------
                         if (!weaponData.ContainsKey("slots"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("Rejecting loadout weapon element '" + warsawID + "'. Element did not contain 'slots'.");
+                                Log.Error("Rejecting loadout weapon element '" + warsawID + "'. Element did not contain 'slots'.");
                             continue;
                         }
                         var slots = (ArrayList)weaponData["slots"];
@@ -3227,14 +3220,14 @@ namespace PRoConEvents
                             var slotTable = (Hashtable)slotEntry;
                             if (slotTable == null)
                             {
-                                ConsoleError("Rejecting slot entry for " + warsawID + ", could not parse slot into hashtable.");
+                                Log.Error("Rejecting slot entry for " + warsawID + ", could not parse slot into hashtable.");
                                 continue;
                             }
                             //Grab category------------------------------------------------------------------------------
                             if (!slotTable.ContainsKey("sid"))
                             {
                                 if (_displayLoadoutDebug)
-                                    ConsoleError("Rejecting slot entry for " + warsawID + ". Element did not contain 'sid'.");
+                                    Log.Error("Rejecting slot entry for " + warsawID + ". Element did not contain 'sid'.");
                                 continue;
                             }
                             var category = (String)slotTable["sid"];
@@ -3246,7 +3239,7 @@ namespace PRoConEvents
                             if (!slotTable.ContainsKey("items"))
                             {
                                 if (_displayLoadoutDebug)
-                                    ConsoleError("Rejecting slot entry for " + warsawID + ". Element did not contain 'items'.");
+                                    Log.Error("Rejecting slot entry for " + warsawID + ". Element did not contain 'items'.");
                                 continue;
                             }
                             var items = (ArrayList)slotTable["items"];
@@ -3270,7 +3263,7 @@ namespace PRoConEvents
                                 else
                                 {
                                     if (_displayLoadoutDebug)
-                                        ConsoleError("Rejecting allowed accessory entry for " + accessoryID + ". Accessory not found in library.");
+                                        Log.Error("Rejecting allowed accessory entry for " + accessoryID + ". Accessory not found in library.");
                                 }
                             }
                         }
@@ -3282,7 +3275,7 @@ namespace PRoConEvents
                         //Get the kit key
                         if (!entry.ContainsKey("sid"))
                         {
-                            ConsoleError("Kit entry did not contain 'sid' element, unable to generate library.");
+                            Log.Error("Kit entry did not contain 'sid' element, unable to generate library.");
                             return false;
                         }
                         var kitKey = (String)entry["sid"];
@@ -3302,14 +3295,14 @@ namespace PRoConEvents
                                 kit = library.KitRecon;
                                 break;
                             default:
-                                ConsoleError("Kit entry could not be assigned to a valid kit type, unable to generate library.");
+                                Log.Error("Kit entry could not be assigned to a valid kit type, unable to generate library.");
                                 return false;
                         }
 
                         //Grab slots------------------------------------------------------------------------------
                         if (!entry.ContainsKey("slots"))
                         {
-                            ConsoleError("Kit entry '" + kitKey + "' did not contain 'slots' element, unable to generate library.");
+                            Log.Error("Kit entry '" + kitKey + "' did not contain 'slots' element, unable to generate library.");
                             return false;
                         }
                         var slots = (ArrayList)entry["slots"];
@@ -3319,13 +3312,13 @@ namespace PRoConEvents
                             var slotTable = (Hashtable)slotEntry;
                             if (slotTable == null)
                             {
-                                ConsoleError("Slot entry for kit '" + kitKey + "', could not parse slot into hashtable, unable to generate library.");
+                                Log.Error("Slot entry for kit '" + kitKey + "', could not parse slot into hashtable, unable to generate library.");
                                 return false;
                             }
                             //Grab category------------------------------------------------------------------------------
                             if (!slotTable.ContainsKey("sid"))
                             {
-                                ConsoleError("Slot entry for kit '" + kitKey + "', did not contain 'sid' element, unable to generate library.");
+                                Log.Error("Slot entry for kit '" + kitKey + "', did not contain 'sid' element, unable to generate library.");
                                 return false;
                             }
                             var category = (String)slotTable["sid"];
@@ -3338,7 +3331,7 @@ namespace PRoConEvents
                             if (!slotTable.ContainsKey("items"))
                             {
                                 if (_displayLoadoutDebug)
-                                    ConsoleError("Rejecting slot entry '" + category + "' for class '" + kitKey + "', element did not contain 'items'.");
+                                    Log.Error("Rejecting slot entry '" + category + "' for class '" + kitKey + "', element did not contain 'items'.");
                                 continue;
                             }
                             var items = (ArrayList)slotTable["items"];
@@ -3367,7 +3360,7 @@ namespace PRoConEvents
                                     break;
                                 default:
                                     if (_displayLoadoutDebug)
-                                        ConsoleInfo("Rejecting slot item entry '" + category + "' for class '" + kitKey + "'.");
+                                        Log.Info("Rejecting slot item entry '" + category + "' for class '" + kitKey + "'.");
                                     continue;
                             }
 
@@ -3382,12 +3375,12 @@ namespace PRoConEvents
                                 else
                                 {
                                     if (_displayLoadoutDebug)
-                                        ConsoleError("Rejecting allowed item entry " + itemID + ". Item not found in library.");
+                                        Log.Error("Rejecting allowed item entry " + itemID + ". Item not found in library.");
                                 }
                             }
                         }
                         if (_displayLoadoutDebug)
-                            ConsoleInfo(kit.KitType + " parsed. Allowed: " + kit.KitAllowedPrimary.Count + " primary weapons, " + kit.KitAllowedSecondary.Count + " secondary weapons, " + kit.KitAllowedGadget1.Count + " primary gadgets, " + kit.KitAllowedGadget2.Count + " secondary gadgets, " + kit.KitAllowedGrenades.Count + " grenades, and " + kit.KitAllowedKnife.Count + " knives.");
+                            Log.Info(kit.KitType + " parsed. Allowed: " + kit.KitAllowedPrimary.Count + " primary weapons, " + kit.KitAllowedSecondary.Count + " secondary weapons, " + kit.KitAllowedGadget1.Count + " primary gadgets, " + kit.KitAllowedGadget2.Count + " secondary gadgets, " + kit.KitAllowedGrenades.Count + " grenades, and " + kit.KitAllowedKnife.Count + " knives.");
                     }
 
                     //Fill allowed items for each vehicle
@@ -3397,7 +3390,7 @@ namespace PRoConEvents
                         if (!entry.ContainsKey("sid"))
                         {
                             if(_displayLoadoutDebug)
-                                ConsoleWarn("Vehicle entry did not contain 'sid' element, skipping.");
+                                Log.Warn("Vehicle entry did not contain 'sid' element, skipping.");
                             continue;
                         }
                         var vehicleCategory = (String)entry["sid"];
@@ -3406,7 +3399,7 @@ namespace PRoConEvents
                         if (!vehicleCategory.Contains("WARSAW_ID_EOR"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Vehicle entry was not an EOR entry, skipping.");
+                                Log.Warn("Vehicle entry was not an EOR entry, skipping.");
                             continue;
                         }
 
@@ -3414,7 +3407,7 @@ namespace PRoConEvents
                         if (!library.Vehicles.TryGetValue(vehicleCategory, out vehicle))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Vehicle category " + vehicleCategory + " not found, skipping.");
+                                Log.Warn("Vehicle category " + vehicleCategory + " not found, skipping.");
                             continue;
                         }
 
@@ -3422,7 +3415,7 @@ namespace PRoConEvents
                         if (!entry.ContainsKey("slots"))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Vehicle entry '" + vehicleCategory + "' did not contain 'slots' element, skipping.");
+                                Log.Warn("Vehicle entry '" + vehicleCategory + "' did not contain 'slots' element, skipping.");
                             continue;
                         }
                         var slots = (ArrayList)entry["slots"];
@@ -3433,13 +3426,13 @@ namespace PRoConEvents
                             var slotTable = (Hashtable)slotEntry;
                             if (slotTable == null)
                             {
-                                ConsoleError("Slot entry for vehicle '" + vehicleCategory + "', could not parse slot into hashtable, unable to generate library.");
+                                Log.Error("Slot entry for vehicle '" + vehicleCategory + "', could not parse slot into hashtable, unable to generate library.");
                                 return false;
                             }
                             //Grab category------------------------------------------------------------------------------
                             if (!slotTable.ContainsKey("sid"))
                             {
-                                ConsoleError("Slot entry for vehicle '" + vehicleCategory + "', did not contain 'sid' element, unable to generate library.");
+                                Log.Error("Slot entry for vehicle '" + vehicleCategory + "', did not contain 'sid' element, unable to generate library.");
                                 return false;
                             }
                             var category = (String)slotTable["sid"];
@@ -3453,7 +3446,7 @@ namespace PRoConEvents
                             if (!slotTable.ContainsKey("items"))
                             {
                                 if (_displayLoadoutDebug)
-                                    ConsoleError("Rejecting slot entry '" + category + "' for vehicle '" + vehicleCategory + "', element did not contain 'items'.");
+                                    Log.Error("Rejecting slot entry '" + category + "' for vehicle '" + vehicleCategory + "', element did not contain 'items'.");
                                 slotIndex++;
                                 continue;
                             }
@@ -3498,7 +3491,7 @@ namespace PRoConEvents
                                     break;
                                 default:
                                     if (_displayLoadoutDebug)
-                                        ConsoleInfo("Rejecting slot item entry '" + category + "' for vehicle '" + vehicleCategory + "'.");
+                                        Log.Info("Rejecting slot item entry '" + category + "' for vehicle '" + vehicleCategory + "'.");
                                     slotIndex++;
                                     continue;
                             }
@@ -3515,19 +3508,19 @@ namespace PRoConEvents
                                         item.AssignedVehicle = vehicle;
                                     }
                                     else {
-                                        ConsoleWarn(unlockID + " already assigned to a vehicle, " + item.AssignedVehicle.CategoryType);
+                                        Log.Warn(unlockID + " already assigned to a vehicle, " + item.AssignedVehicle.CategoryType);
                                     }
                                 }
                                 else
                                 {
                                     if (_displayLoadoutDebug)
-                                        ConsoleError("Rejecting allowed unlock entry " + unlockID + ". Item not found in library.");
+                                        Log.Error("Rejecting allowed unlock entry " + unlockID + ". Item not found in library.");
                                 }
                             }
                             slotIndex++;
                         }
                         if (_displayLoadoutDebug)
-                            ConsoleInfo(vehicle.CategoryType + " parsed. Allowed: " + 
+                            Log.Info(vehicle.CategoryType + " parsed. Allowed: " + 
                                 vehicle.AllowedPrimaries.Count + " primary weapons, " + 
                                 vehicle.AllowedSecondaries.Count + " secondary weapons, " +
                                 vehicle.AllowedCountermeasures.Count + " countermeasures, " +
@@ -3543,14 +3536,14 @@ namespace PRoConEvents
                     UpdateSettingPage();
                     return true;
                 }
-                ConsoleError("Game not BF4, unable to process WARSAW library.");
+                Log.Error("Game not BF4, unable to process WARSAW library.");
                 return false;
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while parsing WARSAW library.", e));
+                Log.Exception("Error while parsing WARSAW library.", e);
             }
-            DebugWrite("Exiting LoadWarsawLibrary", 7);
+            Log.Debug("Exiting LoadWarsawLibrary", 7);
             return false;
         }
 
@@ -3574,7 +3567,7 @@ namespace PRoConEvents
                         }
                         catch (Exception e)
                         {
-                            HandleException(new AdKatsException("Error while downloading raw WARSAW library.", e));
+                            Log.Exception("Error while downloading raw WARSAW library.", e);
                             return null;
                         }
                     }
@@ -3583,7 +3576,7 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Unexpected error while fetching WARSAW library", e));
+                Log.Exception("Unexpected error while fetching WARSAW library", e);
                 return null;
             }
             return library;
@@ -3591,7 +3584,7 @@ namespace PRoConEvents
 
         private AdKatsLoadout GetPlayerLoadout(String personaID)
         {
-            DebugWrite("Entering GetPlayerLoadout", 7);
+            Log.Debug("Entering GetPlayerLoadout", 7);
             try
             {
                 if (_gameVersion == GameVersion.BF4)
@@ -3601,27 +3594,27 @@ namespace PRoConEvents
                     if (responseData == null)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Loadout fetch failed, unable to parse player loadout.");
+                            Log.Error("Loadout fetch failed, unable to parse player loadout.");
                         return null;
                     }
                     if (!responseData.ContainsKey("data"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
+                            Log.Error("Loadout fetch did not contain 'data' element, unable to parse player loadout.");
                         return null;
                     }
                     var data = (Hashtable)responseData["data"];
                     if (data == null)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Data section of loadout failed parse, unable to parse player loadout.");
+                            Log.Error("Data section of loadout failed parse, unable to parse player loadout.");
                         return null;
                     }
                     //Get parsed back persona ID
                     if (!data.ContainsKey("personaId"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
+                            Log.Error("Data section of loadout did not contain 'personaId' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.PersonaID = data["personaId"].ToString();
@@ -3629,7 +3622,7 @@ namespace PRoConEvents
                     if (!data.ContainsKey("personaName"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
+                            Log.Error("Data section of loadout did not contain 'personaName' element, unable to parse player loadout.");
                         return null;
                     }
                     loadout.Name = data["personaName"].ToString();
@@ -3637,40 +3630,40 @@ namespace PRoConEvents
                     if (!data.ContainsKey("currentLoadout"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
+                            Log.Error("Data section of loadout did not contain 'currentLoadout' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutHashtable = (Hashtable)data["currentLoadout"];
                     if (currentLoadoutHashtable == null)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Current loadout section failed parse, unable to parse player loadout.");
+                            Log.Error("Current loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     if (!currentLoadoutHashtable.ContainsKey("weapons"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
+                            Log.Error("Current loadout section did not contain 'weapons' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutWeapons = (Hashtable)currentLoadoutHashtable["weapons"];
                     if (currentLoadoutWeapons == null)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Weapon loadout section failed parse, unable to parse player loadout.");
+                            Log.Error("Weapon loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     if (!currentLoadoutHashtable.ContainsKey("vehicles"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Current loadout section did not contain 'vehicles' element, unable to parse player loadout.");
+                            Log.Error("Current loadout section did not contain 'vehicles' element, unable to parse player loadout.");
                         return null;
                     }
                     var currentLoadoutVehicles = (ArrayList)currentLoadoutHashtable["vehicles"];
                     if (currentLoadoutVehicles == null)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Vehicles loadout section failed parse, unable to parse player loadout.");
+                            Log.Error("Vehicles loadout section failed parse, unable to parse player loadout.");
                         return null;
                     }
                     foreach (DictionaryEntry weaponEntry in currentLoadoutWeapons)
@@ -3713,7 +3706,7 @@ namespace PRoConEvents
                             case 0:
                                 //MBT
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEMBT", out libraryVehicle)) {
-                                    ConsoleError("Failed to fetch MBT vehicle, unable to parse player loadout.");
+                                    Log.Error("Failed to fetch MBT vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3721,7 +3714,7 @@ namespace PRoConEvents
                                 //IFV
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEIFV", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch IFV vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch IFV vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3729,7 +3722,7 @@ namespace PRoConEvents
                                 //AA
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEAA", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch AA vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch AA vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3737,7 +3730,7 @@ namespace PRoConEvents
                                 //Boat
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEATTACKBOAT", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch Boat vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch Boat vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3745,7 +3738,7 @@ namespace PRoConEvents
                                 //Stealth
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLESTEALTHJET", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch Stealth vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch Stealth vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3753,7 +3746,7 @@ namespace PRoConEvents
                                 //Scout
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLESCOUTHELI", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch Scout vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch Scout vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3761,7 +3754,7 @@ namespace PRoConEvents
                                 //AttkHeli
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEATTACKHELI", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch AttkHeli vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch AttkHeli vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3769,7 +3762,7 @@ namespace PRoConEvents
                                 //AttkJet
                                 if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEATTACKJET", out libraryVehicle))
                                 {
-                                    ConsoleInfo("Failed to fetch AttkJet vehicle, unable to parse player loadout.");
+                                    Log.Info("Failed to fetch AttkJet vehicle, unable to parse player loadout.");
                                     return null;
                                 }
                                 break;
@@ -3792,7 +3785,7 @@ namespace PRoConEvents
                             if (!libraryVehicle.AllowedPrimaries.TryGetValue(itemID, out vehicle.AssignedPrimary)) {
                                 var defaultItem = libraryVehicle.AllowedPrimaries.Values.First();
                                 if(_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle primary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle primary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedPrimary = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedPrimary.WarsawID] = vehicle.AssignedPrimary;
@@ -3805,7 +3798,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedSecondaries.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle secondary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle secondary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedSecondary = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedSecondary.WarsawID] = vehicle.AssignedSecondary;
@@ -3818,7 +3811,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedCountermeasures.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle countermeasure " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle countermeasure " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedCountermeasure = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedCountermeasure.WarsawID] = vehicle.AssignedCountermeasure;
@@ -3831,7 +3824,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedOptics.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle optic " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle optic " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedOptic = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedOptic.WarsawID] = vehicle.AssignedOptic;
@@ -3844,7 +3837,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedUpgrades.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle upgrade " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle upgrade " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedUpgrade = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedUpgrade.WarsawID] = vehicle.AssignedUpgrade;
@@ -3857,7 +3850,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedSecondariesGunner.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle gunner secondary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle gunner secondary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedSecondaryGunner = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedSecondaryGunner.WarsawID] = vehicle.AssignedSecondaryGunner;
@@ -3870,7 +3863,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedOpticsGunner.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle gunner optic " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle gunner optic " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedOpticGunner = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedOpticGunner.WarsawID] = vehicle.AssignedOpticGunner;
@@ -3883,7 +3876,7 @@ namespace PRoConEvents
                             {
                                 var defaultItem = libraryVehicle.AllowedUpgradesGunner.Values.First();
                                 if (_displayLoadoutDebug)
-                                    ConsoleWarn("Unable to fetch valid vehicle gunner upgrade " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
+                                    Log.Warn("Unable to fetch valid vehicle gunner upgrade " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedUpgradeGunner = defaultItem;
                             }
                             loadout.VehicleItems[vehicle.AssignedUpgradeGunner.WarsawID] = vehicle.AssignedUpgradeGunner;
@@ -3893,7 +3886,7 @@ namespace PRoConEvents
                             loadout.LoadoutRCONVehicles[rconCode] = vehicle;
                         }
                         if(_displayLoadoutDebug)
-                            ConsoleInfo(loadout.Name + ": " +
+                            Log.Info(loadout.Name + ": " +
                                 vehicle.CategoryType + ": " +
                                 ((vehicle.AssignedPrimary == null) ? ("No Primary") : (vehicle.AssignedPrimary.Slug)) + ", " +
                                 ((vehicle.AssignedSecondary == null) ? ("No Secondary") : (vehicle.AssignedSecondary.Slug)) + ", " +
@@ -3907,7 +3900,7 @@ namespace PRoConEvents
                     if (!currentLoadoutHashtable.ContainsKey("selectedKit"))
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
+                            Log.Error("Current loadout section did not contain 'selectedKit' element, unable to parse player loadout.");
                         return null;
                     }
                     String selectedKit = currentLoadoutHashtable["selectedKit"].ToString();
@@ -3932,13 +3925,13 @@ namespace PRoConEvents
                             break;
                         default:
                             if (_displayLoadoutDebug)
-                                ConsoleError("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
+                                Log.Error("Unable to parse selected kit " + selectedKit + ", value is unknown. Unable to parse player loadout.");
                             return null;
                     }
                     if (currentLoadoutList.Count < 6)
                     {
                         if (_displayLoadoutDebug)
-                            ConsoleError("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
+                            Log.Error("Loadout kit item entry did not contain 6 valid entries. Unable to parse player loadout.");
                         return null;
                     }
                     //Pull the specifics
@@ -3982,7 +3975,7 @@ namespace PRoConEvents
                             break;
                         default:
                             if (_displayLoadoutDebug)
-                                ConsoleError("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
+                                Log.Error("Specific kit type not set while assigning primary weapon default. Unable to parse player loadout.");
                             return null;
                     }
                     //Attempt to fetch PRIMARY from library
@@ -3991,12 +3984,12 @@ namespace PRoConEvents
                         if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific PRIMARY (" + loadoutPrimaryID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.Slug + ".");
+                                Log.Warn("Specific PRIMARY (" + loadoutPrimaryID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutPrimary.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid PRIMARY (" + loadoutPrimaryID + "->" + specificDefault + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid PRIMARY (" + loadoutPrimaryID + "->" + specificDefault + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4006,12 +3999,12 @@ namespace PRoConEvents
                         if (loadout.LoadoutItems.TryGetValue(specificDefault, out loadoutPrimary))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific PRIMARY (" + loadoutPrimaryID + ") for " + loadout.Name + " was not valid for " + loadout.SelectedKit.KitType + " kit. Defaulting to " + loadoutPrimary.Slug + ".");
+                                Log.Warn("Specific PRIMARY (" + loadoutPrimaryID + ") for " + loadout.Name + " was not valid for " + loadout.SelectedKit.KitType + " kit. Defaulting to " + loadoutPrimary.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid PRIMARY (" + loadoutPrimaryID + "->" + specificDefault + ") usable for " + loadout.SelectedKit.KitType + " " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid PRIMARY (" + loadoutPrimaryID + "->" + specificDefault + ") usable for " + loadout.SelectedKit.KitType + " " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4025,12 +4018,12 @@ namespace PRoConEvents
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific SIDEARM (" + loadoutSidearmID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.Slug + ".");
+                                Log.Warn("Specific SIDEARM (" + loadoutSidearmID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutSidearm.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid SIDEARM (" + loadoutSidearmID + "->" + defaultSidearm + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid SIDEARM (" + loadoutSidearmID + "->" + defaultSidearm + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4041,12 +4034,12 @@ namespace PRoConEvents
                         if (loadout.LoadoutItems.TryGetValue(defaultSidearm, out loadoutSidearm))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific SIDEARM (" + loadoutSidearmID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.Slug + ".");
+                                Log.Warn("Specific SIDEARM (" + loadoutSidearmID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a SIDEARM. Defaulting to " + loadoutSidearm.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid SIDEARM (" + loadoutSidearmID + "->" + defaultSidearm + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid SIDEARM (" + loadoutSidearmID + "->" + defaultSidearm + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4060,12 +4053,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GADGET1 (" + loadoutGadget1ID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.Slug + ".");
+                                Log.Warn("Specific GADGET1 (" + loadoutGadget1ID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGadget1.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GADGET1 (" + loadoutGadget1ID + "->" + defaultGadget1 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GADGET1 (" + loadoutGadget1ID + "->" + defaultGadget1 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4076,12 +4069,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGadget1, out loadoutGadget1))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GADGET1 (" + loadoutGadget1ID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.Slug + ".");
+                                Log.Warn("Specific GADGET1 (" + loadoutGadget1ID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget1.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GADGET1 (" + loadoutGadget1ID + "->" + defaultGadget1 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GADGET1 (" + loadoutGadget1ID + "->" + defaultGadget1 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4095,12 +4088,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GADGET2 (" + loadoutGadget2ID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.Slug + ".");
+                                Log.Warn("Specific GADGET2 (" + loadoutGadget2ID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGadget2.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GADGET2 (" + loadoutGadget2ID + "->" + defaultGadget2 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GADGET2 (" + loadoutGadget2ID + "->" + defaultGadget2 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4111,12 +4104,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGadget2, out loadoutGadget2))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GADGET2 (" + loadoutGadget2ID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.Slug + ".");
+                                Log.Warn("Specific GADGET2 (" + loadoutGadget2ID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GADGET. Defaulting to " + loadoutGadget2.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GADGET2 (" + loadoutGadget2ID + "->" + defaultGadget2 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GADGET2 (" + loadoutGadget2ID + "->" + defaultGadget2 + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4130,12 +4123,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GRENADE (" + loadoutGrenadeID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.Slug + ".");
+                                Log.Warn("Specific GRENADE (" + loadoutGrenadeID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutGrenade.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GRENADE (" + loadoutGrenadeID + "->" + defaultGrenade + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GRENADE (" + loadoutGrenadeID + "->" + defaultGrenade + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4146,12 +4139,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultGrenade, out loadoutGrenade))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific GRENADE (" + loadoutGrenadeID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.Slug + ".");
+                                Log.Warn("Specific GRENADE (" + loadoutGrenadeID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a GRENADE. Defaulting to " + loadoutGrenade.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid GRENADE (" + loadoutGrenadeID + "->" + defaultGrenade + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid GRENADE (" + loadoutGrenadeID + "->" + defaultGrenade + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4165,12 +4158,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific KNIFE (" + loadoutKnifeID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.Slug + ".");
+                                Log.Warn("Specific KNIFE (" + loadoutKnifeID + ") for " + loadout.Name + " not found. Defaulting to " + loadoutKnife.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid KNIFE (" + loadoutKnifeID + "->" + defaultKnife + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid KNIFE (" + loadoutKnifeID + "->" + defaultKnife + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4181,12 +4174,12 @@ namespace PRoConEvents
                         if (_warsawLibrary.Items.TryGetValue(defaultKnife, out loadoutKnife))
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleWarn("Specific KNIFE (" + loadoutKnifeID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.Slug + ".");
+                                Log.Warn("Specific KNIFE (" + loadoutKnifeID + ") " + originalItem.Slug + " for " + loadout.Name + " was not a KNIFE. Defaulting to " + loadoutKnife.Slug + ".");
                         }
                         else
                         {
                             if (_displayLoadoutDebug)
-                                ConsoleError("No valid KNIFE (" + loadoutKnifeID + "->" + defaultKnife + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
+                                Log.Error("No valid KNIFE (" + loadoutKnifeID + "->" + defaultKnife + ") usable for " + loadout.Name + ". Unable to parse player loadout.");
                             return null;
                         }
                     }
@@ -4233,14 +4226,14 @@ namespace PRoConEvents
                     }
                     return loadout;
                 }
-                ConsoleError("Game not BF4, unable to process player loadout.");
+                Log.Error("Game not BF4, unable to process player loadout.");
                 return null;
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while parsing player loadout.", e));
+                Log.Exception("Error while parsing player loadout.", e);
             }
-            DebugWrite("Exiting GetPlayerLoadout", 7);
+            Log.Debug("Exiting GetPlayerLoadout", 7);
             return null;
         }
 
@@ -4259,13 +4252,13 @@ namespace PRoConEvents
                     }
                     catch (Exception e)
                     {
-                        HandleException(new AdKatsException("Error while loading player loadout.", e));
+                        Log.Exception("Error while loading player loadout.", e);
                     }
                 }
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Unexpected error while fetching player loadout.", e));
+                Log.Exception("Unexpected error while fetching player loadout.", e);
                 return null;
             }
             return loadout;
@@ -4275,14 +4268,14 @@ namespace PRoConEvents
         {
             if (String.IsNullOrEmpty(s) || String.IsNullOrEmpty(tag))
             {
-                ConsoleError("Unable to extract String. Invalid inputs.");
+                Log.Error("Unable to extract String. Invalid inputs.");
                 return null;
             }
             String startTag = "<" + tag + ">";
             Int32 startIndex = s.IndexOf(startTag, StringComparison.Ordinal) + startTag.Length;
             if (startIndex == -1)
             {
-                ConsoleError("Unable to extract String. Tag not found.");
+                Log.Error("Unable to extract String. Tag not found.");
             }
             Int32 endIndex = s.IndexOf("</" + tag + ">", startIndex, StringComparison.Ordinal);
             return s.Substring(startIndex, endIndex - startIndex);
@@ -4292,20 +4285,20 @@ namespace PRoConEvents
         {
             try
             {
-                DebugWrite("Checking player '" + input + "' for validity.", 7);
+                Log.Debug("Checking player '" + input + "' for validity.", 7);
                 if (String.IsNullOrEmpty(input))
                 {
-                    DebugWrite("Soldier Name empty or null.", 5);
+                    Log.Debug("Soldier Name empty or null.", 5);
                     return false;
                 }
                 if (input.Length > 16)
                 {
-                    DebugWrite("Soldier Name '" + input + "' too long, maximum length is 16 characters.", 5);
+                    Log.Debug("Soldier Name '" + input + "' too long, maximum length is 16 characters.", 5);
                     return false;
                 }
                 if (new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length)
                 {
-                    DebugWrite("Soldier Name '" + input + "' contained invalid characters.", 5);
+                    Log.Debug("Soldier Name '" + input + "' contained invalid characters.", 5);
                     return false;
                 }
                 return true;
@@ -4313,14 +4306,14 @@ namespace PRoConEvents
             catch (Exception)
             {
                 //Soldier id caused exception in the regex, definitely not valid
-                ConsoleError("Soldier Name '" + input + "' contained invalid characters.");
+                Log.Error("Soldier Name '" + input + "' contained invalid characters.");
                 return false;
             }
         }
 
         public String FormatTimeString(TimeSpan timeSpan, Int32 maxComponents)
         {
-            DebugWrite("Entering formatTimeString", 7);
+            Log.Debug("Entering formatTimeString", 7);
             String timeString = null;
             if (maxComponents < 1)
             {
@@ -4390,93 +4383,14 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                HandleException(new AdKatsException("Error while formatting time String.", e));
+                Log.Exception("Error while formatting time String.", e);
             }
             if (String.IsNullOrEmpty(timeString))
             {
                 timeString = "0s";
             }
-            DebugWrite("Exiting formatTimeString", 7);
+            Log.Debug("Exiting formatTimeString", 7);
             return timeString;
-        }
-
-        public String FormatMessage(String msg, ConsoleMessageType type)
-        {
-            String prefix = "[^bAdKatsLRT^n] ";
-            switch (type)
-            {
-                case ConsoleMessageType.Info:
-                    prefix += "^1^bINFO^0^n: ";
-                    break;
-                case ConsoleMessageType.Warning:
-                    prefix += "^1^bWARNING^0^n: ";
-                    break;
-                case ConsoleMessageType.Error:
-                    prefix += "^1^bERROR^0^n: ";
-                    break;
-                case ConsoleMessageType.Success:
-                    prefix += "^b^2SUCCESS^n^0: ";
-                    break;
-                case ConsoleMessageType.Exception:
-                    prefix += "^1^bEXCEPTION^0^n: ";
-                    break;
-            }
-            return prefix + msg;
-        }
-
-        public String BoldMessage(String msg)
-        {
-            return "^b" + msg + "^n";
-        }
-
-        public String ItalicMessage(String msg)
-        {
-            return "^i" + msg + "^n";
-        }
-
-        public String ColorMessageMaroon(String msg)
-        {
-            return "^1" + msg + "^0";
-        }
-
-        public String ColorMessageGreen(String msg)
-        {
-            return "^2" + msg + "^0";
-        }
-
-        public String ColorMessageOrange(String msg)
-        {
-            return "^3" + msg + "^0";
-        }
-
-        public String ColorMessageBlue(String msg)
-        {
-            return "^4" + msg + "^0";
-        }
-
-        public String ColorMessageBlueLight(String msg)
-        {
-            return "^5" + msg + "^0";
-        }
-
-        public String ColorMessageViolet(String msg)
-        {
-            return "^6" + msg + "^0";
-        }
-
-        public String ColorMessagePink(String msg)
-        {
-            return "^7" + msg + "^0";
-        }
-
-        public String ColorMessageRed(String msg)
-        {
-            return "^8" + msg + "^0";
-        }
-
-        public String ColorMessageGrey(String msg)
-        {
-            return "^9" + msg + "^0";
         }
 
         protected void LogThreadExit()
@@ -4507,7 +4421,7 @@ namespace PRoConEvents
 
         public Boolean OnlineAdminSayMessage(String message)
         {
-            ProconChatWrite(ColorMessageMaroon(BoldMessage(message)));
+            ProconChatWrite(Log.CMaroon(Log.FBold(message)));
             Boolean adminsTold = false;
             foreach (var aPlayer in _playerDictionary.Values.Where(aPlayer => aPlayer.IsAdmin))
             {
@@ -4527,48 +4441,6 @@ namespace PRoConEvents
             }
         }
 
-        public void ConsoleWrite(String msg, ConsoleMessageType type)
-        {
-            ExecuteCommand("procon.protected.pluginconsole.write", FormatMessage(msg, type));
-            if (_slowmo)
-            {
-                _threadMasterWaitHandle.WaitOne(1000);
-            }
-        }
-
-        public void ConsoleWrite(String msg)
-        {
-            ConsoleWrite(msg, ConsoleMessageType.Normal);
-        }
-
-        public void ConsoleInfo(String msg)
-        {
-            ConsoleWrite(msg, ConsoleMessageType.Info);
-        }
-
-        public void ConsoleWarn(String msg)
-        {
-            ConsoleWrite(msg, ConsoleMessageType.Warning);
-        }
-
-        public void ConsoleError(String msg)
-        {
-            ConsoleWrite(msg, ConsoleMessageType.Error);
-        }
-
-        public void ConsoleSuccess(String msg)
-        {
-            ConsoleWrite(msg, ConsoleMessageType.Success);
-        }
-
-        public void DebugWrite(String msg, Int32 level)
-        {
-            if (_debugLevel >= level)
-            {
-                ConsoleWrite(level + ":(" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("main") : (Thread.CurrentThread.Name)) + ":" + Thread.CurrentThread.ManagedThreadId + ") " + msg, ConsoleMessageType.Normal);
-            }
-        }
-
         public DateTime DateTimeFromEpochSeconds(Double epochSeconds)
         {
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -4584,7 +4456,7 @@ namespace PRoConEvents
         {
             if (String.IsNullOrEmpty(pluginName) || String.IsNullOrEmpty(settingName) || settingValue == null)
             {
-                ConsoleError("Required inputs null or empty in setExternalPluginSetting");
+                Log.Error("Required inputs null or empty in setExternalPluginSetting");
                 return;
             }
             ExecuteCommand("procon.protected.plugins.setVariable", pluginName, settingName, settingValue);
@@ -4642,74 +4514,6 @@ namespace PRoConEvents
                 //Ignore errors
             }
             _lastVersionTrackingUpdate = DateTime.UtcNow;
-        }
-
-        public AdKatsException HandleException(AdKatsException aException)
-        {
-            try
-            {
-                //If it's null or AdKatsLRT isn't enabled, just return
-                if (aException == null)
-                {
-                    ConsoleError("Attempted to handle exception when none was given.");
-                    return null;
-                }
-                _slowmo = SlowMoOnException;
-                String prefix = "Line ";
-                if (aException.InternalException != null)
-                {
-                    Int64 impericalLineNumber = (new StackTrace(aException.InternalException, true)).GetFrame(0).GetFileLineNumber();
-                    Int64 parsedLineNumber = 0;
-                    Int64.TryParse(aException.InternalException.ToString().Split(' ').Last(), out parsedLineNumber);
-                    if (impericalLineNumber != 0)
-                    {
-                        prefix += impericalLineNumber;
-                    }
-                    else if (parsedLineNumber != 0)
-                    {
-                        prefix += parsedLineNumber;
-                    }
-                    else
-                    {
-                        prefix += "Unknown";
-                    }
-                    prefix += ": ";
-                }
-                //Check if the exception attributes to the database
-                ConsoleWrite(prefix + aException, ConsoleMessageType.Exception);
-                return aException;
-            }
-            catch (Exception e)
-            {
-                ConsoleWrite(e.ToString(), ConsoleMessageType.Exception);
-            }
-            return null;
-        }
-
-        public class AdKatsException
-        {
-            public Exception InternalException = null;
-            public String Message = String.Empty;
-            public String Method = String.Empty;
-            //Param Constructors
-            public AdKatsException(String message, Exception internalException)
-            {
-                Method = new StackFrame(1).GetMethod().Name;
-                Message = message;
-                InternalException = internalException;
-            }
-
-            public AdKatsException(String message)
-            {
-                Method = new StackFrame(1).GetMethod().Name;
-                Message = message;
-            }
-
-            //Override toString
-            public override String ToString()
-            {
-                return "[" + Method + "][" + Message + "]" + ((InternalException != null) ? (": " + InternalException) : (""));
-            }
         }
 
         public class AdKatsServer
@@ -5286,6 +5090,161 @@ namespace PRoConEvents
                 {
                     KitType = WarsawKit.Type.Recon,
                 };
+            }
+        }
+
+        public class Logger
+        {
+            private readonly AdKatsLRT _plugin;
+
+            public Logger(AdKatsLRT plugin)
+            {
+                _plugin = plugin;
+            }
+
+            public Int32 DebugLevel { get; set; }
+            public Boolean VerboseErrors { get; set; }
+
+            private void WriteConsole(String msg)
+            {
+                _plugin.ExecuteCommand("procon.protected.pluginconsole.write", "[^b" + _plugin.GetType().Name + "^n] " + msg);
+            }
+
+            private void WriteChat(String msg)
+            {
+                _plugin.ExecuteCommand("procon.protected.chat.write", _plugin.GetType().Name + " > " + msg);
+            }
+
+            public void Debug(String msg, Int32 level)
+            {
+                if (DebugLevel >= level)
+                {
+                    WriteConsole("[" + level + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "] " + msg);
+                }
+            }
+
+            public void Write(String msg)
+            {
+                WriteConsole(msg);
+            }
+
+            public void Info(String msg)
+            {
+                WriteConsole("^b^0INFO^n^0: " + msg);
+            }
+
+            public void Warn(String msg)
+            {
+                WriteConsole("^b^3WARNING^n^0: " + msg);
+            }
+
+            public void Error(String msg)
+            {
+                if (VerboseErrors)
+                {
+                    WriteConsole("^b^1ERROR-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "^n^0: " + "[" + msg + "]");
+                }
+                else
+                {
+                    WriteConsole("^b^1ERROR-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "^n^0: " + "[" + msg + "]");
+                }
+            }
+
+            public void Success(String msg)
+            {
+                WriteConsole("^b^2SUCCESS^n^0: " + msg);
+            }
+
+            public void Exception(String msg, Exception e)
+            {
+                string exceptionMessage = "^b^8EXCEPTION-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", ""));
+                if (e != null)
+                {
+                    exceptionMessage += "-";
+                    Int64 impericalLineNumber = 0;
+                    Int64 parsedLineNumber = 0;
+                    var stack = new StackTrace(e, true);
+                    if (stack.FrameCount > 0)
+                    {
+                        impericalLineNumber = stack.GetFrame(0).GetFileLineNumber();
+                    }
+                    Int64.TryParse(e.ToString().Split(' ').Last(), out parsedLineNumber);
+                    if (impericalLineNumber != 0)
+                    {
+                        exceptionMessage += impericalLineNumber;
+                    }
+                    else if (parsedLineNumber != 0)
+                    {
+                        exceptionMessage += parsedLineNumber;
+                    }
+                    else
+                    {
+                        exceptionMessage += "D";
+                    }
+                }
+                exceptionMessage += "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "^n^0: " + "[" + msg + "]" + ((e != null) ? ("[" + e + "]") : (""));
+                WriteConsole(exceptionMessage);
+            }
+
+            public void Chat(String msg)
+            {
+                msg = msg.Replace(Environment.NewLine, String.Empty);
+                WriteChat(msg);
+            }
+
+            public String FBold(String msg)
+            {
+                return "^b" + msg + "^n";
+            }
+
+            public String FItalic(String msg)
+            {
+                return "^i" + msg + "^n";
+            }
+
+            public String CMaroon(String msg)
+            {
+                return "^1" + msg + "^0";
+            }
+
+            public String CGreen(String msg)
+            {
+                return "^2" + msg + "^0";
+            }
+
+            public String COrange(String msg)
+            {
+                return "^3" + msg + "^0";
+            }
+
+            public String CBlue(String msg)
+            {
+                return "^4" + msg + "^0";
+            }
+
+            public String CBlueLight(String msg)
+            {
+                return "^5" + msg + "^0";
+            }
+
+            public String CViolet(String msg)
+            {
+                return "^6" + msg + "^0";
+            }
+
+            public String CPink(String msg)
+            {
+                return "^7" + msg + "^0";
+            }
+
+            public String CRed(String msg)
+            {
+                return "^8" + msg + "^0";
+            }
+
+            public String CGrey(String msg)
+            {
+                return "^9" + msg + "^0";
             }
         }
     }
