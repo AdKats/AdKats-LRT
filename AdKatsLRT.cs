@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.0
- * 31-MAR-2014
+ * Version 2.0.2.1
+ * 29-MAY-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.2.0</version_code>
+ * <version_code>2.0.2.1</version_code>
  */
 
 using System;
@@ -36,14 +36,15 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.0";
+        private const String PluginVersion = "2.0.2.1";
 
         public readonly Logger Log;
 
         public enum GameVersion
         {
             BF3,
-            BF4
+            BF4,
+            BFHL
         };
 
         //Constants
@@ -774,7 +775,7 @@ namespace PRoConEvents
                 }
                 if (_gameVersion != GameVersion.BF4)
                 {
-                    Log.Error("The AdKatsLRT extension cannot be enabled outside BF4.");
+                    Log.Error("LRT can only be enabled on BF4 at this time.");
                     Disable();
                     return;
                 }
