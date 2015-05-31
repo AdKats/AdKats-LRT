@@ -43,7 +43,8 @@ namespace PRoConEvents
         public enum GameVersion
         {
             BF3,
-            BF4
+            BF4,
+            BFHL
         };
 
         //Constants
@@ -774,7 +775,7 @@ namespace PRoConEvents
                 }
                 if (_gameVersion != GameVersion.BF4)
                 {
-                    Log.Error("The AdKatsLRT extension cannot be enabled outside BF4.");
+                    Log.Error("LRT can only be enabled on BF4 at this time.");
                     Disable();
                     return;
                 }
