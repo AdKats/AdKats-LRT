@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.1.9
- * 16-MAR-2014
+ * Version 2.0.2.2
+ * 31-MAY-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.1.9</version_code>
+ * <version_code>2.0.2.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.1.9";
+        private const String PluginVersion = "2.0.2.2";
 
         public readonly Logger Log;
 
@@ -139,7 +139,7 @@ namespace PRoConEvents
         private Thread _battlelogCommThread;
 
         //Settings
-        private const Int32 YellDuration = 5;
+        private const Int32 YellDuration = 7;
 
         //Debug
         private const Boolean SlowMoOnException = false;
@@ -5093,157 +5093,147 @@ namespace PRoConEvents
             }
         }
 
-        public class Logger
-        {
+        public class Logger {
             private readonly AdKatsLRT _plugin;
-
-            public Logger(AdKatsLRT plugin)
-            {
-                _plugin = plugin;
-            }
-
             public Int32 DebugLevel { get; set; }
             public Boolean VerboseErrors { get; set; }
 
-            private void WriteConsole(String msg)
-            {
+            public Logger(AdKatsLRT plugin) {
+                _plugin = plugin;
+            }
+
+            private void WriteConsole(String msg) {
                 _plugin.ExecuteCommand("procon.protected.pluginconsole.write", "[^b" + _plugin.GetType().Name + "^n] " + msg);
             }
 
-            private void WriteChat(String msg)
-            {
+            private void WriteChat(String msg) {
                 _plugin.ExecuteCommand("procon.protected.chat.write", _plugin.GetType().Name + " > " + msg);
             }
 
-            public void Debug(String msg, Int32 level)
-            {
-                if (DebugLevel >= level)
-                {
-                    WriteConsole("[" + level + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "] " + msg);
+            public void Debug(String msg, Int32 level) {
+                if (DebugLevel >= level) {
+                    if (DebugLevel >= 8) {
+                        WriteConsole("[" + level + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "] " + msg);
+                    } else {
+                        WriteConsole(msg);
+                    }
                 }
             }
 
-            public void Write(String msg)
-            {
+            public void Write(String msg) {
                 WriteConsole(msg);
             }
 
-            public void Info(String msg)
-            {
+            public void Info(String msg) {
                 WriteConsole("^b^0INFO^n^0: " + msg);
             }
 
-            public void Warn(String msg)
-            {
+            public void Warn(String msg) {
                 WriteConsole("^b^3WARNING^n^0: " + msg);
             }
 
-            public void Error(String msg)
-            {
-                if (VerboseErrors)
-                {
-                    WriteConsole("^b^1ERROR-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "^n^0: " + "[" + msg + "]");
-                }
-                else
-                {
-                    WriteConsole("^b^1ERROR-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "^n^0: " + "[" + msg + "]");
+            public void Error(String msg) {
+                if (VerboseErrors) {
+                    //Opening
+                    WriteConsole("^b^1ERROR-" +//Plugin version
+                                 Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "-" +//Method name
+                                 new StackFrame(1).GetMethod().Name + "-" +//Thread
+                                 ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId +//Closing
+                                 "^n^0: " +//Error Message
+                                 "[" + msg + "]");
+                } else {
+                    //Opening
+                    WriteConsole("^b^1ERROR-" +//Plugin version
+                                 Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) +//Closing
+                                 "^n^0: " +//Error Message
+                                 "[" + msg + "]");
                 }
             }
 
-            public void Success(String msg)
-            {
+            public void Success(String msg) {
                 WriteConsole("^b^2SUCCESS^n^0: " + msg);
             }
 
-            public void Exception(String msg, Exception e)
-            {
-                string exceptionMessage = "^b^8EXCEPTION-" + Int32.Parse(_plugin.GetPluginVersion().Replace(".", ""));
-                if (e != null)
-                {
+            public void Exception(String msg, Exception e) {
+                this.Exception(msg, e, 1);
+            }
+
+            public void Exception(String msg, Exception e, Int32 level) {
+                //Opening
+                string exceptionMessage = "^b^8EXCEPTION-" +//Plugin version
+                                          Int32.Parse(_plugin.GetPluginVersion().Replace(".", ""));
+                if (e != null) {
                     exceptionMessage += "-";
                     Int64 impericalLineNumber = 0;
                     Int64 parsedLineNumber = 0;
-                    var stack = new StackTrace(e, true);
-                    if (stack.FrameCount > 0)
-                    {
+                    StackTrace stack = new StackTrace(e, true);
+                    if (stack.FrameCount > 0) {
                         impericalLineNumber = stack.GetFrame(0).GetFileLineNumber();
                     }
                     Int64.TryParse(e.ToString().Split(' ').Last(), out parsedLineNumber);
-                    if (impericalLineNumber != 0)
-                    {
+                    if (impericalLineNumber != 0) {
                         exceptionMessage += impericalLineNumber;
-                    }
-                    else if (parsedLineNumber != 0)
-                    {
+                    } else if (parsedLineNumber != 0) {
                         exceptionMessage += parsedLineNumber;
-                    }
-                    else
-                    {
+                    } else {
                         exceptionMessage += "D";
                     }
                 }
-                exceptionMessage += "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "^n^0: " + "[" + msg + "]" + ((e != null) ? ("[" + e + "]") : (""));
+                exceptionMessage += "-" +//Method name
+                                    new StackFrame(level + 1).GetMethod().Name + "-" +//Thread
+                                    ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId +//Closing
+                                    "^n^0: " +//Message
+                                    "[" + msg + "]" +//Exception string
+                                    ((e != null) ? ("[" + e + "]") : (""));
                 WriteConsole(exceptionMessage);
             }
 
-            public void Chat(String msg)
-            {
+            public void Chat(String msg) {
                 msg = msg.Replace(Environment.NewLine, String.Empty);
                 WriteChat(msg);
             }
 
-            public String FBold(String msg)
-            {
+            public String FBold(String msg) {
                 return "^b" + msg + "^n";
             }
 
-            public String FItalic(String msg)
-            {
+            public String FItalic(String msg) {
                 return "^i" + msg + "^n";
             }
 
-            public String CMaroon(String msg)
-            {
+            public String CMaroon(String msg) {
                 return "^1" + msg + "^0";
             }
 
-            public String CGreen(String msg)
-            {
+            public String CGreen(String msg) {
                 return "^2" + msg + "^0";
             }
 
-            public String COrange(String msg)
-            {
+            public String COrange(String msg) {
                 return "^3" + msg + "^0";
             }
 
-            public String CBlue(String msg)
-            {
+            public String CBlue(String msg) {
                 return "^4" + msg + "^0";
             }
 
-            public String CBlueLight(String msg)
-            {
+            public String CBlueLight(String msg) {
                 return "^5" + msg + "^0";
             }
 
-            public String CViolet(String msg)
-            {
+            public String CViolet(String msg) {
                 return "^6" + msg + "^0";
             }
 
-            public String CPink(String msg)
-            {
+            public String CPink(String msg) {
                 return "^7" + msg + "^0";
             }
 
-            public String CRed(String msg)
-            {
+            public String CRed(String msg) {
                 return "^8" + msg + "^0";
             }
 
-            public String CGrey(String msg)
-            {
+            public String CGrey(String msg) {
                 return "^9" + msg + "^0";
             }
         }
