@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.4
+ * Version 2.0.2.5
  * 8-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.4</version_code>
+ * <version_code>2.0.2.5</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.4";
+        private const String PluginVersion = "2.0.2.5";
 
         public readonly Logger Log;
 
@@ -126,6 +126,7 @@ namespace PRoConEvents
         private DateTime _startTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private DateTime _lastCatListing = DateTime.UtcNow;
 
         //Threads
         private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
@@ -2468,7 +2469,7 @@ namespace PRoConEvents
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_isTestingAuthorized) {//_playerDictionary.Values.Count(aPlayer => aPlayer.Loadout != null) >= _playerDictionary.Count() - 2) {
+                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCatListing).TotalMinutes > 5) {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
                         if (loadoutPlayers.Any()) {
                             var highestCategory = loadoutPlayers
@@ -2487,7 +2488,9 @@ namespace PRoConEvents
                                 })
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
-                            Log.Info(loadoutPlayers.Count() + " loadouts (Highest Category: " + highestCategory.weaponCategory + "|" + highestCategory.Count + ")(Highest Weapon: " + highestWeapon.weaponSlug + "|" + highestWeapon.Count + ")");
+                            _lastCatListing = DateTime.UtcNow;
+                            AdminSayMessage("Top Category: " + highestCategory.weaponCategory + ", " + highestCategory.Count + " players. Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.");
+                            Log.Info("Top Category: " + highestCategory.weaponCategory + ", " + highestCategory.Count + " players. Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.");
                         }
                     }
                 }
