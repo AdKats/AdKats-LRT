@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.2
- * 31-MAY-2014
+ * Version 2.0.2.3
+ * 8-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.2</version_code>
+ * <version_code>2.0.2.3</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.2";
+        private const String PluginVersion = "2.0.2.3";
 
         public readonly Logger Log;
 
@@ -2467,6 +2467,26 @@ namespace PRoConEvents
                         {
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
+                    }
+                    if (_isTestingAuthorized) {//_playerDictionary.Values.Count(aPlayer => aPlayer.Loadout != null) >= _playerDictionary.Count() - 2) {
+                        var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
+                        var highestCategory = loadoutPlayers
+                            .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.CategoryReadable)
+                            .Select(listing => new {
+                                weaponCategory = listing.Key,
+                                Count = listing.Count()
+                            })
+                            .OrderByDescending(listing => listing.Count)
+                            .First();
+                        var highestWeapon = loadoutPlayers
+                            .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.Slug)
+                            .Select(listing => new {
+                                weaponSlug = listing.Key,
+                                Count = listing.Count()
+                            })
+                            .OrderByDescending(listing => listing.Count)
+                            .First();
+                        Log.Info(loadoutPlayers.Count() + " loadouts (Highest Category: " + highestCategory.weaponCategory + "|" + highestCategory.Count + ")(Highest Weapon: " + highestWeapon.weaponSlug + "|" + highestWeapon.Count + ")");
                     }
                 }
                 _firstPlayerListComplete = true;
