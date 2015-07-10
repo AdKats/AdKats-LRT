@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.5
- * 8-JUL-2014
+ * Version 2.0.2.6
+ * 9-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.5</version_code>
+ * <version_code>2.0.2.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.5";
+        private const String PluginVersion = "2.0.2.6";
 
         public readonly Logger Log;
 
@@ -2469,10 +2469,13 @@ namespace PRoConEvents
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCatListing).TotalMinutes > 5) {
+                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCatListing).TotalMinutes > 4) {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
                         if (loadoutPlayers.Any()) {
-                            var highestCategory = loadoutPlayers
+                            var loadoutPlayers1 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 1);
+                            var loadoutPlayers2 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 2);
+
+                            var highestCategory1 = loadoutPlayers1
                                 .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.CategoryReadable)
                                 .Select(listing => new {
                                     weaponCategory = listing.Key,
@@ -2480,6 +2483,16 @@ namespace PRoConEvents
                                 })
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
+
+                            var highestCategory2 = loadoutPlayers2
+                                .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.CategoryReadable)
+                                .Select(listing => new {
+                                    weaponCategory = listing.Key,
+                                    Count = listing.Count()
+                                })
+                                .OrderByDescending(listing => listing.Count)
+                                .FirstOrDefault();
+
                             var highestWeapon = loadoutPlayers
                                 .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.Slug)
                                 .Select(listing => new {
@@ -2489,8 +2502,9 @@ namespace PRoConEvents
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
                             _lastCatListing = DateTime.UtcNow;
-                            AdminSayMessage("Top Category: " + highestCategory.weaponCategory + ", " + highestCategory.Count + " players. Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.");
-                            Log.Info("Top Category: " + highestCategory.weaponCategory + ", " + highestCategory.Count + " players. Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.");
+                            String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory1.Count / (Double) loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory2.Count / (Double) loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
+                            AdminSayMessage(message);
+                            Log.Info(message);
                         }
                     }
                 }
