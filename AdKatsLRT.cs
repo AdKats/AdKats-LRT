@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.6
- * 9-JUL-2014
+ * Version 2.0.2.7
+ * 14-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.6</version_code>
+ * <version_code>2.0.2.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.6";
+        private const String PluginVersion = "2.0.2.7";
 
         public readonly Logger Log;
 
@@ -88,6 +88,7 @@ namespace PRoConEvents
         private Boolean _spawnEnforcementActOnReputablePlayers;
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
+        private String[] _Whitelist = { };
 
         //Display
         private Boolean _displayPresets;
@@ -208,6 +209,7 @@ namespace PRoConEvents
                 {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
                 if (!_warsawLibraryLoaded)
@@ -571,6 +573,10 @@ namespace PRoConEvents
                         }
                         _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
                     }
+                } 
+                else if (Regex.Match(strVariable, @"Action Whitelist").Success) 
+                {
+                    _Whitelist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
                 }
                 else if (strVariable.StartsWith("ALWT"))
                 {
@@ -1824,23 +1830,32 @@ namespace PRoConEvents
                                 }
                             }
 
-                            if (!trigger && !spawnLoadoutValid)
+                            Boolean act = true;
+                            if (!trigger && !spawnLoadoutValid) 
                             {
-                                //Reputable players
-                                if (processObject.ProcessPlayer.Reputation >= 15)
-                                {
-                                    //Option for reputation deny
-                                    if (!_spawnEnforcementActOnReputablePlayers)
-                                    {
-                                        Log.Debug(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is reputable.", 4);
-                                        if (_enableAdKatsIntegration)
-                                        {
-                                            //Inform AdKats of the loadout
-                                            StartAndLogThread(new Thread(new ThreadStart(delegate
-                                            {
-                                                Thread.CurrentThread.Name = "AdKatsInform";
-                                                Thread.Sleep(100);
-                                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                if (act && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                    Log.Debug(processObject.ProcessPlayer.Name + " spawn loadout enforcement cancelled. Player is reputable.", 4);
+                                    act = false;
+                                }
+                                if (act && (processObject.ProcessPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                    Log.Debug(processObject.ProcessPlayer.Name + " spawn loadout enforcement cancelled. Player is admin.", 4);
+                                    act = false;
+                                }
+                            }
+                            if (act && (_Whitelist.Contains(processObject.ProcessPlayer.Name) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.GUID) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.PBGUID) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.IP))) {
+                                Log.Debug(processObject.ProcessPlayer.Name + " loadout enforcement cancelled. Player on whitelist.", 4);
+                                act = false;
+                            }
+                            if (!act) {
+                                if (_enableAdKatsIntegration) {
+                                    //Inform AdKats of the loadout
+                                    StartAndLogThread(new Thread(new ThreadStart(delegate {
+                                        Thread.CurrentThread.Name = "AdKatsInform";
+                                        Thread.Sleep(100);
+                                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                                                     {"caller_identity", "AdKatsLRT"},
                                                     {"response_requested", false},
                                                     {"loadout_player", loadout.Name},
@@ -1850,44 +1865,11 @@ namespace PRoConEvents
                                                     {"loadout_items", loadoutShortMessage},
                                                     {"loadout_deniedItems", ""}
                                                 }));
-                                                Thread.Sleep(100);
-                                                LogThreadExit();
-                                            })));
-                                        }
-                                        continue;
-                                    }
+                                        Thread.Sleep(100);
+                                        LogThreadExit();
+                                    })));
                                 }
-                                //Admins
-                                if (processObject.ProcessPlayer.IsAdmin)
-                                {
-                                    //Option for admin deny
-                                    if (!_spawnEnforcementActOnAdmins)
-                                    {
-                                        Log.Debug(processObject.ProcessPlayer.Name + " spawn enforcement cancelled. Player is admin.", 4);
-                                        if (_enableAdKatsIntegration)
-                                        {
-                                            //Inform AdKats of the loadout
-                                            StartAndLogThread(new Thread(new ThreadStart(delegate
-                                            {
-                                                Thread.CurrentThread.Name = "AdKatsInform";
-                                                Thread.Sleep(100);
-                                                ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                                    {"caller_identity", "AdKatsLRT"},
-                                                    {"response_requested", false},
-                                                    {"loadout_player", loadout.Name},
-                                                    {"loadout_valid", loadoutValid},
-                                                    {"loadout_spawnValid", spawnLoadoutValid},
-                                                    {"loadout_acted", false},
-                                                    {"loadout_items", loadoutShortMessage},
-                                                    {"loadout_deniedItems", ""}
-                                                }));
-                                                Thread.Sleep(100);
-                                                LogThreadExit();
-                                            })));
-                                        }
-                                        continue;
-                                    }
-                                }
+                                continue;
                             }
 
                             aPlayer.LoadoutEnforced = true;
