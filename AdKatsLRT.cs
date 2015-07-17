@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.8
+ * Version 2.0.2.9
  * 17-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.8</version_code>
+ * <version_code>2.0.2.9</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.8";
+        private const String PluginVersion = "2.0.2.9";
 
         public readonly Logger Log;
 
@@ -586,9 +586,9 @@ namespace PRoConEvents
                 {
                     _ItemSearchBlacklist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
                     _searchInvalidLoadoutIDMessages = 
-                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
-                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
-                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
+                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
+                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
+                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
                         .ToDictionary(item => item.Key, item => item.Value);
                 }
                 else if (strVariable.StartsWith("ALWT"))
@@ -1784,6 +1784,7 @@ namespace PRoConEvents
 
                                     foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
                                         if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                            loadoutValid = false;
                                             spawnLoadoutValid = false;
                                             if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
@@ -1808,6 +1809,7 @@ namespace PRoConEvents
 
                                     foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
                                         if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                            loadoutValid = false;
                                             spawnLoadoutValid = false;
                                             if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
@@ -1815,6 +1817,7 @@ namespace PRoConEvents
                                         }
                                     }
                                 }
+
                                 foreach (var warsawDeniedIDMessage in _warsawInvalidVehicleLoadoutIDMessages)
                                 {
                                     if (_spawnEnforceAllVehicles)
@@ -1859,6 +1862,7 @@ namespace PRoConEvents
                                         }
                                     }
                                 }
+
                                 foreach (var searchDeniedIDMessage in _searchInvalidLoadoutIDMessages) {
                                     if (_spawnEnforceAllVehicles) {
                                         if (loadout.VehicleItems.ContainsKey(searchDeniedIDMessage.Key)) {
