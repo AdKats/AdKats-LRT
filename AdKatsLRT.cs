@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.2.7
- * 14-JUL-2014
+ * Version 2.0.2.8
+ * 17-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.2.7</version_code>
+ * <version_code>2.0.2.8</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.2.7";
+        private const String PluginVersion = "2.0.2.8";
 
         public readonly Logger Log;
 
@@ -76,6 +76,7 @@ namespace PRoConEvents
         private readonly Dictionary<String, String> _warsawInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly Dictionary<String, String> _warsawInvalidVehicleLoadoutIDMessages = new Dictionary<String, String>(); 
         private readonly HashSet<String> _warsawSpawnDeniedIDs = new HashSet<String>();
+        private Dictionary<String, String> _searchInvalidLoadoutIDMessages = new Dictionary<String, String>(); 
         private Int32 _countKilled;
         private Int32 _countFixed;
         private Int32 _countQuit;
@@ -89,6 +90,7 @@ namespace PRoConEvents
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
         private String[] _Whitelist = { };
+        private String[] _ItemSearchBlacklist = { };
 
         //Display
         private Boolean _displayPresets;
@@ -211,6 +213,8 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Values.ToArray()));
                 }
                 if (!_warsawLibraryLoaded)
                 {
@@ -573,10 +577,19 @@ namespace PRoConEvents
                         }
                         _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
                     }
-                } 
+                }
                 else if (Regex.Match(strVariable, @"Action Whitelist").Success) 
                 {
                     _Whitelist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
+                } 
+                else if (Regex.Match(strVariable, @"Global Item Search Blacklist").Success) 
+                {
+                    _ItemSearchBlacklist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
+                    _searchInvalidLoadoutIDMessages = 
+                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
+                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
+                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
+                        .ToDictionary(item => item.Key, item => item.Value);
                 }
                 else if (strVariable.StartsWith("ALWT"))
                 {
@@ -1768,6 +1781,15 @@ namespace PRoConEvents
                                             }
                                         }
                                     }
+
+                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
+                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                            spawnLoadoutValid = false;
+                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
+                                                spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
+                                            }
+                                        }
+                                    }
                                 }
                                 else
                                 {
@@ -1780,6 +1802,15 @@ namespace PRoConEvents
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
+                                            }
+                                        }
+                                    }
+
+                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
+                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                            spawnLoadoutValid = false;
+                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
+                                                spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
                                             }
                                         }
                                     }
@@ -1823,6 +1854,39 @@ namespace PRoConEvents
                                                 if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                                 {
                                                     vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                foreach (var searchDeniedIDMessage in _searchInvalidLoadoutIDMessages) {
+                                    if (_spawnEnforceAllVehicles) {
+                                        if (loadout.VehicleItems.ContainsKey(searchDeniedIDMessage.Key)) {
+                                            loadoutValid = false;
+                                            vehicleLoadoutValid = false;
+                                            if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
+                                                vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
+                                            }
+                                        }
+                                    } else {
+                                        foreach (String category in aPlayer.WatchedVehicles) {
+                                            WarsawVehicle vehicle;
+                                            if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle)) {
+                                                Log.Error("Could not fetch used vehicle " + category + " from player loadout, skipping.");
+                                                continue;
+                                            }
+                                            if ((vehicle.AssignedPrimary != null && vehicle.AssignedPrimary.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedSecondary != null && vehicle.AssignedSecondary.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedOptic != null && vehicle.AssignedOptic.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedCountermeasure != null && vehicle.AssignedCountermeasure.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedUpgrade != null && vehicle.AssignedUpgrade.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedSecondaryGunner != null && vehicle.AssignedSecondaryGunner.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == searchDeniedIDMessage.Key) ||
+                                                (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == searchDeniedIDMessage.Key)) {
+                                                loadoutValid = false;
+                                                vehicleLoadoutValid = false;
+                                                if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
+                                                    vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
                                                 }
                                             }
                                         }
@@ -1929,6 +1993,27 @@ namespace PRoConEvents
                                 }
                                 if (_warsawSpawnDeniedIDs.Contains(loadout.KitKnife.WarsawID))
                                 {
+                                    spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                }
+                                //Fill the search spawn denied messages
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemPrimary.WarsawID)) {
+                                    spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                }
+                                spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemSidearm.WarsawID)) {
+                                    spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
+                                }
+                                spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget1.WarsawID)) {
+                                    spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
+                                }
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget2.WarsawID)) {
+                                    spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
+                                }
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGrenade.WarsawID)) {
+                                    spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
+                                }
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitKnife.WarsawID)) {
                                     spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
                                 }
                                 //Trim the messages
@@ -5075,7 +5160,6 @@ namespace PRoConEvents
             public String CategoryReadable;
             public String Name;
             public String Slug;
-            public String SlugReadable;
             public String WarsawID;
         }
 
