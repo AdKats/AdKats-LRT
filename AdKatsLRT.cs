@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.3.0
- * 18-JUL-2014
+ * Version 2.0.3.1
+ * 26-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.3.0</version_code>
+ * <version_code>2.0.3.1</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.3.0";
+        private const String PluginVersion = "2.0.3.1";
 
         public readonly Logger Log;
 
@@ -409,7 +409,14 @@ namespace PRoConEvents
             {
                 if (strVariable == "UpdateSettings")
                 {
-                    //Do nothing. Settings page will be updated after return.
+                    //Settings page will be updated after return.
+
+                    //Update the search results
+                    _searchInvalidLoadoutIDMessages =
+                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
+                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
+                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
+                        .ToDictionary(item => item.Key, item => item.Value);
                 }
                 else if (Regex.Match(strVariable, @"Debug level").Success)
                 {
