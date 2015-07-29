@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.3.1
- * 26-JUL-2014
+ * Version 2.0.3.2
+ * 28-JUL-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.3.1</version_code>
+ * <version_code>2.0.3.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.3.1";
+        private const String PluginVersion = "2.0.3.2";
 
         public readonly Logger Log;
 
@@ -213,9 +213,9 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
-                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
-                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Values.ToArray()));
                 }
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Select(item => item.Key + ": " + item.Value).ToArray()));
                 if (!_warsawLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
@@ -228,16 +228,7 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
-
-                if (_displayPresets)
-                {
-                    lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Presets Coming Soon", typeof(String), "Presets Coming Soon"));
-                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
-                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
-                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
-                    //lstReturn.Add(new CPluginVariable(presetPrefix + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
-                }
-
+                
                 if (_displayMapsModes)
                 {
                     lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + separator.Trim() + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
