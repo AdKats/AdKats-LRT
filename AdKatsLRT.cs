@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.3.5
- * 5-AUG-2014
+ * Version 2.0.3.6
+ * 9-AUG-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.3.5</version_code>
+ * <version_code>2.0.3.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.3.5";
+        private const String PluginVersion = "2.0.3.6";
 
         public readonly Logger Log;
 
@@ -125,7 +125,7 @@ namespace PRoConEvents
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(0.8);
+        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(2);
         private DateTime _startTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -4588,7 +4588,7 @@ namespace PRoConEvents
 
         private void DoBattlelogWait()
         {
-            var waitDuration = (_isTestingAuthorized) ? (TimeSpan.FromSeconds(5)) : (_battlelogWaitDuration);
+            var waitDuration = _battlelogWaitDuration;
             //Wait between battlelog actions
             if ((DateTime.UtcNow - _lastBattlelogAction) < waitDuration)
             {
