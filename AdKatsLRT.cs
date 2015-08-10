@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.3.6
- * 9-AUG-2014
+ * Version 2.0.3.7
+ * 10-AUG-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.3.6</version_code>
+ * <version_code>2.0.3.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.3.6";
+        private const String PluginVersion = "2.0.3.7";
 
         public readonly Logger Log;
 
@@ -2368,9 +2368,11 @@ namespace PRoConEvents
                             }
                         }
                     }
-                    catch (Exception)
-                    {
-                        //Ignore errors
+                    catch (Exception e) {
+                        if (e is WebException) {
+                            Log.Warn("Issue connecting to battlelog.");
+                            _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
+                        }
                     }
                 }
             }
@@ -4360,12 +4362,15 @@ namespace PRoConEvents
                     try
                     {
                         DoBattlelogWait();
-                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?nocacherandom=" + Environment.TickCount);
+                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Exception("Error while loading player loadout.", e);
+                    } catch (Exception e) {
+                        if (e is WebException) {
+                            Log.Warn("Issue connecting to battlelog.");
+                            _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
+                        } else {
+                            Log.Exception("Error while loading player loadout.", e);
+                        }
                     }
                 }
             }
