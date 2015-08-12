@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.3.7
- * 10-AUG-2014
+ * Version 2.0.3.8
+ * 11-AUG-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.3.7</version_code>
+ * <version_code>2.0.3.8</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.3.7";
+        private const String PluginVersion = "2.0.3.8";
 
         public readonly Logger Log;
 
@@ -1612,7 +1612,10 @@ namespace PRoConEvents
                 }
                 lock (_loadoutProcessingQueue)
                 {
-                    if (_loadoutProcessingQueue.Any(obj => obj != null && obj.ProcessPlayer != null && obj.ProcessPlayer.ID == processObject.ProcessPlayer.ID))
+                    if (_loadoutProcessingQueue.Any(obj => 
+                        obj != null && 
+                        obj.ProcessPlayer != null && 
+                        obj.ProcessPlayer.GUID == processObject.ProcessPlayer.GUID))
                     {
                         Log.Debug(processObject.ProcessPlayer.Name + " queue cancelled. Player already in queue.", 4);
                         return;
