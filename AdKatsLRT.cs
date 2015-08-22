@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.1
- * 12-AUG-2014
+ * Version 2.0.4.2
+ * 22-AUG-2014
  * 
  * Automatic Update Information
- * <version_code>2.0.4.1</version_code>
+ * <version_code>2.0.4.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.1";
+        private const String PluginVersion = "2.0.4.2";
 
         public readonly Logger Log;
 
@@ -1759,7 +1759,8 @@ namespace PRoConEvents
                             Boolean spawnLoadoutValid = true;
                             Boolean vehicleLoadoutValid = true;
 
-                            if (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map))
+                            if (_serverInfo.InfoObject.GameMode != "GunMaster0" &&
+                                (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map)))
                             {
                                 if (trigger)
                                 {
