@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.2
- * 22-AUG-2014
+ * Version 2.0.4.3
+ * 1-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.4.2</version_code>
+ * <version_code>2.0.4.3</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.2";
+        private const String PluginVersion = "2.0.4.3";
 
         public readonly Logger Log;
 
@@ -1760,6 +1760,7 @@ namespace PRoConEvents
                             Boolean vehicleLoadoutValid = true;
 
                             if (_serverInfo.InfoObject.GameMode != "GunMaster0" &&
+                                _serverInfo.InfoObject.GameMode != "GunMaster1" &&
                                 (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map)))
                             {
                                 if (trigger)
@@ -3180,13 +3181,16 @@ namespace PRoConEvents
                         {
                             case "WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEMBT":
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/M1A2/M1Abrams");
+                                vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/M1A2/spec/M1Abrams_Night");
                                 vehicle.LinkedRCONCodes.Add("T90");
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/CH_MBT_Type99/CH_MBT_Type99");
                                 break;
                             case "WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEIFV":
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/BTR-90/BTR90");
+                                vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/BTR-90/spec/BTR90_Night");
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/CH_IFV_ZBD09/CH_IFV_ZBD09");
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/LAV25/LAV25");
+                                vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/LAV25/spec/LAV25_Night");
                                 break;
                             case "WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEAA":
                                 vehicle.LinkedRCONCodes.Add("Gameplay/Vehicles/CH_AA_PGZ-95/CH_AA_PGZ-95");
@@ -5060,7 +5064,13 @@ namespace PRoConEvents
                 new MapMode(271, "SquadObliteration0", "MP_Prison", "Squad Obliteration", "Operation Locker"),
                 new MapMode(272, "SquadObliteration0", "MP_Resort", "Squad Obliteration", "Hainan Resort"),
                 new MapMode(273, "SquadObliteration0", "MP_Siege", "Squad Obliteration", "Siege of Shanghai"),
-                new MapMode(274, "SquadObliteration0", "MP_Tremors", "Squad Obliteration", "Dawnbreaker")
+                new MapMode(274, "SquadObliteration0", "MP_Tremors", "Squad Obliteration", "Dawnbreaker"),
+                new MapMode(275, "ConquestLarge0", "XP5_Night_01", "Conquest Large", "Zavod:Graveyard Shift"),
+                new MapMode(276, "ConquestSmall0", "XP5_Night_01", "Conquest Small", "Zavod:Graveyard Shift"),
+                new MapMode(277, "Domination0", "XP5_Night_01", "Domination", "Zavod:Graveyard Shift"),
+                new MapMode(278, "Obliteration", "XP5_Night_01", "Obliteration", "Zavod:Graveyard Shift"),
+                new MapMode(279, "RushLarge0", "XP5_Night_01", "Rush", "Zavod:Graveyard Shift"),
+                new MapMode(280, "TeamDeathMatch0", "XP5_Night_01", "Team Deathmatch", "Zavod:Graveyard Shift")
             };
         }
 
