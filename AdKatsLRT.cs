@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.3
- * 1-SEP-2015
+ * Version 2.0.4.4
+ * 14-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.4.3</version_code>
+ * <version_code>2.0.4.4</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.3";
+        private const String PluginVersion = "2.0.4.4";
 
         public readonly Logger Log;
 
@@ -125,7 +125,7 @@ namespace PRoConEvents
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(0.6);
+        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(0.8);
         private DateTime _startTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -1728,6 +1728,29 @@ namespace PRoConEvents
                             else
                             {
                                 Log.Error("Unknown reason for processing player. Cancelling processing.");
+                                continue;
+                            }
+
+                            //Check to see if we can skip this player
+                            Boolean fetch = true;
+                            if (!trigger) {
+                                if (fetch && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                    Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player is reputable.", 4);
+                                    fetch = false;
+                                }
+                                if (fetch && (processObject.ProcessPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                    Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player is admin.", 4);
+                                    fetch = false;
+                                }
+                            }
+                            if (fetch && (_Whitelist.Contains(processObject.ProcessPlayer.Name) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.GUID) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.PBGUID) ||
+                                _Whitelist.Contains(processObject.ProcessPlayer.IP))) {
+                                Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 4);
+                                fetch = false;
+                            }
+                            if (!fetch) {
                                 continue;
                             }
 
