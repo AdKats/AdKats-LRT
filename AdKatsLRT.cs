@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.5
+ * Version 2.0.4.6
  * 21-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.4.5</version_code>
+ * <version_code>2.0.4.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.5";
+        private const String PluginVersion = "2.0.4.6";
 
         public readonly Logger Log;
 
@@ -2605,9 +2605,11 @@ namespace PRoConEvents
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
                             _lastCatListing = DateTime.UtcNow;
-                            String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory1.Count / (Double) loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory2.Count / (Double) loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
-                            AdminSayMessage(message);
-                            Log.Info(message);
+                            if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null) {
+                                String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory1.Count / (Double) loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory2.Count / (Double) loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
+                                AdminSayMessage(message);
+                                Log.Info(message);
+                            }
                         }
                     }
                 }
