@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.6
- * 21-SEP-2015
+ * Version 2.0.4.7
+ * 22-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.4.6</version_code>
+ * <version_code>2.0.4.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.6";
+        private const String PluginVersion = "2.0.4.7";
 
         public readonly Logger Log;
 
@@ -125,7 +125,7 @@ namespace PRoConEvents
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(1.0);
+        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(1.2);
         private DateTime _startTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -4624,11 +4624,14 @@ namespace PRoConEvents
             return result;
         }
 
-        private void DoBattlelogWait()
-        {
-            var waitDuration = _loadoutProcessingQueue.Count() <= 10 ? 
-                _battlelogWaitDuration : 
-                _battlelogWaitDuration - TimeSpan.FromSeconds(0.2);
+        private void DoBattlelogWait() {
+            var waitDuration = _battlelogWaitDuration;
+            if (_loadoutProcessingQueue.Count() >= 3) {
+                waitDuration -= TimeSpan.FromSeconds(0.2);
+            }
+            if (_loadoutProcessingQueue.Count() >= 6) {
+                waitDuration -= TimeSpan.FromSeconds(0.2);
+            }
             //Wait between battlelog actions
             if ((DateTime.UtcNow - _lastBattlelogAction) < waitDuration)
             {
