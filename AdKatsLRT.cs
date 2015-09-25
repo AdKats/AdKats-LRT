@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.0
+ * Version 2.0.5.1
  * 24-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.0</version_code>
+ * <version_code>2.0.5.1</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.0";
+        private const String PluginVersion = "2.0.5.1";
 
         public readonly Logger Log;
 
@@ -4629,10 +4629,27 @@ namespace PRoConEvents
 
         private void DoBattlelogWait() {
             try {
+
                 lock (_battlelogLocker) {
                     var now = DateTime.UtcNow;
-                    var timeSinceLast = (now - _lastBattlelogAction).TotalSeconds;
-                    _battlelogActionDurations.Enqueue(new KeyValuePair<double, DateTime>(timeSinceLast, now));
+                    var timeSinceLast = (now - _lastBattlelogAction);
+                    var requiredWait = _battlelogWaitDuration;
+                    //Reduce required wait time based on how many players are in the queue
+                    if (_loadoutProcessingQueue.Count() >= 3) {
+                        requiredWait -= TimeSpan.FromSeconds(0.3);
+                    }
+                    if (_loadoutProcessingQueue.Count() >= 6) {
+                        requiredWait -= TimeSpan.FromSeconds(0.4);
+                    }
+                    //Wait between battlelog actions
+                    if ((now - _lastBattlelogAction) < requiredWait) {
+                        var remainingWait = requiredWait - timeSinceLast;
+                        Thread.Sleep(remainingWait);
+                    }
+                    //Log the request frequency
+                    now = DateTime.UtcNow;
+                    timeSinceLast = (now - _lastBattlelogAction);
+                    _battlelogActionDurations.Enqueue(new KeyValuePair<double, DateTime>(timeSinceLast.TotalSeconds, now));
                     while ((now - _battlelogActionDurations.Peek().Value).TotalMinutes > 10) {
                         _battlelogActionDurations.Dequeue();
                     }
@@ -4641,17 +4658,6 @@ namespace PRoConEvents
                             Log.Info("Average battlelog request frequency (" + _battlelogActionDurations.Count() + "): " + Math.Round(_battlelogActionDurations.Select(entry => entry.Key).Average(), 2) + "s");
                         }
                         _lastBattlelogDurationMessage = now;
-                    }
-                    var waitDuration = _battlelogWaitDuration;
-                    if (_loadoutProcessingQueue.Count() >= 3) {
-                        waitDuration -= TimeSpan.FromSeconds(0.3);
-                    }
-                    if (_loadoutProcessingQueue.Count() >= 6) {
-                        waitDuration -= TimeSpan.FromSeconds(0.4);
-                    }
-                    //Wait between battlelog actions
-                    if ((now - _lastBattlelogAction) < waitDuration) {
-                        Thread.Sleep(waitDuration - (now - _lastBattlelogAction));
                     }
                     _lastBattlelogAction = now;
                 }
