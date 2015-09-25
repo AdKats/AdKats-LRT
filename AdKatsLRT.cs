@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.4.8
- * 23-SEP-2015
+ * Version 2.0.4.9
+ * 24-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.4.8</version_code>
+ * <version_code>2.0.4.9</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.4.8";
+        private const String PluginVersion = "2.0.4.9";
 
         public readonly Logger Log;
 
@@ -130,7 +130,7 @@ namespace PRoConEvents
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastBattlelogDurationMessage = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private Queue<Double> _battlelogActionDurations = new Queue<Double>();
+        private Queue<KeyValuePair<Double, DateTime>> _battlelogActionDurations = new Queue<KeyValuePair<Double, DateTime>>();
         private DateTime _lastCatListing = DateTime.UtcNow;
 
         //Threads
@@ -4628,12 +4628,17 @@ namespace PRoConEvents
 
         private void DoBattlelogWait() {
             try {
-                _battlelogActionDurations.Enqueue((DateTime.UtcNow - _lastBattlelogAction).TotalSeconds);
-                while (_battlelogActionDurations.Count() > 150) {
+                var now = DateTime.UtcNow;
+                var timeSinceLast = (now - _lastBattlelogAction).TotalSeconds;
+                _battlelogActionDurations.Enqueue(new KeyValuePair<double, DateTime>(timeSinceLast, now));
+                while ((now - _battlelogActionDurations.Peek().Value).TotalMinutes > 10) {
                     _battlelogActionDurations.Dequeue();
                 }
-                if ((DateTime.UtcNow - _lastBattlelogDurationMessage).TotalSeconds > 60) {
-                    Log.Debug("Average battlelog request frequency: " + Math.Round(_battlelogActionDurations.Average(), 2) + "s", 3);
+                if ((now - _lastBattlelogDurationMessage).TotalSeconds > 30) {
+                    if (_isTestingAuthorized) {
+                        Log.Info("Average battlelog request frequency (" + _battlelogActionDurations.Count() + "): " + Math.Round(_battlelogActionDurations.Select(entry => entry.Key).Average(), 2) + "s");
+                    }
+                    _lastBattlelogDurationMessage = now;
                 }
                 var waitDuration = _battlelogWaitDuration;
                 if (_loadoutProcessingQueue.Count() >= 3) {
@@ -4643,10 +4648,10 @@ namespace PRoConEvents
                     waitDuration -= TimeSpan.FromSeconds(0.4);
                 }
                 //Wait between battlelog actions
-                if ((DateTime.UtcNow - _lastBattlelogAction) < waitDuration) {
-                    Thread.Sleep(waitDuration - (DateTime.UtcNow - _lastBattlelogAction));
+                if ((now - _lastBattlelogAction) < waitDuration) {
+                    Thread.Sleep(waitDuration - (now - _lastBattlelogAction));
                 }
-                _lastBattlelogAction = DateTime.UtcNow;
+                _lastBattlelogAction = now;
             }
             catch (Exception e) {
                 Log.Exception("Error while performing battlelog wait.", e);
