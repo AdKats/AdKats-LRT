@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.1
- * 24-SEP-2015
+ * Version 2.0.5.2
+ * 27-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.1</version_code>
+ * <version_code>2.0.5.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.1";
+        private const String PluginVersion = "2.0.5.2";
 
         public readonly Logger Log;
 
@@ -382,6 +382,7 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Preset Settings", typeof(Boolean), _displayPresets));
