@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.7
+ * Version 2.0.5.8
  * 3-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.7</version_code>
+ * <version_code>2.0.5.8</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.7";
+        private const String PluginVersion = "2.0.5.8";
 
         public readonly Logger Log;
 
@@ -103,25 +103,7 @@ namespace PRoConEvents
         //Maps Modes
         private Boolean _restrictSpecificMapModes;
         private List<MapMode> _availableMapModes = new List<MapMode>();
-        private readonly Dictionary<String, MapMode> _restrictedMapModes = new Dictionary<String, MapMode>(); 
-
-        //Presets
-        private Boolean _presetDenyFragRounds;
-        private readonly List<String> _fragRoundIDs = new List<String>(new[] {
-            "4292296724", //M26
-            "892280283", //DAO
-            "956347287", //DBV
-            "3314744268", //UTS
-            "3318621920", //QBS
-            "4102933276", //SAIGA
-            "3144055563", //870
-            "1996239480", //1014
-            "3104246933", //Hawk
-            "2346703083" //SPAS
-        });
-        private Boolean _presetDenyExplosives;
-        private Boolean _presetDenyFlaresSmokeFlash;
-        private Boolean _presetDenyBipods;
+        private readonly Dictionary<String, MapMode> _restrictedMapModes = new Dictionary<String, MapMode>();
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
@@ -150,7 +132,6 @@ namespace PRoConEvents
         private const Int32 YellDuration = 7;
 
         //Debug
-        private const Boolean SlowMoOnException = false;
         private Boolean _slowmo;
 
         public AdKatsLRT()
@@ -1758,11 +1739,13 @@ namespace PRoConEvents
                                 Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 3);
                                 fetch = false;
                             }
+                            //Special case for large servers to reduce request frequency
                             if (fetch && 
                                 !trigger &&
+                                _playerDictionary.Count() > 24 &&
                                 aPlayer.LoadoutChecks >= 6 && 
                                 aPlayer.LoadoutValid &&
-                                aPlayer.SkippedChecks <= 5) {
+                                aPlayer.SkippedChecks < 5) {
                                 aPlayer.SkippedChecks++;
                                 Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 3);
                                 fetch = false;
