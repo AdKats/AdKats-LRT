@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.5
+ * Version 2.0.5.6
  * 3-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.5</version_code>
+ * <version_code>2.0.5.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.5";
+        private const String PluginVersion = "2.0.5.6";
 
         public readonly Logger Log;
 
@@ -1477,7 +1477,7 @@ namespace PRoConEvents
                             if (waitTime.TotalSeconds <= 0.1) {
                                 waitTime = TimeSpan.FromSeconds(5);
                             }
-                            Log.Debug("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 3);
+                            Log.Debug("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 5);
                             //Start a delay thread
                             StartAndLogThread(new Thread(new ThreadStart(delegate
                             {
@@ -1741,12 +1741,12 @@ namespace PRoConEvents
                             if (!trigger) {
                                 if (fetch && 
                                     (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
-                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is reputable.", 4);
+                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is reputable.", 3);
                                     fetch = false;
                                 }
                                 if (fetch && 
                                     (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
-                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is admin.", 4);
+                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is admin.", 3);
                                     fetch = false;
                                 }
                             }
@@ -1755,7 +1755,7 @@ namespace PRoConEvents
                                 _Whitelist.Contains(aPlayer.GUID) ||
                                 _Whitelist.Contains(aPlayer.PBGUID) ||
                                 _Whitelist.Contains(aPlayer.IP))) {
-                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 4);
+                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 3);
                                 fetch = false;
                             }
                             if (fetch && 
@@ -1763,7 +1763,7 @@ namespace PRoConEvents
                                 aPlayer.LoadoutValid &&
                                 aPlayer.SkippedChecks <= 5) {
                                 aPlayer.SkippedChecks++;
-                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 4);
+                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 3);
                                 fetch = false;
                             }
                             if (!fetch) {
