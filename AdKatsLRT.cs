@@ -372,10 +372,6 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
-            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Frag Rounds", typeof(Boolean), _presetDenyFragRounds));
-            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Explosives", typeof(Boolean), _presetDenyExplosives));
-            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Flares/Smoke/Flash", typeof(Boolean), _presetDenyFlaresSmokeFlash));
-            lstReturn.Add(new CPluginVariable(SettingsPresetPrefix + "Preset Deny Bipods", typeof(Boolean), _presetDenyBipods));
             lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
             lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
             lstReturn.AddRange(_warsawInvalidLoadoutIDMessages.Select(pair => new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value)));
@@ -528,22 +524,6 @@ namespace PRoConEvents
                             _displayGadgets = false;
                         }
                     }
-                }
-                else if (Regex.Match(strVariable, @"Preset Deny Frag Rounds").Success)
-                {
-                    _presetDenyFragRounds = Boolean.Parse(strValue);
-                }
-                else if (Regex.Match(strVariable, @"Preset Deny Explosives").Success)
-                {
-                    _presetDenyExplosives = Boolean.Parse(strValue);
-                }
-                else if (Regex.Match(strVariable, @"Preset Deny Flares/Smoke/Flash").Success)
-                {
-                    _presetDenyFlaresSmokeFlash = Boolean.Parse(strValue);
-                }
-                else if (Regex.Match(strVariable, @"Preset Deny Bipods").Success)
-                {
-                    _presetDenyBipods = Boolean.Parse(strValue);
                 }
                 else if (Regex.Match(strVariable, @"Spawn Enforce Admins").Success)
                 {
