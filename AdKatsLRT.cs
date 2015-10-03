@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.6
+ * Version 2.0.5.7
  * 3-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.6</version_code>
+ * <version_code>2.0.5.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.6";
+        private const String PluginVersion = "2.0.5.7";
 
         public readonly Logger Log;
 
@@ -1759,6 +1759,7 @@ namespace PRoConEvents
                                 fetch = false;
                             }
                             if (fetch && 
+                                !trigger &&
                                 aPlayer.LoadoutChecks >= 6 && 
                                 aPlayer.LoadoutValid &&
                                 aPlayer.SkippedChecks <= 5) {
