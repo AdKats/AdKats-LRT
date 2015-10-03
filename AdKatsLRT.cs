@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.2
+ * Version 2.0.5.3
  * 27-SEP-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.2</version_code>
+ * <version_code>2.0.5.3</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.2";
+        private const String PluginVersion = "2.0.5.3";
 
         public readonly Logger Log;
 
@@ -1421,6 +1421,7 @@ namespace PRoConEvents
                             _playerDictionary.Remove(aPlayer.Name);
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
+                            aPlayer.LoadoutChecks = 0;
                         }
                         else {
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
@@ -1738,20 +1739,31 @@ namespace PRoConEvents
                             //Check to see if we can skip this player
                             Boolean fetch = true;
                             if (!trigger) {
-                                if (fetch && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
-                                    Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player is reputable.", 4);
+                                if (fetch && 
+                                    (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is reputable.", 4);
                                     fetch = false;
                                 }
-                                if (fetch && (processObject.ProcessPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
-                                    Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player is admin.", 4);
+                                if (fetch && 
+                                    (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is admin.", 4);
                                     fetch = false;
                                 }
                             }
-                            if (fetch && (_Whitelist.Contains(processObject.ProcessPlayer.Name) ||
-                                _Whitelist.Contains(processObject.ProcessPlayer.GUID) ||
-                                _Whitelist.Contains(processObject.ProcessPlayer.PBGUID) ||
-                                _Whitelist.Contains(processObject.ProcessPlayer.IP))) {
-                                Log.Debug(processObject.ProcessPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 4);
+                            if (fetch && 
+                                (_Whitelist.Contains(aPlayer.Name) ||
+                                _Whitelist.Contains(aPlayer.GUID) ||
+                                _Whitelist.Contains(aPlayer.PBGUID) ||
+                                _Whitelist.Contains(aPlayer.IP))) {
+                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 4);
+                                fetch = false;
+                            }
+                            if (fetch && 
+                                aPlayer.LoadoutChecks >= 8 && 
+                                aPlayer.LoadoutValid && 
+                                aPlayer.SkippedChecks <= 5) {
+                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 4);
+                                aPlayer.SkippedChecks++;
                                 fetch = false;
                             }
                             if (!fetch) {
@@ -1765,6 +1777,8 @@ namespace PRoConEvents
                                 continue;
                             }
                             aPlayer.Loadout = loadout;
+                            aPlayer.LoadoutChecks++;
+                            aPlayer.SkippedChecks = 0;
 
                             //Show the loadout contents
                             String primaryMessage = loadout.KitItemPrimary.Slug + " [" + loadout.KitItemPrimary.AccessoriesAssigned.Values.Aggregate("", (currentString, acc) => currentString + TrimStart(acc.Slug, loadout.KitItemPrimary.Slug).Trim() + ", ").Trim().TrimEnd(',') + "]";
@@ -2570,6 +2584,7 @@ namespace PRoConEvents
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerDictionary.Remove(aPlayer.Name);
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
+                            aPlayer.LoadoutChecks = 0;
                         }
                         else
                         {
@@ -4820,6 +4835,8 @@ namespace PRoConEvents
             public DateTime LastUsage;
             public Int32 LoadoutKills;
             public Int32 MaxDeniedItems;
+            public Int32 LoadoutChecks;
+            public Int32 SkippedChecks;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
