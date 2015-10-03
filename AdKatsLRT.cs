@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.3
- * 27-SEP-2015
+ * Version 2.0.5.4
+ * 3-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.3</version_code>
+ * <version_code>2.0.5.4</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.3";
+        private const String PluginVersion = "2.0.5.4";
 
         public readonly Logger Log;
 
@@ -130,9 +130,9 @@ namespace PRoConEvents
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private Object _battlelogLocker = new Object();
         private DateTime _lastBattlelogAction = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private DateTime _lastBattlelogDurationMessage = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private Queue<KeyValuePair<Double, DateTime>> _battlelogActionDurations = new Queue<KeyValuePair<Double, DateTime>>();
-        private DateTime _lastCatListing = DateTime.UtcNow;
+        private DateTime _lastBattlelogFrequencyMessage = DateTime.UtcNow - TimeSpan.FromSeconds(5);
+        private Queue<DateTime> _BattlelogActionTimes = new Queue<DateTime>();
+        private DateTime _lastCategoryListing = DateTime.UtcNow;
 
         //Threads
         private readonly Dictionary<Int32, Thread> _aliveThreads = new Dictionary<Int32, Thread>();
@@ -2591,7 +2591,7 @@ namespace PRoConEvents
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCatListing).TotalMinutes > 4) {
+                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4) {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
                         if (loadoutPlayers.Any()) {
                             var loadoutPlayers1 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 1);
@@ -2623,7 +2623,7 @@ namespace PRoConEvents
                                 })
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
-                            _lastCatListing = DateTime.UtcNow;
+                            _lastCategoryListing = DateTime.UtcNow;
                             if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null) {
                                 String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory1.Count / (Double) loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory2.Count / (Double) loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
                                 AdminSayMessage(message);
@@ -4665,15 +4665,18 @@ namespace PRoConEvents
                     //Log the request frequency
                     now = DateTime.UtcNow;
                     timeSinceLast = (now - _lastBattlelogAction);
-                    _battlelogActionDurations.Enqueue(new KeyValuePair<double, DateTime>(timeSinceLast.TotalSeconds, now));
-                    while ((now - _battlelogActionDurations.Peek().Value).TotalMinutes > 10) {
-                        _battlelogActionDurations.Dequeue();
-                    }
-                    if ((now - _lastBattlelogDurationMessage).TotalSeconds > 30) {
-                        if (_isTestingAuthorized) {
-                            Log.Info("Average battlelog request frequency (" + _battlelogActionDurations.Count() + "): " + Math.Round(_battlelogActionDurations.Select(entry => entry.Key).Average(), 2) + "s");
+                    lock (_BattlelogActionTimes) {
+                        _BattlelogActionTimes.Enqueue(now);
+                        while (_BattlelogActionTimes.Count() > 1000) {
+                            _BattlelogActionTimes.Dequeue();
                         }
-                        _lastBattlelogDurationMessage = now;
+                        if (_BattlelogActionTimes.Any() && NowDuration(_lastBattlelogFrequencyMessage).TotalSeconds > 30) {
+                            if (_isTestingAuthorized) {
+                                var frequency = Math.Round(_BattlelogActionTimes.Count(time => NowDuration(time).TotalMinutes <= 1) / 1.0, 2);
+                                Log.Info("Average battlelog request frequency: " + frequency + " r/m");
+                            }
+                            _lastBattlelogFrequencyMessage = DateTime.UtcNow;
+                        }
                     }
                     _lastBattlelogAction = now;
                 }
@@ -4682,6 +4685,10 @@ namespace PRoConEvents
                 Log.Exception("Error while performing battlelog wait.", e);
                 Thread.Sleep(_battlelogWaitDuration);
             }
+        }
+
+        public TimeSpan NowDuration(DateTime diff) {
+            return (DateTime.UtcNow - diff).Duration();
         }
 
         private void PostVersionTracking()
