@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.8
- * 3-OCT-2015
+ * Version 2.0.5.9
+ * 4-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.8</version_code>
+ * <version_code>2.0.5.9</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.8";
+        private const String PluginVersion = "2.0.5.9";
 
         public readonly Logger Log;
 
@@ -4615,12 +4615,12 @@ namespace PRoConEvents
                     var timeSinceLast = (now - _lastBattlelogAction);
                     var requiredWait = _battlelogWaitDuration;
                     //Reduce required wait time based on how many players are in the queue
-                    if (_loadoutProcessingQueue.Count() >= 3) {
-                        requiredWait -= TimeSpan.FromSeconds(0.3);
-                    }
-                    if (_loadoutProcessingQueue.Count() >= 6) {
-                        requiredWait -= TimeSpan.FromSeconds(0.4);
-                    }
+//                    if (_loadoutProcessingQueue.Count() >= 3) {
+//                        requiredWait -= TimeSpan.FromSeconds(0.3);
+//                    }
+//                    if (_loadoutProcessingQueue.Count() >= 6) {
+//                        requiredWait -= TimeSpan.FromSeconds(0.4);
+//                    }
                     //Wait between battlelog actions
                     if ((now - _lastBattlelogAction) < requiredWait) {
                         var remainingWait = requiredWait - timeSinceLast;
@@ -4628,7 +4628,6 @@ namespace PRoConEvents
                     }
                     //Log the request frequency
                     now = DateTime.UtcNow;
-                    timeSinceLast = (now - _lastBattlelogAction);
                     lock (_BattlelogActionTimes) {
                         _BattlelogActionTimes.Enqueue(now);
                         while (_BattlelogActionTimes.Count() > 1000) {
