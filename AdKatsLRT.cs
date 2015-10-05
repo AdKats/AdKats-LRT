@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.5.9
- * 4-OCT-2015
+ * Version 2.0.6.0
+ * 5-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.5.9</version_code>
+ * <version_code>2.0.6.0</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.5.9";
+        private const String PluginVersion = "2.0.6.0";
 
         public readonly Logger Log;
 
@@ -107,7 +107,7 @@ namespace PRoConEvents
 
         //Timing
         private readonly DateTime _proconStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(1.5);
+        private readonly TimeSpan _battlelogWaitDuration = TimeSpan.FromSeconds(3);
         private DateTime _startTime = DateTime.UtcNow - TimeSpan.FromSeconds(5);
         private DateTime _lastVersionTrackingUpdate = DateTime.UtcNow - TimeSpan.FromHours(1);
         private Object _battlelogLocker = new Object();
@@ -1616,6 +1616,12 @@ namespace PRoConEvents
                             break;
                         }
 
+                        if (_battlelogFetchQueue.Count() >= 5) {
+                            Log.Debug("loadout checks waiting on battlelog info fetches to complete.", 4);
+                            _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(10));
+                            continue;
+                        }
+
                         if (_loadoutProcessingQueue.Count > 0)
                         {
                             ProcessObject processObject = null;
@@ -1710,6 +1716,16 @@ namespace PRoConEvents
                                     Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is admin.", 3);
                                     fetch = false;
                                 }
+                                //Special case for large servers to reduce request frequency
+                                if (fetch &&
+                                    _playerDictionary.Count() > 24 &&
+                                    aPlayer.LoadoutChecks > ((aPlayer.Reputation > 0) ? (0) : (3)) &&
+                                    aPlayer.LoadoutValid &&
+                                    aPlayer.SkippedChecks < 4) {
+                                    aPlayer.SkippedChecks++;
+                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 3);
+                                    fetch = false;
+                                }
                             }
                             if (fetch && 
                                 (_Whitelist.Contains(aPlayer.Name) ||
@@ -1717,17 +1733,6 @@ namespace PRoConEvents
                                 _Whitelist.Contains(aPlayer.PBGUID) ||
                                 _Whitelist.Contains(aPlayer.IP))) {
                                 Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 3);
-                                fetch = false;
-                            }
-                            //Special case for large servers to reduce request frequency
-                            if (fetch && 
-                                !trigger &&
-                                _playerDictionary.Count() > 24 &&
-                                aPlayer.LoadoutChecks >= 6 && 
-                                aPlayer.LoadoutValid &&
-                                aPlayer.SkippedChecks < 5) {
-                                aPlayer.SkippedChecks++;
-                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 3);
                                 fetch = false;
                             }
                             if (!fetch) {
@@ -4630,12 +4635,12 @@ namespace PRoConEvents
                     now = DateTime.UtcNow;
                     lock (_BattlelogActionTimes) {
                         _BattlelogActionTimes.Enqueue(now);
-                        while (_BattlelogActionTimes.Count() > 1000) {
+                        while (NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes > 5) {
                             _BattlelogActionTimes.Dequeue();
                         }
                         if (_BattlelogActionTimes.Any() && NowDuration(_lastBattlelogFrequencyMessage).TotalSeconds > 30) {
                             if (_isTestingAuthorized) {
-                                var frequency = Math.Round(_BattlelogActionTimes.Count(time => NowDuration(time).TotalMinutes <= 1) / 1.0, 2);
+                                var frequency = Math.Round(_BattlelogActionTimes.Count() / NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes, 2);
                                 Log.Info("Average battlelog request frequency: " + frequency + " r/m");
                             }
                             _lastBattlelogFrequencyMessage = DateTime.UtcNow;
