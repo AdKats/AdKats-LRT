@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.0
+ * Version 2.0.6.1
  * 5-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.0</version_code>
+ * <version_code>2.0.6.1</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.0";
+        private const String PluginVersion = "2.0.6.1";
 
         public readonly Logger Log;
 
@@ -84,6 +84,7 @@ namespace PRoConEvents
         private Boolean _displayLoadoutDebug;
 
         //Settings
+        private Boolean _highRequestVolume;
         private Boolean _enableAdKatsIntegration;
         private Boolean _spawnEnforcementActOnAdmins;
         private Boolean _spawnEnforcementActOnReputablePlayers;
@@ -190,6 +191,7 @@ namespace PRoConEvents
             {
                 const string separator = " | ";
 
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
                 if (_enableAdKatsIntegration)
                 {
@@ -360,6 +362,8 @@ namespace PRoConEvents
         {
             var lstReturn = new List<CPluginVariable>();
             const string separator = " | ";
+
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
@@ -1718,7 +1722,7 @@ namespace PRoConEvents
                                 }
                                 //Special case for large servers to reduce request frequency
                                 if (fetch &&
-                                    _playerDictionary.Count() > 24 &&
+                                    !_highRequestVolume &&
                                     aPlayer.LoadoutChecks > ((aPlayer.Reputation > 0) ? (0) : (3)) &&
                                     aPlayer.LoadoutValid &&
                                     aPlayer.SkippedChecks < 4) {
