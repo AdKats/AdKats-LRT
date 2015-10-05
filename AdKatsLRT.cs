@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.1
+ * Version 2.0.6.2
  * 5-OCT-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.1</version_code>
+ * <version_code>2.0.6.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.1";
+        private const String PluginVersion = "2.0.6.2";
 
         public readonly Logger Log;
 
@@ -4639,12 +4639,12 @@ namespace PRoConEvents
                     now = DateTime.UtcNow;
                     lock (_BattlelogActionTimes) {
                         _BattlelogActionTimes.Enqueue(now);
-                        while (NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes > 5) {
+                        while (NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes > 4) {
                             _BattlelogActionTimes.Dequeue();
                         }
                         if (_BattlelogActionTimes.Any() && NowDuration(_lastBattlelogFrequencyMessage).TotalSeconds > 30) {
                             if (_isTestingAuthorized) {
-                                var frequency = Math.Round(_BattlelogActionTimes.Count() / NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes, 2);
+                                var frequency = Math.Round(_BattlelogActionTimes.Count() / 4.0, 2);
                                 Log.Info("Average battlelog request frequency: " + frequency + " r/m");
                             }
                             _lastBattlelogFrequencyMessage = DateTime.UtcNow;
