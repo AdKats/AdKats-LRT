@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.4
- * 11-OCT-2015
+ * Version 2.0.6.5
+ * 21-NOV-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.4</version_code>
+ * <version_code>2.0.6.5</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.4";
+        private const String PluginVersion = "2.0.6.5";
 
         public readonly Logger Log;
 
@@ -86,15 +86,16 @@ namespace PRoConEvents
         //Settings
         private Boolean _highRequestVolume;
         private Boolean _enableAdKatsIntegration;
+        private Boolean _spawnEnforcementOnly;
         private Boolean _spawnEnforcementActOnAdmins;
         private Boolean _spawnEnforcementActOnReputablePlayers;
+        private Boolean _useWeaponCatchingBackup = true;
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
         private String[] _Whitelist = { };
         private String[] _ItemSearchBlacklist = { };
 
         //Display
-        private Boolean _displayPresets;
         private Boolean _displayMapsModes;
         private Boolean _displayWeapons;
         private Boolean _displayWeaponAccessories;
@@ -193,8 +194,9 @@ namespace PRoConEvents
 
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
-                if (_enableAdKatsIntegration)
+                if (_enableAdKatsIntegration) 
                 {
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
@@ -208,7 +210,6 @@ namespace PRoConEvents
                     return lstReturn;
                 }
 
-                lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Preset Settings", typeof(Boolean), _displayPresets));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
@@ -237,7 +238,7 @@ namespace PRoConEvents
                                 lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
-                            if (_enableAdKatsIntegration)
+                            if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
                                 lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
@@ -365,12 +366,12 @@ namespace PRoConEvents
 
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
-            lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Preset Settings", typeof(Boolean), _displayPresets));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
@@ -413,8 +414,8 @@ namespace PRoConEvents
                     {
                         if (tmp == 269)
                         {
-                            Log.Success("Extended Debug Mode Activated");
-                            _displayLoadoutDebug = true;
+                            Log.Success("Extended Debug Mode Toggled");
+                            _displayLoadoutDebug = !_displayLoadoutDebug;
                             return;
                         }
                         Log.DebugLevel = tmp;
@@ -439,22 +440,6 @@ namespace PRoConEvents
                         _enableAdKatsIntegration = enableAdKatsIntegration;
                     }
                 }
-                else if (Regex.Match(strVariable, @"Display Preset Settings").Success)
-                {
-                    Boolean displayPresets = Boolean.Parse(strValue);
-                    if (displayPresets != _displayPresets)
-                    {
-                        _displayPresets = displayPresets;
-                        if (_displayPresets)
-                        {
-                            _displayMapsModes = false;
-                            _displayWeapons = false;
-                            _displayWeaponAccessories = false;
-                            _displayGadgets = false;
-                            _displayVehicles = false;
-                        }
-                    }
-                }
                 else if (Regex.Match(strVariable, @"Display Map/Mode Settings").Success)
                 {
                     Boolean displayMapsModes = Boolean.Parse(strValue);
@@ -463,7 +448,6 @@ namespace PRoConEvents
                         _displayMapsModes = displayMapsModes;
                         if (_displayMapsModes)
                         {
-                            _displayPresets = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
@@ -479,7 +463,6 @@ namespace PRoConEvents
                         _displayWeapons = displayWeapons;
                         if (_displayWeapons)
                         {
-                            _displayPresets = false;
                             _displayMapsModes = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
@@ -495,7 +478,6 @@ namespace PRoConEvents
                         _displayWeaponAccessories = displayWeaponAccessories;
                         if (_displayWeaponAccessories)
                         {
-                            _displayPresets = false;
                             _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayGadgets = false;
@@ -511,7 +493,6 @@ namespace PRoConEvents
                         _displayGadgets = displayGadgets;
                         if (_displayGadgets)
                         {
-                            _displayPresets = false;
                             _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
@@ -527,13 +508,16 @@ namespace PRoConEvents
                         _displayVehicles = displayVehicles;
                         if (_displayVehicles)
                         {
-                            _displayPresets = false;
                             _displayMapsModes = false;
                             _displayWeapons = false;
                             _displayWeaponAccessories = false;
                             _displayGadgets = false;
                         }
                     }
+                }
+                else if (Regex.Match(strVariable, @"Spawn Enforcement Only").Success)
+                {
+                    _spawnEnforcementOnly = Boolean.Parse(strValue);
                 }
                 else if (Regex.Match(strVariable, @"Spawn Enforce Admins").Success)
                 {
@@ -1315,7 +1299,7 @@ namespace PRoConEvents
                         aPlayer.IsAdmin = false;
                         aPlayer.Reported = false;
                         aPlayer.Punished = false;
-                        aPlayer.Marked = false;
+                        aPlayer.LoadoutForced = false;
                         aPlayer.LastPunishment = TimeSpan.FromSeconds(0);
                         aPlayer.LastForgive = TimeSpan.FromSeconds(0);
                         aPlayer.LastAction = TimeSpan.FromSeconds(0);
@@ -1673,9 +1657,9 @@ namespace PRoConEvents
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
-                            if (aPlayer.Marked || processObject.ProcessSource == "marked")
+                            if (aPlayer.LoadoutForced || processObject.ProcessSource == "forced")
                             {
-                                reason = "[marked] ";
+                                reason = "[forced] ";
                                 trigger = true;
                                 killOverride = true;
                             }
@@ -1765,9 +1749,9 @@ namespace PRoConEvents
                             String gadgetMessage = "[" + loadout.KitGadget1.Slug + ", " + loadout.KitGadget2.Slug + "]";
                             String grenadeMessage = "[" + loadout.KitGrenade.Slug + "]";
                             String knifeMessage = "[" + loadout.KitKnife.Slug + "]";
-                            String loadoutMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKit.KitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
+                            String loadoutLongMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKit.KitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
-                            Log.Debug(loadoutMessage, 4);
+                            Log.Debug(loadoutLongMessage, 4);
 
                             //Action taken?
                             Boolean acted = false;
@@ -1958,6 +1942,7 @@ namespace PRoConEvents
                                                     {"loadout_spawnValid", spawnLoadoutValid},
                                                     {"loadout_acted", false},
                                                     {"loadout_items", loadoutShortMessage},
+                                                    {"loadout_items_long", loadoutLongMessage},
                                                     {"loadout_deniedItems", ""}
                                                 }));
                                         Thread.Sleep(100);
@@ -2177,6 +2162,7 @@ namespace PRoConEvents
                                         {"loadout_spawnValid", spawnLoadoutValid},
                                         {"loadout_acted", acted},
                                         {"loadout_items", loadoutShortMessage},
+                                        {"loadout_items_long", loadoutLongMessage},
                                         {"loadout_deniedItems", deniedWeapons}
                                     }));
                                     Thread.Sleep(100);
@@ -2454,7 +2440,7 @@ namespace PRoConEvents
                             IsAdmin = (Boolean) soldierHashtable["player_isAdmin"],
                             Reported = (Boolean) soldierHashtable["player_reported"],
                             Punished = (Boolean) soldierHashtable["player_punished"],
-                            Marked = (Boolean) soldierHashtable["player_marked"]
+                            LoadoutForced = (Boolean) soldierHashtable["player_loadout_forced"]
                         };
                         var lastPunishment = (Double)soldierHashtable["player_lastPunishment"];
                         if (lastPunishment > 0)
@@ -2531,7 +2517,7 @@ namespace PRoConEvents
                             dPlayer.IsAdmin = aPlayer.IsAdmin;
                             dPlayer.Reported = aPlayer.Reported;
                             dPlayer.Punished = aPlayer.Punished;
-                            dPlayer.Marked = aPlayer.Marked;
+                            dPlayer.LoadoutForced = aPlayer.LoadoutForced;
                             dPlayer.SpawnedOnce = aPlayer.SpawnedOnce;
                             dPlayer.ConversationPartner = aPlayer.ConversationPartner;
                             dPlayer.Kills = aPlayer.Kills;
@@ -4794,7 +4780,7 @@ namespace PRoConEvents
             public TimeSpan LastPunishment = TimeSpan.Zero;
             public Boolean LoadoutEnforced = false;
             public Boolean LoadoutValid = true;
-            public Boolean Marked;
+            public Boolean LoadoutForced;
             public String Name;
             public Boolean Online;
             public String PBGUID;
