@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.5
- * 21-NOV-2015
+ * Version 2.0.6.6
+ * 22-NOV-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.5</version_code>
+ * <version_code>2.0.6.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.5";
+        private const String PluginVersion = "2.0.6.6";
 
         public readonly Logger Log;
 
@@ -1699,15 +1699,16 @@ namespace PRoConEvents
 
                             //Check to see if we can skip this player
                             Boolean fetch = true;
+                            String rejectFetchReason = "Loadout fetches cancelled. No reason given.";
                             if (!trigger) {
                                 if (fetch && 
                                     (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
-                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is reputable.", 3);
+                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is reputable.";
                                     fetch = false;
                                 }
                                 if (fetch && 
                                     (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
-                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player is admin.", 3);
+                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is admin.";
                                     fetch = false;
                                 }
                                 //Special case for large servers to reduce request frequency
@@ -1717,7 +1718,7 @@ namespace PRoConEvents
                                     aPlayer.LoadoutValid &&
                                     aPlayer.SkippedChecks < 4) {
                                     aPlayer.SkippedChecks++;
-                                    Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.", 3);
+                                    rejectFetchReason = aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
                                     fetch = false;
                                 }
                             }
@@ -1726,10 +1727,31 @@ namespace PRoConEvents
                                 _Whitelist.Contains(aPlayer.GUID) ||
                                 _Whitelist.Contains(aPlayer.PBGUID) ||
                                 _Whitelist.Contains(aPlayer.IP))) {
-                                Log.Debug(aPlayer.Name + " loadout fetch cancelled. Player on whitelist.", 3);
+                                rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player on whitelist.";
                                 fetch = false;
                             }
                             if (!fetch) {
+                                if (_enableAdKatsIntegration) {
+                                    //Inform AdKats of the check rejection
+                                    StartAndLogThread(new Thread(new ThreadStart(delegate {
+                                        Thread.CurrentThread.Name = "AdKatsInform";
+                                        Thread.Sleep(50);
+                                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                            {"caller_identity", "AdKatsLRT"},
+                                            {"response_requested", false},
+                                            {"loadout_player", aPlayer.Name},
+                                            {"loadout_valid", true},
+                                            {"loadout_spawnValid", true},
+                                            {"loadout_acted", false},
+                                            {"loadout_items", rejectFetchReason},
+                                            {"loadout_items_long", rejectFetchReason},
+                                            {"loadout_deniedItems", rejectFetchReason}
+                                        }));
+                                        Thread.Sleep(50);
+                                        LogThreadExit();
+                                    })));
+                                }
+                                Log.Debug(rejectFetchReason, 3);
                                 continue;
                             }
 
@@ -5114,7 +5136,18 @@ namespace PRoConEvents
                 new MapMode(277, "Domination0", "XP5_Night_01", "Domination", "Zavod:Graveyard Shift"),
                 new MapMode(278, "Obliteration", "XP5_Night_01", "Obliteration", "Zavod:Graveyard Shift"),
                 new MapMode(279, "RushLarge0", "XP5_Night_01", "Rush", "Zavod:Graveyard Shift"),
-                new MapMode(280, "TeamDeathMatch0", "XP5_Night_01", "Team Deathmatch", "Zavod:Graveyard Shift")
+                new MapMode(280, "TeamDeathMatch0", "XP5_Night_01", "Team Deathmatch", "Zavod:Graveyard Shift"),
+                new MapMode(281, "ConquestLarge0", "XP6_CMP", "Conquest Large", "Operation Outbreak"),
+                new MapMode(282, "ConquestSmall0", "XP6_CMP", "Conquest Small", "Operation Outbreak"),
+                new MapMode(283, "Domination0", "XP6_CMP", "Domination", "Operation Outbreak"),
+                new MapMode(284, "Obliteration", "XP6_CMP", "Obliteration", "Operation Outbreak"),
+                new MapMode(285, "RushLarge0", "XP6_CMP", "Rush", "Operation Outbreak"),
+                new MapMode(286, "SquadDeathMatch0", "XP6_CMP", "Squad Deathmatch", "Operation Outbreak"),
+                new MapMode(287, "SquadDeathMatch1", "XP6_CMP", "Squad Deathmatch", "Operation Outbreak v2"),
+                new MapMode(288, "TeamDeathMatch0", "XP6_CMP", "Team Deathmatch", "Operation Outbreak"),
+                new MapMode(289, "TeamDeathMatch1", "XP6_CMP", "Team Deathmatch", "Operation Outbreak v2"),
+                new MapMode(290, "CaptureTheFlag0", "XP6_CMP", "CTF", "Operation Outbreak"),
+                new MapMode(291, "Chainlink0", "XP6_CMP", "Chain Link", "Operation Outbreak")
             };
         }
 
