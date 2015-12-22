@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.6
- * 22-NOV-2015
+ * Version 2.0.6.7
+ * 21-DEC-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.6</version_code>
+ * <version_code>2.0.6.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.6";
+        private const String PluginVersion = "2.0.6.7";
 
         public readonly Logger Log;
 
@@ -5147,7 +5147,16 @@ namespace PRoConEvents
                 new MapMode(288, "TeamDeathMatch0", "XP6_CMP", "Team Deathmatch", "Operation Outbreak"),
                 new MapMode(289, "TeamDeathMatch1", "XP6_CMP", "Team Deathmatch", "Operation Outbreak v2"),
                 new MapMode(290, "CaptureTheFlag0", "XP6_CMP", "CTF", "Operation Outbreak"),
-                new MapMode(291, "Chainlink0", "XP6_CMP", "Chain Link", "Operation Outbreak")
+                new MapMode(291, "Chainlink0", "XP6_CMP", "Chain Link", "Operation Outbreak"),
+                new MapMode(292, "ConquestLarge0", "XP7_Valley", "Conquest Large", "Dragon Valley 2015"),
+                new MapMode(293, "ConquestSmall0", "XP7_Valley", "Conquest Small", "Dragon Valley 2015"),
+                new MapMode(294, "Domination0", "XP7_Valley", "Domination", "Dragon Valley 2015"),
+                new MapMode(295, "Obliteration", "XP7_Valley", "Obliteration", "Dragon Valley 2015"),
+                new MapMode(296, "RushLarge0", "XP7_Valley", "Rush", "Dragon Valley 2015"),
+                new MapMode(297, "SquadDeathMatch0", "XP7_Valley", "Squad Deathmatch", "Dragon Valley 2015"),
+                new MapMode(298, "TeamDeathMatch0", "XP7_Valley", "Team Deathmatch", "Dragon Valley 2015"),
+                new MapMode(299, "GunMaster0", "XP7_Valley", "Gun Master", "Dragon Valley 2015"),
+                new MapMode(300, "AirSuperiority0", "XP7_Valley", "Air Superiority", "Dragon Valley 2015")
             };
         }
 
