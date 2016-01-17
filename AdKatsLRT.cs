@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.8
- * 16-JAN-2015
+ * Version 2.0.6.7
+ * 21-DEC-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.8</version_code>
+ * <version_code>2.0.6.7</version_code>
  */
 
 using System;
@@ -27,7 +27,6 @@ using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Web;
 using PRoCon.Core;
 using PRoCon.Core.Players;
 using PRoCon.Core.Plugin;
@@ -37,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.8";
+        private const String PluginVersion = "2.0.6.7";
 
         public readonly Logger Log;
 
@@ -2361,7 +2360,7 @@ namespace PRoConEvents
                     try
                     {
                         DoBattlelogWait();
-                        String personaResponse = client.DownloadString(HttpUtility.UrlEncode("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name));
+                        String personaResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
                         Match pid = Regex.Match(personaResponse, @"bf4/soldier/" + aPlayer.Name + @"/stats/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
                         if (!pid.Success)
                         {
@@ -2377,7 +2376,7 @@ namespace PRoConEvents
                             ProcessTime = DateTime.UtcNow
                         });
                         DoBattlelogWait();
-                        String overviewResponse = client.DownloadString(HttpUtility.UrlEncode("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/"));
+                        String overviewResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/");
 
                         Hashtable json = (Hashtable)JSON.JsonDecode(overviewResponse);
                         Hashtable data = (Hashtable)json["data"];
@@ -4402,7 +4401,7 @@ namespace PRoConEvents
                     try
                     {
                         DoBattlelogWait();
-                        String response = client.DownloadString(HttpUtility.UrlEncode("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount));
+                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
                     } catch (Exception e) {
                         if (e is WebException) {
