@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.7
- * 21-DEC-2015
+ * Version 2.0.6.8
+ * 24-JAN-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.7</version_code>
+ * <version_code>2.0.6.8</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.7";
+        private const String PluginVersion = "2.0.6.8";
 
         public readonly Logger Log;
 
@@ -1049,7 +1049,7 @@ namespace PRoConEvents
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = killer,
-                            ProcessSource = "vehiclekill",
+                            ProcessReason = "vehiclekill",
                             ProcessTime = DateTime.UtcNow
                         });
                     }
@@ -1418,7 +1418,7 @@ namespace PRoConEvents
                         var processObject = new ProcessObject()
                         {
                             ProcessPlayer = aPlayer,
-                            ProcessSource = "spawn",
+                            ProcessReason = "spawn",
                             ProcessTime = spawnTime
                         };
                         //Minimum wait time of 5 seconds
@@ -1491,8 +1491,8 @@ namespace PRoConEvents
 
                 var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJson);
 
-                var playerName = (String)decodedCommand["player_name"];
-                var loadoutCheckReason = (String)decodedCommand["loadoutCheck_reason"];
+                var playerName = (String) decodedCommand["player_name"];
+                var loadoutCheckReason = (String) decodedCommand["loadoutCheck_reason"];
 
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
                 {
@@ -1503,7 +1503,7 @@ namespace PRoConEvents
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = aPlayer,
-                            ProcessSource = loadoutCheckReason,
+                            ProcessReason = loadoutCheckReason,
                             ProcessTime = DateTime.UtcNow,
                             ProcessManual = true
                         });
@@ -1654,22 +1654,27 @@ namespace PRoConEvents
                             AdKatsSubscribedPlayer aPlayer = processObject.ProcessPlayer;
 
                             //Parse the reason for enforcement
+                            Boolean fetchOnly = false;
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
-                            if (aPlayer.LoadoutForced || processObject.ProcessSource == "forced")
+                            if (processObject.ProcessReason == "fetch") {
+                                reason = "[fetch] ";
+                                fetchOnly = true;
+                            }
+                            else if (aPlayer.LoadoutForced || processObject.ProcessReason == "forced")
                             {
                                 reason = "[forced] ";
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if (aPlayer.Punished || processObject.ProcessSource == "punished")
+                            else if (aPlayer.Punished || processObject.ProcessReason == "punished")
                             {
                                 reason = "[recently punished] ";
                                 trigger = true;
                                 killOverride = true;
                             }
-                            else if ((aPlayer.Reported || processObject.ProcessSource == "reported") && aPlayer.Reputation <= 0)
+                            else if ((aPlayer.Reported || processObject.ProcessReason == "reported") && aPlayer.Reputation <= 0)
                             {
                                 reason = "[reported] ";
                                 trigger = true;
@@ -1679,15 +1684,15 @@ namespace PRoConEvents
                                 reason = "[" + aPlayer.InfractionPoints + " infractions] ";
                                 trigger = true;
                             }
-                            else if (processObject.ProcessSource == "vehiclekill")
+                            else if (processObject.ProcessReason == "vehiclekill")
                             {
                                 reason = "[Vehicle Kill] ";
                             }
-                            else if (processObject.ProcessSource == "spawn")
+                            else if (processObject.ProcessReason == "spawn")
                             {
                                 reason = "[spawn] ";
                             }
-                            else if (processObject.ProcessSource == "listing")
+                            else if (processObject.ProcessReason == "listing")
                             {
                                 reason = "[join] ";
                             }
@@ -1697,46 +1702,47 @@ namespace PRoConEvents
                                 continue;
                             }
 
-                            //Check to see if we can skip this player
-                            Boolean fetch = true;
-                            String rejectFetchReason = "Loadout fetches cancelled. No reason given.";
-                            if (!trigger) {
-                                if (fetch && 
-                                    (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
-                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is reputable.";
-                                    fetch = false;
+                            if (!fetchOnly) {
+                                //Process is not fetch only, check to see if we can skip this player
+                                Boolean fetch = true;
+                                String rejectFetchReason = "Loadout fetches cancelled. No reason given.";
+                                if (!trigger) {
+                                    if (fetch &&
+                                        (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                        rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is reputable.";
+                                        fetch = false;
+                                    }
+                                    if (fetch &&
+                                        (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                        rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is admin.";
+                                        fetch = false;
+                                    }
+                                    //Special case for large servers to reduce request frequency
+                                    if (fetch &&
+                                        !_highRequestVolume &&
+                                        aPlayer.LoadoutChecks > ((aPlayer.Reputation > 0) ? (0) : (3)) &&
+                                        aPlayer.LoadoutValid &&
+                                        aPlayer.SkippedChecks < 4) {
+                                        aPlayer.SkippedChecks++;
+                                        rejectFetchReason = aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
+                                        fetch = false;
+                                    }
                                 }
-                                if (fetch && 
-                                    (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
-                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is admin.";
-                                    fetch = false;
-                                }
-                                //Special case for large servers to reduce request frequency
                                 if (fetch &&
-                                    !_highRequestVolume &&
-                                    aPlayer.LoadoutChecks > ((aPlayer.Reputation > 0) ? (0) : (3)) &&
-                                    aPlayer.LoadoutValid &&
-                                    aPlayer.SkippedChecks < 4) {
-                                    aPlayer.SkippedChecks++;
-                                    rejectFetchReason = aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
+                                    (_Whitelist.Contains(aPlayer.Name) ||
+                                    _Whitelist.Contains(aPlayer.GUID) ||
+                                    _Whitelist.Contains(aPlayer.PBGUID) ||
+                                    _Whitelist.Contains(aPlayer.IP))) {
+                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player on whitelist.";
                                     fetch = false;
                                 }
-                            }
-                            if (fetch && 
-                                (_Whitelist.Contains(aPlayer.Name) ||
-                                _Whitelist.Contains(aPlayer.GUID) ||
-                                _Whitelist.Contains(aPlayer.PBGUID) ||
-                                _Whitelist.Contains(aPlayer.IP))) {
-                                rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player on whitelist.";
-                                fetch = false;
-                            }
-                            if (!fetch) {
-                                if (_enableAdKatsIntegration) {
-                                    //Inform AdKats of the check rejection
-                                    StartAndLogThread(new Thread(new ThreadStart(delegate {
-                                        Thread.CurrentThread.Name = "AdKatsInform";
-                                        Thread.Sleep(50);
-                                        ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                if (!fetch) {
+                                    if (_enableAdKatsIntegration) {
+                                        //Inform AdKats of the check rejection
+                                        StartAndLogThread(new Thread(new ThreadStart(delegate {
+                                            Thread.CurrentThread.Name = "AdKatsInform";
+                                            Thread.Sleep(50);
+                                            ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
                                             {"caller_identity", "AdKatsLRT"},
                                             {"response_requested", false},
                                             {"loadout_player", aPlayer.Name},
@@ -1747,12 +1753,13 @@ namespace PRoConEvents
                                             {"loadout_items_long", rejectFetchReason},
                                             {"loadout_deniedItems", rejectFetchReason}
                                         }));
-                                        Thread.Sleep(50);
-                                        LogThreadExit();
-                                    })));
+                                            Thread.Sleep(50);
+                                            LogThreadExit();
+                                        })));
+                                    }
+                                    Log.Debug(rejectFetchReason, 3);
+                                    continue;
                                 }
-                                Log.Debug(rejectFetchReason, 3);
-                                continue;
                             }
 
                             //Fetch the loadout
@@ -1774,6 +1781,28 @@ namespace PRoConEvents
                             String loadoutLongMessage = "Player " + loadout.Name + " processed as " + loadout.SelectedKit.KitType + " with primary " + primaryMessage + " sidearm " + sidearmMessage + " gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             Log.Debug(loadoutLongMessage, 4);
+
+                            if (fetchOnly && _enableAdKatsIntegration) {
+                                //Inform AdKats of the loadout
+                                StartAndLogThread(new Thread(new ThreadStart(delegate {
+                                    Thread.CurrentThread.Name = "AdKatsInform";
+                                    Thread.Sleep(100);
+                                    ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
+                                                    {"caller_identity", "AdKatsLRT"},
+                                                    {"response_requested", false},
+                                                    {"loadout_player", loadout.Name},
+                                                    {"loadout_valid", true},
+                                                    {"loadout_spawnValid", true},
+                                                    {"loadout_acted", false},
+                                                    {"loadout_items", loadoutShortMessage},
+                                                    {"loadout_items_long", loadoutLongMessage},
+                                                    {"loadout_deniedItems", ""}
+                                                }));
+                                    Thread.Sleep(100);
+                                    LogThreadExit();
+                                })));
+                                continue;
+                            }
 
                             //Action taken?
                             Boolean acted = false;
@@ -2064,8 +2093,8 @@ namespace PRoConEvents
                                 {
                                     //Player will be killed
                                     acted = true;
-                                    Log.Debug(loadout.Name + ((processObject.ProcessSource == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
-                                    if (processObject.ProcessSource != "listing")
+                                    Log.Debug(loadout.Name + ((processObject.ProcessReason == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
+                                    if (processObject.ProcessReason != "listing")
                                     {
                                         aPlayer.LoadoutKills++;
                                     }
@@ -2372,7 +2401,7 @@ namespace PRoConEvents
                         QueueForProcessing(new ProcessObject()
                         {
                             ProcessPlayer = aPlayer,
-                            ProcessSource = "listing",
+                            ProcessReason = "listing",
                             ProcessTime = DateTime.UtcNow
                         });
                         DoBattlelogWait();
@@ -2556,7 +2585,7 @@ namespace PRoConEvents
                             QueueForProcessing(new ProcessObject()
                             {
                                 ProcessPlayer = dPlayer,
-                                ProcessSource = "listing",
+                                ProcessReason = "listing",
                                 ProcessTime = DateTime.UtcNow
                             });
                         }
@@ -4777,9 +4806,9 @@ namespace PRoConEvents
             }
         }
 
-        public class ProcessObject
+        public class ProcessObject 
         {
-            public String ProcessSource;
+            public String ProcessReason;
             public Boolean ProcessManual;
             public DateTime ProcessTime;
             public AdKatsSubscribedPlayer ProcessPlayer;
