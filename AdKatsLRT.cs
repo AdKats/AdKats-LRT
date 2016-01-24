@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.8
+ * Version 2.0.6.9
  * 24-JAN-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.8</version_code>
+ * <version_code>2.0.6.9</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.8";
+        private const String PluginVersion = "2.0.6.9";
 
         public readonly Logger Log;
 
@@ -1686,7 +1686,7 @@ namespace PRoConEvents
                             }
                             else if (processObject.ProcessReason == "vehiclekill")
                             {
-                                reason = "[Vehicle Kill] ";
+                                reason = "[vehicle kill] ";
                             }
                             else if (processObject.ProcessReason == "spawn")
                             {
@@ -1701,6 +1701,8 @@ namespace PRoConEvents
                                 Log.Error("Unknown reason for processing player. Cancelling processing.");
                                 continue;
                             }
+
+                            Log.Debug("Processing " + reason + aPlayer.GetVerboseName(), 4);
 
                             if (!fetchOnly) {
                                 //Process is not fetch only, check to see if we can skip this player
@@ -1782,22 +1784,23 @@ namespace PRoConEvents
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             Log.Debug(loadoutLongMessage, 4);
 
-                            if (fetchOnly && _enableAdKatsIntegration) {
+                            if (fetchOnly) {
                                 //Inform AdKats of the loadout
                                 StartAndLogThread(new Thread(new ThreadStart(delegate {
                                     Thread.CurrentThread.Name = "AdKatsInform";
                                     Thread.Sleep(100);
+                                    Log.Debug("Informing AdKats of " + aPlayer.GetVerboseName() + " fetched loadout.", 3);
                                     ExecuteCommand("procon.protected.plugins.call", "AdKats", "ReceiveLoadoutValidity", "AdKatsLRT", JSON.JsonEncode(new Hashtable {
-                                                    {"caller_identity", "AdKatsLRT"},
-                                                    {"response_requested", false},
-                                                    {"loadout_player", loadout.Name},
-                                                    {"loadout_valid", true},
-                                                    {"loadout_spawnValid", true},
-                                                    {"loadout_acted", false},
-                                                    {"loadout_items", loadoutShortMessage},
-                                                    {"loadout_items_long", loadoutLongMessage},
-                                                    {"loadout_deniedItems", ""}
-                                                }));
+                                        {"caller_identity", "AdKatsLRT"},
+                                        {"response_requested", false},
+                                        {"loadout_player", loadout.Name},
+                                        {"loadout_valid", true},
+                                        {"loadout_spawnValid", true},
+                                        {"loadout_acted", false},
+                                        {"loadout_items", loadoutShortMessage},
+                                        {"loadout_items_long", loadoutLongMessage},
+                                        {"loadout_deniedItems", ""}
+                                    }));
                                     Thread.Sleep(100);
                                     LogThreadExit();
                                 })));
