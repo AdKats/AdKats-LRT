@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.6.9
- * 24-JAN-2015
+ * Version 2.0.7.0
+ * 22-FEB-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.6.9</version_code>
+ * <version_code>2.0.7.0</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.6.9";
+        private const String PluginVersion = "2.0.7.0";
 
         public readonly Logger Log;
 
@@ -130,6 +130,12 @@ namespace PRoConEvents
         private Thread _spawnProcessingThread;
         private Thread _battlelogCommThread;
 
+        //AutoAdmin
+        private Boolean _UseBackupAutoadmin;
+        private Boolean _UseAdKatsPunishments;
+        private Dictionary<String, List<String>> _WarsawRCONMappings = new Dictionary<String, List<String>>();
+        private Dictionary<String, List<String>> _RCONWarsawMappings = new Dictionary<String, List<String>>(); 
+
         //Settings
         private const Int32 YellDuration = 7;
 
@@ -145,6 +151,9 @@ namespace PRoConEvents
 
             //Populate maps/modes
             PopulateMapModes();
+
+            //Populate AutoAdmin Weapon Mappings
+            PopulateWarsawRCONCodes();
 
             //Set defaults for webclient
             ServicePointManager.Expect100Continue = false;
@@ -201,6 +210,12 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+                }
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
+                if (_enableAdKatsIntegration) {
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof (Boolean), _UseAdKatsPunishments));
+                } else {
+                    _UseAdKatsPunishments = false;
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Select(item => item.Key + ": " + item.Value).ToArray()));
@@ -366,7 +381,9 @@ namespace PRoConEvents
 
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
@@ -518,6 +535,12 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Spawn Enforcement Only").Success)
                 {
                     _spawnEnforcementOnly = Boolean.Parse(strValue);
+                } 
+                else if (Regex.Match(strVariable, @"Use Backup AutoAdmin").Success) {
+                    _UseBackupAutoadmin = Boolean.Parse(strValue);
+                } 
+                else if (Regex.Match(strVariable, @"Backup AutoAdmin Use AdKats Punishments").Success) {
+                    _UseAdKatsPunishments = Boolean.Parse(strValue);
                 }
                 else if (Regex.Match(strVariable, @"Spawn Enforce Admins").Success)
                 {
@@ -1039,7 +1062,25 @@ namespace PRoConEvents
                 else {
                     return;
                 }
+                if (_isTestingAuthorized) {
+                    WarsawItem warsawItem = null;
+                    List<String> matchingWarsaw;
+                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
+                        foreach (String warsawID in matchingWarsaw) {
+                            if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem)) {
+                                break;
+                            }
+                        }
+                    }
+                    if (warsawItem != null) {
+                        Log.Success("Weapon Found: " + killer.GetVerboseName() + " [" + warsawItem.Slug + "] " + victim.GetVerboseName());
+                    } 
+                    else {
+                        Log.Success("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
+                    }
+                }
                 WarsawVehicle vehicle;
+                //Check for vehicle restrictions
                 if (killer.Loadout != null &&
                     killer.Loadout.LoadoutRCONVehicles.TryGetValue(kill.DamageType, out vehicle)) {
                     Log.Debug(killer.Name + " is using trackable vehicle type " + vehicle.CategoryType + ".", 5);
@@ -1053,6 +1094,62 @@ namespace PRoConEvents
                             ProcessTime = DateTime.UtcNow
                         });
                     }
+                } else if (_UseBackupAutoadmin) {
+                    String rejectionMessage = null;
+
+                    List<String> matchingWarsaw;
+                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
+                        foreach (String warsawID in matchingWarsaw) {
+                            if (_searchInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
+                                rejectionMessage = _searchInvalidLoadoutIDMessages[warsawID];
+                                break;
+                            }
+                            if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
+                                rejectionMessage = _warsawInvalidLoadoutIDMessages[warsawID];
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!String.IsNullOrEmpty(rejectionMessage)) {
+                        if (_enableAdKatsIntegration) {
+                            String action = "player_kill";
+                            if (_UseAdKatsPunishments) {
+                                action = "player_punish";
+                            }
+                            else if (killer.BackupKilled) {
+                                action = "player_kick";
+                            }
+                            else {
+                                killer.BackupKilled = true;
+                            }
+                            var requestHashtable = new Hashtable {
+                                {"caller_identity", "AdKatsLRT"},
+                                {"response_requested", false},
+                                {"command_type", action},
+                                {"source_name", "LoadoutEnforcer"},
+                                {"target_name", killer.Name},
+                                {"target_guid", killer.GUID},
+                                {"record_message", rejectionMessage}
+                            };
+                            Log.Info("Sending backup AutoAdmin " + action + " to AdKats for " + killer.GetVerboseName());
+                            ExecuteCommand("procon.protected.plugins.call", "AdKats", "IssueCommand", "AdKatsLRT", JSON.JsonEncode(requestHashtable));
+                        }
+                        else {
+                            //Weapon is invalid, perform kill or kick based on previous actions
+                            if (killer.BackupKilled) {
+                                Log.Info("Kicking " + killer.GetVerboseName() + " for using restricted item. [" + rejectionMessage + "].");
+                                AdminSayMessage(killer.GetVerboseName() + " was KICKED by LoadoutEnforcer for " + rejectionMessage + ".");
+                                ExecuteCommand("procon.protected.send", "admin.kickPlayer", killer.Name, GenerateKickReason(rejectionMessage, "LoadoutEnforcer"));
+                            }
+                            else {
+                                killer.BackupKilled = true;
+                                PlayerTellMessage(killer.Name, rejectionMessage);
+                                AdminSayMessage(killer.GetVerboseName() + " was KILLED by LoadoutEnforcer for " + rejectionMessage + ".");
+                                ExecuteCommand("procon.protected.send", "admin.killPlayer", killer.Name);
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception e)
@@ -1060,6 +1157,21 @@ namespace PRoConEvents
                 Log.Exception("Error while handling OnPlayerKilled.", e);
             }
             Log.Debug("Exiting OnPlayerKilled", 7);
+        }
+
+        public String GenerateKickReason(String reason, String source) {
+            String sourceNameString = "[" + source + "]";
+
+            //Create the full message
+            String fullMessage = reason + " " + sourceNameString;
+
+            //Trim the kick message if necessary
+            Int32 cutLength = fullMessage.Length - 80;
+            if (cutLength > 0) {
+                String cutReason = reason.Substring(0, reason.Length - cutLength);
+                fullMessage = cutReason + " " + sourceNameString;
+            }
+            return fullMessage;
         }
 
         private void SetupStatusMonitor()
@@ -4859,6 +4971,7 @@ namespace PRoConEvents
             public Int32 MaxDeniedItems;
             public Int32 LoadoutChecks;
             public Int32 SkippedChecks;
+            public Boolean BackupKilled;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
@@ -5190,6 +5303,218 @@ namespace PRoConEvents
                 new MapMode(299, "GunMaster0", "XP7_Valley", "Gun Master", "Dragon Valley 2015"),
                 new MapMode(300, "AirSuperiority0", "XP7_Valley", "Air Superiority", "Dragon Valley 2015")
             };
+        }
+
+        private void PopulateWarsawRCONCodes() {
+            //Load in all knowns WARSAW to RCON mappings for use with the autoadmin
+            _WarsawRCONMappings.Clear();
+            _RCONWarsawMappings.Clear();
+
+            //DMRs
+            _WarsawRCONMappings["1915356177"] = (new string[] { "U_M39EBR" }).ToList();
+            _WarsawRCONMappings["4092888892"] = (new string[] { "U_SVD12" }).ToList();
+            _WarsawRCONMappings["3860123089"] = (new string[] { "U_GalilACE53" }).ToList();
+            _WarsawRCONMappings["1906761969"] = (new string[] { "U_QBU88" }).ToList();
+            _WarsawRCONMappings["3072292273"] = (new string[] { "U_SCAR-HSV" }).ToList();
+            _WarsawRCONMappings["2144050545"] = (new string[] { "U_SKS" }).ToList();
+            _WarsawRCONMappings["1894217457"] = (new string[] { "U_RFB" }).ToList();
+            _WarsawRCONMappings["408290737"] = (new string[] { "U_MK11" }).ToList();
+
+            //Snipers
+            _WarsawRCONMappings["2853300518"] = (new string[] { "U_GOL" }).ToList();
+            _WarsawRCONMappings["2759849572"] = (new string[] { "U_SR338" }).ToList();
+            _WarsawRCONMappings["2897869395"] = (new string[] { "U_M98B" }).ToList();
+            _WarsawRCONMappings["2967613745"] = (new string[] { "U_Scout" }).ToList();
+            _WarsawRCONMappings["1079830129"] = (new string[] { "U_FY-JS" }).ToList();
+            _WarsawRCONMappings["1596514833"] = (new string[] { "U_SV98" }).ToList();
+            _WarsawRCONMappings["3458855537"] = (new string[] { "U_CS-LR4" }).ToList();
+            _WarsawRCONMappings["4135125553"] = (new string[] { "U_JNG90" }).ToList();
+            _WarsawRCONMappings["1834910833"] = (new string[] { "U_M40A5" }).ToList();
+            _WarsawRCONMappings["388555399"] = (new string[] { "U_L96A1" }).ToList();
+            _WarsawRCONMappings["3555293285"] = (new string[] { "U_CS5" }).ToList();
+            _WarsawRCONMappings["3081643377"] = (new string[] { "U_SR338" }).ToList();
+            _WarsawRCONMappings["1710440049"] = (new string[] { "U_M200" }).ToList();
+
+            //PDWs
+            _WarsawRCONMappings["1020126577"] = (new string[] { "U_P90" }).ToList();
+            _WarsawRCONMappings["2021343793"] = (new string[] { "U_MX4" }).ToList();
+            _WarsawRCONMappings["763058951"] = (new string[] { "U_MP7" }).ToList();
+            _WarsawRCONMappings["3382662737"] = (new string[] { "U_PP2000" }).ToList();
+            _WarsawRCONMappings["1030797713"] = (new string[] { "U_CBJ-MS" }).ToList();
+            _WarsawRCONMappings["2128008177"] = (new string[] { "U_UMP45" }).ToList();
+            _WarsawRCONMappings["2665548081"] = (new string[] { "U_Scorpion" }).ToList();
+            _WarsawRCONMappings["4227814065"] = (new string[] { "U_UMP9" }).ToList();
+            _WarsawRCONMappings["4208515505"] = (new string[] { "U_MagpulPDR" }).ToList();
+            _WarsawRCONMappings["3204230182"] = (new string[] { "U_ASVal" }).ToList();
+            _WarsawRCONMappings["3188912241"] = (new string[] { "U_JS2" }).ToList();
+            _WarsawRCONMappings["1689098981"] = (new string[] { "U_MPX" }).ToList();
+            _WarsawRCONMappings["821324708"] = (new string[] { "U_SR2" }).ToList();
+            _WarsawRCONMappings["2203062595"] = (new string[] { "U_Groza-4" }).ToList();
+
+            //Assault Rifles
+            _WarsawRCONMappings["3059253169"] = (new string[] { "U_GalilACE23" }).ToList();
+            _WarsawRCONMappings["2643258020"] = (new string[] { "U_AR160" }).ToList();
+            _WarsawRCONMappings["4279753681"] = (new string[] { "U_M416" }).ToList();
+            _WarsawRCONMappings["2829366246"] = (new string[] { "U_F2000" }).ToList();
+            _WarsawRCONMappings["319908497"] = (new string[] { "U_SteyrAug" }).ToList();
+            _WarsawRCONMappings["2815752497"] = (new string[] { "U_FAMAS" }).ToList();
+            _WarsawRCONMappings["2826786481"] = (new string[] { "U_CZ805" }).ToList();
+            _WarsawRCONMappings["819903973"] = (new string[] { "U_Bulldog" }).ToList();
+            _WarsawRCONMappings["1687010979"] = (new string[] { "U_AN94" }).ToList();
+            _WarsawRCONMappings["234564305"] = (new string[] { "U_QBZ951" }).ToList();
+            _WarsawRCONMappings["4242111601"] = (new string[] { "U_SAR21" }).ToList();
+            _WarsawRCONMappings["669091281"] = (new string[] { "U_AEK971" }).ToList();
+            _WarsawRCONMappings["174491409"] = (new string[] { "U_SCAR-H" }).ToList();
+            _WarsawRCONMappings["821324709"] = (new string[] { "U_L85A2" }).ToList();
+            _WarsawRCONMappings["3590299697"] = (new string[] { "U_AK12" }).ToList();
+            _WarsawRCONMappings["3119417649"] = (new string[] { "U_M16A4" }).ToList();
+
+            //Carbines
+            _WarsawRCONMappings["1896957361"] = (new string[] { "U_SG553LB" }).ToList();
+            _WarsawRCONMappings["2978429873"] = (new string[] { "U_G36C" }).ToList();
+            _WarsawRCONMappings["3313614225"] = (new string[] { "U_AK5C" }).ToList();
+            _WarsawRCONMappings["2864846705"] = (new string[] { "U_AKU12" }).ToList();
+            _WarsawRCONMappings["2830105186"] = (new string[] { "dlSHTR" }).ToList();
+            _WarsawRCONMappings["1987438087"] = (new string[] { "U_MTAR21" }).ToList();
+            _WarsawRCONMappings["3192695217"] = (new string[] { "U_MTAR21" }).ToList();
+            _WarsawRCONMappings["2152664305"] = (new string[] { "U_Type95B" }).ToList();
+            _WarsawRCONMappings["326957379"] = (new string[] { "U_Groza-1" }).ToList();
+            _WarsawRCONMappings["3448559030"] = (new string[] { "U_GalilACE" }).ToList();
+            _WarsawRCONMappings["2082703729"] = (new string[] { "U_GalilACE52" }).ToList();
+            _WarsawRCONMappings["458988977"] = (new string[] { "U_ACR" }).ToList();
+            _WarsawRCONMappings["2713563633"] = (new string[] { "U_A91" }).ToList();
+
+            //LMGs
+            _WarsawRCONMappings["3852069478"] = (new string[] { "U_M60E4" }).ToList();
+            _WarsawRCONMappings["1321048617"] = (new string[] { "U_RPK-74" }).ToList();
+            _WarsawRCONMappings["2572144625"] = (new string[] { "U_M240" }).ToList();
+            _WarsawRCONMappings["2749423953"] = (new string[] { "U_M249" }).ToList();
+            _WarsawRCONMappings["1810379907"] = (new string[] { "U_L86A1" }).ToList();
+            _WarsawRCONMappings["3900816465"] = (new string[] { "U_LSAT" }).ToList();
+            _WarsawRCONMappings["3000062065"] = (new string[] { "U_Pecheneg" }).ToList();
+            _WarsawRCONMappings["2005518564"] = (new string[] { "U_AWS" }).ToList();
+            _WarsawRCONMappings["2048507580"] = (new string[] { "U_RPK12" }).ToList();
+            _WarsawRCONMappings["302761745"] = (new string[] { "U_Type88" }).ToList();
+            _WarsawRCONMappings["2403214513"] = (new string[] { "U_MG4" }).ToList();
+            _WarsawRCONMappings["4226187761"] = (new string[] { "U_QBB95" }).ToList();
+            _WarsawRCONMappings["3179658801"] = (new string[] { "U_Ultimax" }).ToList();
+
+            //Handguns
+            _WarsawRCONMappings["3942150929"] = (new string[] { "U_FN57" }).ToList();
+            _WarsawRCONMappings["335786382"] = (new string[] { "U_SaddlegunSnp" }).ToList();
+            _WarsawRCONMappings["3730491953"] = (new string[] { "U_MP443" }).ToList();
+            _WarsawRCONMappings["3300350865"] = (new string[] { "U_Taurus44" }).ToList();
+            _WarsawRCONMappings["1276385329"] = (new string[] { "U_M93R" }).ToList();
+            _WarsawRCONMappings["1518880753"] = (new string[] { "U_CZ75" }).ToList();
+            _WarsawRCONMappings["264887569"] = (new string[] { "U_M9" }).ToList();
+            _WarsawRCONMappings["944904529"] = (new string[] { "U_P226" }).ToList();
+            _WarsawRCONMappings["3537147505"] = (new string[] { "U_QSZ92" }).ToList();
+            _WarsawRCONMappings["1322096241"] = (new string[] { "U_HK45C" }).ToList();
+            _WarsawRCONMappings["1715838468"] = (new string[] { "U_SW40" }).ToList();
+            _WarsawRCONMappings["3430469957"] = (new string[] { "U_Unica6" }).ToList();
+            _WarsawRCONMappings["908783077"] = (new string[] { "U_DesertEagle" }).ToList();
+            _WarsawRCONMappings["2363034673"] = (new string[] { "U_MP412Rex" }).ToList();
+            _WarsawRCONMappings["37082993"] = (new string[] { "U_Glock18" }).ToList();
+            _WarsawRCONMappings["2608762737"] = (new string[] { "U_M1911" }).ToList();
+
+            //Shotguns
+            _WarsawRCONMappings["1589481582"] = (new string[] { "1589481582" }).ToList();
+            _WarsawRCONMappings["2942558833"] = (new string[] { "U_QBS09" }).ToList();
+            _WarsawRCONMappings["3528666216"] = (new string[] { "U_SteyrAug_M26_Slug", "U_SCAR-H_M26_Slug", "U_SAR21_M26_Slug", "U_QBZ951_M26_Slug", "U_M416_M26_Slug", "U_M26Mass_Slug", "U_M16A4_M26_Slug", "U_CZ805_M26_Slug", "U_AR160_M26_Slug", "U_AK12_M26_Slug", "U_AEK971_M26_Slug" }).ToList();
+            _WarsawRCONMappings["1848317553"] = (new string[] { "U_M1014" }).ToList();
+            _WarsawRCONMappings["2930960995"] = (new string[] { "U_870" }).ToList();
+            _WarsawRCONMappings["4054082865"] = (new string[] { "U_HAWK" }).ToList();
+            _WarsawRCONMappings["4292296724"] = (new string[] { "U_M26Mass_Frag" }).ToList();
+            _WarsawRCONMappings["4174194330"] = (new string[] { "U_M26Mass_Flechette" }).ToList();
+            _WarsawRCONMappings["94493788"] = (new string[] { "U_DBV12" }).ToList();
+            _WarsawRCONMappings["3044954406"] = (new string[] { "U_DAO12" }).ToList();
+            _WarsawRCONMappings["3221408826"] = (new string[] { "U_M26Mass", "U_SteyrAug_M26_Buck", "U_SCAR-H_M26_Buck", "U_SAR21_M26_Buck", "U_QBZ951_M26_Buck", "U_M416_M26_Buck", "U_M16A4_M26_Buck", "U_CZ805_M26_Buck", "U_AR160_M26_Buck", "U_AK12_M26_Buck", "U_AEK971_M26_Buck" }).ToList();
+            _WarsawRCONMappings["3044954406"] = (new string[] { "U_DAO12" }).ToList();
+            _WarsawRCONMappings["4204280241"] = (new string[] { "U_SPAS12" }).ToList();
+            _WarsawRCONMappings["3661909297"] = (new string[] { "U_SerbuShorty" }).ToList();
+            _WarsawRCONMappings["623014897"] = (new string[] { "U_UTAS" }).ToList();
+
+            //Gadgets
+            _WarsawRCONMappings["1364316986"] = (new string[] { "U_M224", "M224" }).ToList();
+            _WarsawRCONMappings["4169380388"] = (new string[] { "U_XM25_Smoke" }).ToList();
+            _WarsawRCONMappings["3042980396"] = (new string[] { "UCAV" }).ToList();
+            _WarsawRCONMappings["2698261753"] = (new string[] { "U_SLAM" }).ToList();
+            _WarsawRCONMappings["3645048844"] = (new string[] { "AA Mine" }).ToList();
+            _WarsawRCONMappings["4077480573"] = (new string[] { "U_Claymore" }).ToList();
+            _WarsawRCONMappings["3398724484"] = (new string[] { "U_Claymore_Recon" }).ToList();
+            _WarsawRCONMappings["3076304839"] = (new string[] { "U_C4" }).ToList();
+            _WarsawRCONMappings["2375254013"] = (new string[] { "U_C4_Support" }).ToList();
+            _WarsawRCONMappings["3054368924"] = (new string[] { "U_XM25_Flechette" }).ToList();
+            _WarsawRCONMappings["1005841160"] = (new string[] { "U_XM25" }).ToList();
+            _WarsawRCONMappings["704874518"] = (new string[] { "U_M15" }).ToList();
+
+            //Launchers
+            _WarsawRCONMappings["2880824228"] = (new string[] { "U_AN94_M320_FLASH_v1", "U_SteyrAug_M320_FLASH", "U_SCAR-H_M320_FLASH", "U_SAR21_M320_FLASH", "U_QBZ951_M320_FLASH", "U_M416_M320_FLASH", "U_M320_FLASH", "U_M16A4_M320_FLASH", "U_L85A2_M320_FLASH_V2", "U_CZ805_M320_FLASH", "U_AR160_M320_FLASH", "U_AK12_M320_FLASH", "U_AEK971_M320_FLASH" }).ToList();
+            _WarsawRCONMappings["4084720679"] = (new string[] { "U_SP_M320_HE", "U_AN94_M320_HE_v1", "U_SteyrAug_M320_HE", "U_SCAR-H_M320_HE", "U_SAR21_M320_HE", "U_QBZ951_M320_HE", "U_M416_M320_HE", "U_M320_HE", "U_M16A4_M320_HE", "U_L85A2_M320_HE_V2", "U_CZ805_M320_HE", "U_AR160_M320_HE", "U_AK12_M320_HE", "U_AEK971_M320_HE" }).ToList();
+            _WarsawRCONMappings["1723239682"] = (new string[] { "U_AN94_M320_SHG_v1", "U_SteyrAug_M320_SHG", "U_SCAR-H_M320_SHG", "U_SAR21_M320_SHG", "U_QBZ951_M320_SHG", "U_M416_M320_SHG", "U_M320_SHG", "U_M16A4_M320_SHG", "U_L85A2_M320_SHG_V2", "U_CZ805_M320_SHG", "U_AR160_M320_SHG", "U_AK12_M320_SHG", "U_AEK971_M320_SHG" }).ToList();
+            _WarsawRCONMappings["434964836"] = (new string[] { "U_AN94_M320_3GL_v1", "U_CZ805_M320_3GL", "U_SteyrAug_M320_3GL", "U_SCAR-H_M320_3GL", "U_SAR21_M320_3GL", "U_QBZ951_M320_3GL", "U_M416_M320_3GL", "U_M320_3GL", "U_M16A4_M320_3GL", "U_L85A2_M320_3GL_V2", "U_CZ605_M320_3GL", "U_AR160_M320_3GL", "U_AK12_M320_3GL", "U_AEK971_M320_3GL" }).ToList();
+            _WarsawRCONMappings["863588126"] = (new string[] { "U_AN94_M320_SMK_v1", "U_SteyrAug_M320_SMK", "U_SCAR-H_M320_SMK", "U_SAR21_M320_SMK", "U_QBZ951_M320_SMK", "U_M416_M320_SMK", "U_M320_SMK", "U_M16A4_M320_SMK", "U_L85A2_M320_SMK_V2", "U_CZ805_M320_SMK", "U_AR160_M320_SMK", "U_AK12_M320_SMK", "U_AEK971_M320_SMK" }).ToList();
+            _WarsawRCONMappings["335737287"] = (new string[] { "U_AN94_M320_LVG_v1", "U_SteyrAug_M320_LVG", "U_SCAR-H_M320_LVG", "U_SAR21_M320_LVG", "U_QBZ951_M320_LVG", "U_M416_M320_LVG", "U_M320_LVG", "U_M16A4_M320_LVG", "U_L85A2_M320_LVG_V2", "U_CZ805_M320_LVG", "U_AR160_M320_LVG", "U_AK12_M320_LVG", "U_AEK971_M320_LVG" }).ToList();
+
+            //Special
+            _WarsawRCONMappings["2887915611"] = (new string[] { "U_Defib" }).ToList();
+            _WarsawRCONMappings["2324320899"] = (new string[] { "U_Repairtool" }).ToList();
+            _WarsawRCONMappings["312950893"] = (new string[] { "U_BallisticShield" }).ToList();
+            _WarsawRCONMappings["3416970831"] = (new string[] { "Death", "EODBot" }).ToList();
+//            _WarsawRCONMappings["3881213532"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3913003056"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["1278769027"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3214146841"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2930902275"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3981629339"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2833476239"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2765835967"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2358565358"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2130832595"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2065907307"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["4098378714"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["714992459"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3154558973"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3194673210"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["3332841661"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["27972285"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["2709653572"] = (new string[] { "Melee" }).ToList();
+//            _WarsawRCONMappings["6240291"] = (new string[] { "Melee" }).ToList();
+
+            //Grenades
+            _WarsawRCONMappings["3767777089"] = (new string[] { "U_Grenade_RGO" }).ToList();
+            _WarsawRCONMappings["3133964300"] = (new string[] { "U_M18" }).ToList();
+            _WarsawRCONMappings["2842275721"] = (new string[] { "U_M34" }).ToList();
+            _WarsawRCONMappings["2916285594"] = (new string[] { "U_Handflare" }).ToList();
+            _WarsawRCONMappings["69312926"] = (new string[] { "U_V40" }).ToList();
+            _WarsawRCONMappings["2670747868"] = (new string[] { "U_M67" }).ToList();
+            _WarsawRCONMappings["1779756455"] = (new string[] { "U_Flashbang" }).ToList();
+
+            //Rocket
+            _WarsawRCONMappings["3194075724"] = (new string[] { "U_FIM92" }).ToList();
+            _WarsawRCONMappings["3713498991"] = (new string[] { "U_Sa18IGLA" }).ToList();
+            _WarsawRCONMappings["20932301"] = (new string[] { "U_RPG7" }).ToList();
+            _WarsawRCONMappings["601919388"] = (new string[] { "U_NLAW" }).ToList();
+            _WarsawRCONMappings["1359435055"] = (new string[] { "U_FGM148" }).ToList();
+            _WarsawRCONMappings["3177196226"] = (new string[] { "U_SRAW" }).ToList();
+            _WarsawRCONMappings["1782193877"] = (new string[] { "U_SMAW" }).ToList();
+
+            //Populate the reverse mapping dictionary
+            foreach (KeyValuePair<String, List<String>> warsawRCON in _WarsawRCONMappings) {
+                String warsawID = warsawRCON.Key;
+                List<String> matchingRCONCodes = warsawRCON.Value;
+
+                foreach (String RCONCode in matchingRCONCodes) {
+                    List<String> warsawIDs;
+                    if (!_RCONWarsawMappings.TryGetValue(RCONCode, out warsawIDs)) {
+                        warsawIDs = new List<String>();
+                        _RCONWarsawMappings[RCONCode] = warsawIDs;
+                    }
+                    if (!warsawIDs.Contains(warsawID)) {
+                        warsawIDs.Add(warsawID);
+                    }
+                }
+            }
         }
 
         public class WarsawItem
