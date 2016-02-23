@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.1
+ * Version 2.0.7.2
  * 22-FEB-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.7.1</version_code>
+ * <version_code>2.0.7.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.1";
+        private const String PluginVersion = "2.0.7.2";
 
         public readonly Logger Log;
 
@@ -1121,11 +1121,10 @@ namespace PRoConEvents
                             if (_UseAdKatsPunishments) {
                                 action = "player_punish";
                             }
-                            else if (killer.BackupKilled) {
+                            else if (killer.Punished) {
                                 action = "player_kick";
-                            }
-                            else {
-                                killer.BackupKilled = true;
+                            } else {
+                                killer.Punished = true;
                             }
                             var requestHashtable = new Hashtable {
                                 {"caller_identity", "AdKatsLRT"},
@@ -1138,16 +1137,14 @@ namespace PRoConEvents
                             };
                             Log.Info("Sending backup AutoAdmin " + action + " to AdKats for " + killer.GetVerboseName());
                             ExecuteCommand("procon.protected.plugins.call", "AdKats", "IssueCommand", "AdKatsLRT", JSON.JsonEncode(requestHashtable));
-                        }
-                        else {
+                        } else {
                             //Weapon is invalid, perform kill or kick based on previous actions
-                            if (killer.BackupKilled) {
+                            if (killer.Punished) {
                                 Log.Info("Kicking " + killer.GetVerboseName() + " for using restricted item. [" + rejectionMessage + "].");
                                 AdminSayMessage(killer.GetVerboseName() + " was KICKED by LoadoutEnforcer for " + rejectionMessage + ".");
                                 ExecuteCommand("procon.protected.send", "admin.kickPlayer", killer.Name, GenerateKickReason(rejectionMessage, "LoadoutEnforcer"));
-                            }
-                            else {
-                                killer.BackupKilled = true;
+                            } else {
+                                killer.Punished = true;
                                 PlayerTellMessage(killer.Name, rejectionMessage);
                                 AdminSayMessage(killer.GetVerboseName() + " was KILLED by LoadoutEnforcer for " + rejectionMessage + ".");
                                 ExecuteCommand("procon.protected.send", "admin.killPlayer", killer.Name);
@@ -4975,7 +4972,6 @@ namespace PRoConEvents
             public Int32 MaxDeniedItems;
             public Int32 LoadoutChecks;
             public Int32 SkippedChecks;
-            public Boolean BackupKilled;
 
             public AdKatsSubscribedPlayer() {
                 WatchedVehicles = new HashSet<String>();
