@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.2
+ * Version 2.0.7.3
  * 22-FEB-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.7.2</version_code>
+ * <version_code>2.0.7.3</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.2";
+        private const String PluginVersion = "2.0.7.3";
 
         public readonly Logger Log;
 
@@ -1073,11 +1073,8 @@ namespace PRoConEvents
                             }
                         }
                     }
-                    if (warsawItem != null) {
-                        Log.Success("Weapon Found: " + killer.GetVerboseName() + " [" + warsawItem.Slug + "] " + victim.GetVerboseName());
-                    } 
-                    else {
-                        Log.Success("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
+                    if (warsawItem == null) {
+                        Log.Warn("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
                     }
                 }
                 WarsawVehicle vehicle;
