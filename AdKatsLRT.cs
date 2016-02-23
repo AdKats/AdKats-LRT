@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.0
+ * Version 2.0.7.1
  * 22-FEB-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.7.0</version_code>
+ * <version_code>2.0.7.1</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.0";
+        private const String PluginVersion = "2.0.7.1";
 
         public readonly Logger Log;
 
@@ -212,10 +212,8 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
-                if (_enableAdKatsIntegration) {
+                if (_enableAdKatsIntegration && _UseBackupAutoadmin) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof (Boolean), _UseAdKatsPunishments));
-                } else {
-                    _UseAdKatsPunishments = false;
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Select(item => item.Key + ": " + item.Value).ToArray()));
@@ -449,6 +447,9 @@ namespace PRoConEvents
                     Boolean enableAdKatsIntegration = Boolean.Parse(strValue);
                     if (enableAdKatsIntegration != _enableAdKatsIntegration)
                     {
+                        if (!enableAdKatsIntegration) {
+                            _UseAdKatsPunishments = false;
+                        }
                         if (_threadsReady)
                         {
                             Log.Info("AdKatsLRT must be rebooted to modify this setting.");
@@ -1094,7 +1095,10 @@ namespace PRoConEvents
                             ProcessTime = DateTime.UtcNow
                         });
                     }
-                } else if (_UseBackupAutoadmin) {
+                } else if (_UseBackupAutoadmin && 
+                           _serverInfo.InfoObject.GameMode != "GunMaster0" &&
+                           _serverInfo.InfoObject.GameMode != "GunMaster1" &&
+                           (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map))) {
                     String rejectionMessage = null;
 
                     List<String> matchingWarsaw;
