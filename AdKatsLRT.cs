@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.3
- * 22-FEB-2015
+ * Version 2.0.7.5
+ * 15-MAR-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.7.3</version_code>
+ * <version_code>2.0.7.5</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.3";
+        private const String PluginVersion = "2.0.7.5";
 
         public readonly Logger Log;
 
@@ -276,7 +276,7 @@ namespace PRoConEvents
                                 lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|" + weaponAccessory.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
-                            if (_enableAdKatsIntegration)
+                            if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
                                 lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID))
@@ -305,7 +305,7 @@ namespace PRoConEvents
                                 lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
-                            if (_enableAdKatsIntegration)
+                            if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
                                 lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
@@ -5316,10 +5316,10 @@ namespace PRoConEvents
             _WarsawRCONMappings["2144050545"] = (new string[] { "U_SKS" }).ToList();
             _WarsawRCONMappings["1894217457"] = (new string[] { "U_RFB" }).ToList();
             _WarsawRCONMappings["408290737"] = (new string[] { "U_MK11" }).ToList();
+            _WarsawRCONMappings["2759849572"] = (new string[] { "U_SR338" }).ToList();
 
             //Snipers
             _WarsawRCONMappings["2853300518"] = (new string[] { "U_GOL" }).ToList();
-            _WarsawRCONMappings["2759849572"] = (new string[] { "U_SR338" }).ToList();
             _WarsawRCONMappings["2897869395"] = (new string[] { "U_M98B" }).ToList();
             _WarsawRCONMappings["2967613745"] = (new string[] { "U_Scout" }).ToList();
             _WarsawRCONMappings["1079830129"] = (new string[] { "U_FY-JS" }).ToList();
@@ -5329,7 +5329,7 @@ namespace PRoConEvents
             _WarsawRCONMappings["1834910833"] = (new string[] { "U_M40A5" }).ToList();
             _WarsawRCONMappings["388555399"] = (new string[] { "U_L96A1" }).ToList();
             _WarsawRCONMappings["3555293285"] = (new string[] { "U_CS5" }).ToList();
-            _WarsawRCONMappings["3081643377"] = (new string[] { "U_SR338" }).ToList();
+            _WarsawRCONMappings["3081643377"] = (new string[] { "U_SRS" }).ToList();
             _WarsawRCONMappings["1710440049"] = (new string[] { "U_M200" }).ToList();
 
             //PDWs
@@ -5380,6 +5380,7 @@ namespace PRoConEvents
             _WarsawRCONMappings["2082703729"] = (new string[] { "U_GalilACE52" }).ToList();
             _WarsawRCONMappings["458988977"] = (new string[] { "U_ACR" }).ToList();
             _WarsawRCONMappings["2713563633"] = (new string[] { "U_A91" }).ToList();
+            _WarsawRCONMappings["3192695217"] = (new string[] { "U_M4A1" }).ToList();
 
             //LMGs
             _WarsawRCONMappings["3852069478"] = (new string[] { "U_M60E4" }).ToList();
@@ -5415,7 +5416,7 @@ namespace PRoConEvents
             _WarsawRCONMappings["2608762737"] = (new string[] { "U_M1911" }).ToList();
 
             //Shotguns
-            _WarsawRCONMappings["1589481582"] = (new string[] { "1589481582" }).ToList();
+            _WarsawRCONMappings["1589481582"] = (new string[] { "U_SAIGA_20K" }).ToList();
             _WarsawRCONMappings["2942558833"] = (new string[] { "U_QBS09" }).ToList();
             _WarsawRCONMappings["3528666216"] = (new string[] { "U_SteyrAug_M26_Slug", "U_SCAR-H_M26_Slug", "U_SAR21_M26_Slug", "U_QBZ951_M26_Slug", "U_M416_M26_Slug", "U_M26Mass_Slug", "U_M16A4_M26_Slug", "U_CZ805_M26_Slug", "U_AR160_M26_Slug", "U_AK12_M26_Slug", "U_AEK971_M26_Slug" }).ToList();
             _WarsawRCONMappings["1848317553"] = (new string[] { "U_M1014" }).ToList();
