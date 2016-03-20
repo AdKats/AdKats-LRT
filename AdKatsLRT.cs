@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.5
- * 15-MAR-2015
+ * Version 2.0.7.6
+ * 20-MAR-2015
  * 
  * Automatic Update Information
- * <version_code>2.0.7.5</version_code>
+ * <version_code>2.0.7.6</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.5";
+        private const String PluginVersion = "2.0.7.6";
 
         public readonly Logger Log;
 
@@ -601,7 +601,7 @@ namespace PRoConEvents
                         case "deny":
                             //parse deny
                             _warsawInvalidLoadoutIDMessages[warsawID] = "Please remove " + commandSplit[commandSplit.Count() - 2].Trim() + " from your loadout";
-                            if (!_enableAdKatsIntegration)
+                            if (!_enableAdKatsIntegration || _spawnEnforcementOnly)
                             {
                                 if (!_warsawSpawnDeniedIDs.Contains(warsawID))
                                 {
