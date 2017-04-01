@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.6
- * 20-MAR-2015
+ * Version 2.0.7.7
+ * 1-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.7.6</version_code>
+ * <version_code>2.0.7.7</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.6";
+        private const String PluginVersion = "2.0.7.7";
 
         public readonly Logger Log;
 
@@ -59,7 +59,7 @@ namespace PRoConEvents
         private const String SettingsDeniedItemMessagePrefix = "8A. Denied Item Kill Messages|";
         private const String SettingsDeniedItemAccMessagePrefix = "8B. Denied Item Accessory Kill Messages|";
         private const String SettingsDeniedVehicleItemMessagePrefix = "8C. Denied Vehicle Item Kill Messages|";
-        
+
         //State
         private GameVersion _gameVersion = GameVersion.BF3;
         private volatile Boolean _pluginEnabled;
@@ -74,9 +74,9 @@ namespace PRoConEvents
         private readonly Queue<ProcessObject> _loadoutProcessingQueue = new Queue<ProcessObject>();
         private readonly Queue<AdKatsSubscribedPlayer> _battlelogFetchQueue = new Queue<AdKatsSubscribedPlayer>();
         private readonly Dictionary<String, String> _warsawInvalidLoadoutIDMessages = new Dictionary<String, String>();
-        private readonly Dictionary<String, String> _warsawInvalidVehicleLoadoutIDMessages = new Dictionary<String, String>(); 
+        private readonly Dictionary<String, String> _warsawInvalidVehicleLoadoutIDMessages = new Dictionary<String, String>();
         private readonly HashSet<String> _warsawSpawnDeniedIDs = new HashSet<String>();
-        private Dictionary<String, String> _searchInvalidLoadoutIDMessages = new Dictionary<String, String>(); 
+        private Dictionary<String, String> _searchInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private Int32 _countKilled;
         private Int32 _countFixed;
         private Int32 _countQuit;
@@ -134,7 +134,7 @@ namespace PRoConEvents
         private Boolean _UseBackupAutoadmin;
         private Boolean _UseAdKatsPunishments;
         private Dictionary<String, List<String>> _WarsawRCONMappings = new Dictionary<String, List<String>>();
-        private Dictionary<String, List<String>> _RCONWarsawMappings = new Dictionary<String, List<String>>(); 
+        private Dictionary<String, List<String>> _RCONWarsawMappings = new Dictionary<String, List<String>>();
 
         //Settings
         private const Int32 YellDuration = 7;
@@ -203,7 +203,7 @@ namespace PRoConEvents
 
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
-                if (_enableAdKatsIntegration) 
+                if (_enableAdKatsIntegration)
                 {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
@@ -212,8 +212,9 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
-                if (_enableAdKatsIntegration && _UseBackupAutoadmin) {
-                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof (Boolean), _UseAdKatsPunishments));
+                if (_enableAdKatsIntegration && _UseBackupAutoadmin)
+                {
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Select(item => item.Key + ": " + item.Value).ToArray()));
@@ -228,7 +229,7 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Gadget Settings", typeof(Boolean), _displayGadgets));
                 lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
-                
+
                 if (_displayMapsModes)
                 {
                     lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + separator.Trim() + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
@@ -240,14 +241,15 @@ namespace PRoConEvents
 
                 //Run removals
                 _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID) && !_warsawInvalidVehicleLoadoutIDMessages.ContainsKey(spawnID));
-                
+
                 if (_displayWeapons)
                 {
                     if (_warsawLibrary.Items.Any())
                     {
-                        foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable != "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug)) 
+                        foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable != "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug))
                         {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID)) {
+                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
+                            {
                                 lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
@@ -270,9 +272,10 @@ namespace PRoConEvents
                 {
                     if (_warsawLibrary.ItemAccessories.Any())
                     {
-                        foreach (WarsawItemAccessory weaponAccessory in _warsawLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.Slug).ThenBy(weaponAccessory => weaponAccessory.CategoryReadable)) 
+                        foreach (WarsawItemAccessory weaponAccessory in _warsawLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.Slug).ThenBy(weaponAccessory => weaponAccessory.CategoryReadable))
                         {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)) {
+                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID))
+                            {
                                 lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|" + weaponAccessory.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
@@ -301,7 +304,8 @@ namespace PRoConEvents
                             {
                                 Log.Error(weapon.WarsawID + " did not have a category type.");
                             }
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID)) {
+                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
+                            {
                                 lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
                                 continue;
                             }
@@ -394,11 +398,11 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Vehicle Settings", typeof(Boolean), _displayVehicles));
             lstReturn.Add(new CPluginVariable(SettingsMapModePrefix + "Enforce on Specific Maps/Modes Only", typeof(Boolean), _restrictSpecificMapModes));
             lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
-            lstReturn.AddRange(_warsawInvalidLoadoutIDMessages.Select(pair => new CPluginVariable("MSG" + pair.Key, typeof (String), pair.Value)));
-            lstReturn.AddRange(_warsawInvalidVehicleLoadoutIDMessages.Select(pair => new CPluginVariable("VMSG" + pair.Key, typeof (String), pair.Value)));
+            lstReturn.AddRange(_warsawInvalidLoadoutIDMessages.Select(pair => new CPluginVariable("MSG" + pair.Key, typeof(String), pair.Value)));
+            lstReturn.AddRange(_warsawInvalidVehicleLoadoutIDMessages.Select(pair => new CPluginVariable("VMSG" + pair.Key, typeof(String), pair.Value)));
             _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID));
-            lstReturn.AddRange(_warsawSpawnDeniedIDs.Select(deniedSpawnID => new CPluginVariable("ALWS" + deniedSpawnID, typeof (String), "Deny")));
-            lstReturn.AddRange(_restrictedMapModes.Values.Select(restrictedMapMode => new CPluginVariable("RMM" + restrictedMapMode.MapModeID, typeof (String), "Enforce")));
+            lstReturn.AddRange(_warsawSpawnDeniedIDs.Select(deniedSpawnID => new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny")));
+            lstReturn.AddRange(_restrictedMapModes.Values.Select(restrictedMapMode => new CPluginVariable("RMM" + restrictedMapMode.MapModeID, typeof(String), "Enforce")));
             lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), Log.DebugLevel));
             return lstReturn;
         }
@@ -435,10 +439,12 @@ namespace PRoConEvents
                         }
                         Log.DebugLevel = tmp;
                     }
-                } 
-                else if (Regex.Match(strVariable, @"Enable High Request Volume").Success) {
+                }
+                else if (Regex.Match(strVariable, @"Enable High Request Volume").Success)
+                {
                     Boolean highRequestVolume = Boolean.Parse(strValue);
-                    if (highRequestVolume != _highRequestVolume) {
+                    if (highRequestVolume != _highRequestVolume)
+                    {
                         _highRequestVolume = highRequestVolume;
                     }
                 }
@@ -447,7 +453,8 @@ namespace PRoConEvents
                     Boolean enableAdKatsIntegration = Boolean.Parse(strValue);
                     if (enableAdKatsIntegration != _enableAdKatsIntegration)
                     {
-                        if (!enableAdKatsIntegration) {
+                        if (!enableAdKatsIntegration)
+                        {
                             _UseAdKatsPunishments = false;
                         }
                         if (_threadsReady)
@@ -536,11 +543,13 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Spawn Enforcement Only").Success)
                 {
                     _spawnEnforcementOnly = Boolean.Parse(strValue);
-                } 
-                else if (Regex.Match(strVariable, @"Use Backup AutoAdmin").Success) {
+                }
+                else if (Regex.Match(strVariable, @"Use Backup AutoAdmin").Success)
+                {
                     _UseBackupAutoadmin = Boolean.Parse(strValue);
-                } 
-                else if (Regex.Match(strVariable, @"Backup AutoAdmin Use AdKats Punishments").Success) {
+                }
+                else if (Regex.Match(strVariable, @"Backup AutoAdmin Use AdKats Punishments").Success)
+                {
                     _UseAdKatsPunishments = Boolean.Parse(strValue);
                 }
                 else if (Regex.Match(strVariable, @"Spawn Enforce Admins").Success)
@@ -572,14 +581,14 @@ namespace PRoConEvents
                         _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
                     }
                 }
-                else if (Regex.Match(strVariable, @"Action Whitelist").Success) 
+                else if (Regex.Match(strVariable, @"Action Whitelist").Success)
                 {
                     _Whitelist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
-                } 
-                else if (Regex.Match(strVariable, @"Global Item Search Blacklist").Success) 
+                }
+                else if (Regex.Match(strVariable, @"Global Item Search Blacklist").Success)
                 {
                     _ItemSearchBlacklist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
-                    _searchInvalidLoadoutIDMessages = 
+                    _searchInvalidLoadoutIDMessages =
                         _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
                         _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
                         _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
@@ -627,11 +636,13 @@ namespace PRoConEvents
                         case "deny":
                             //parse deny
                             WarsawItem item;
-                            if (!_warsawLibrary.VehicleUnlocks.TryGetValue(warsawID, out item)) {
+                            if (!_warsawLibrary.VehicleUnlocks.TryGetValue(warsawID, out item))
+                            {
                                 Log.Error("Unable to find vehicle unlock " + warsawID);
                                 return;
                             }
-                            if (item.AssignedVehicle == null) {
+                            if (item.AssignedVehicle == null)
+                            {
                                 Log.Error("Unlock item " + warsawID + " was not assigned to a vehicle.");
                                 return;
                             }
@@ -640,7 +651,8 @@ namespace PRoConEvents
                             {
                                 _warsawSpawnDeniedIDs.Add(warsawID);
                             }
-                            foreach (var aPlayer in _playerDictionary.Values) {
+                            foreach (var aPlayer in _playerDictionary.Values)
+                            {
                                 aPlayer.WatchedVehicles.Clear();
                             }
                             break;
@@ -675,7 +687,8 @@ namespace PRoConEvents
                     String[] commandSplit = CPluginVariable.DecodeStringArray(strVariable);
                     Int32 mapModeID = Int32.Parse(commandSplit[0].TrimStart("RMM".ToCharArray()).Trim());
                     MapMode mapMode = _availableMapModes.FirstOrDefault(mm => mm.MapModeID == mapModeID);
-                    if (mapMode == null) {
+                    if (mapMode == null)
+                    {
                         Log.Error("Invalid map/mode ID when parsing map enforce settings.");
                         return;
                     }
@@ -1045,44 +1058,57 @@ namespace PRoConEvents
                 //Fetch players
                 AdKatsSubscribedPlayer killer;
                 AdKatsSubscribedPlayer victim;
-                if (kill.Killer != null && !String.IsNullOrEmpty(kill.Killer.SoldierName)) {
-                    if (!_playerDictionary.TryGetValue(kill.Killer.SoldierName, out killer)) {
+                if (kill.Killer != null && !String.IsNullOrEmpty(kill.Killer.SoldierName))
+                {
+                    if (!_playerDictionary.TryGetValue(kill.Killer.SoldierName, out killer))
+                    {
                         Log.Error("Unable to fetch killer on kill.");
                         return;
                     }
                 }
-                else {
+                else
+                {
                     return;
                 }
-                if (kill.Victim != null && !String.IsNullOrEmpty(kill.Victim.SoldierName)) {
-                    if (!_playerDictionary.TryGetValue(kill.Victim.SoldierName, out victim)) {
+                if (kill.Victim != null && !String.IsNullOrEmpty(kill.Victim.SoldierName))
+                {
+                    if (!_playerDictionary.TryGetValue(kill.Victim.SoldierName, out victim))
+                    {
                         Log.Error("Unable to fetch victim on kill.");
                         return;
                     }
                 }
-                else {
+                else
+                {
                     return;
                 }
-                if (_isTestingAuthorized) {
+                if (_isTestingAuthorized)
+                {
                     WarsawItem warsawItem = null;
                     List<String> matchingWarsaw;
-                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
-                        foreach (String warsawID in matchingWarsaw) {
-                            if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem)) {
+                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw))
+                    {
+                        foreach (String warsawID in matchingWarsaw)
+                        {
+                            if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem))
+                            {
                                 break;
                             }
                         }
                     }
-                    if (warsawItem == null) {
+                    if (warsawItem == null)
+                    {
                         Log.Warn("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
                     }
                 }
                 WarsawVehicle vehicle;
                 //Check for vehicle restrictions
                 if (killer.Loadout != null &&
-                    killer.Loadout.LoadoutRCONVehicles.TryGetValue(kill.DamageType, out vehicle)) {
+                    killer.Loadout.LoadoutRCONVehicles.TryGetValue(kill.DamageType, out vehicle))
+                {
                     Log.Debug(killer.Name + " is using trackable vehicle type " + vehicle.CategoryType + ".", 5);
-                    if (!killer.WatchedVehicles.Contains(vehicle.Category)) {
+                    if (!killer.WatchedVehicles.Contains(vehicle.Category))
+                    {
                         killer.WatchedVehicles.Add(vehicle.Category);
                         Log.Debug("Loadout check automatically called on " + killer.Name + " for trackable vehicle kill.", 4);
                         QueueForProcessing(new ProcessObject()
@@ -1092,35 +1118,47 @@ namespace PRoConEvents
                             ProcessTime = DateTime.UtcNow
                         });
                     }
-                } else if (_UseBackupAutoadmin && 
-                           _serverInfo.InfoObject.GameMode != "GunMaster0" &&
-                           _serverInfo.InfoObject.GameMode != "GunMaster1" &&
-                           (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map))) {
+                }
+                else if (_UseBackupAutoadmin &&
+                         _serverInfo.InfoObject.GameMode != "GunMaster0" &&
+                         _serverInfo.InfoObject.GameMode != "GunMaster1" &&
+                         (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map)))
+                {
                     String rejectionMessage = null;
 
                     List<String> matchingWarsaw;
-                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
-                        foreach (String warsawID in matchingWarsaw) {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
+                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw))
+                    {
+                        foreach (String warsawID in matchingWarsaw)
+                        {
+                            if (_searchInvalidLoadoutIDMessages.ContainsKey(warsawID))
+                            {
                                 rejectionMessage = _searchInvalidLoadoutIDMessages[warsawID];
                                 break;
                             }
-                            if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
+                            if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID))
+                            {
                                 rejectionMessage = _warsawInvalidLoadoutIDMessages[warsawID];
                                 break;
                             }
                         }
                     }
 
-                    if (!String.IsNullOrEmpty(rejectionMessage)) {
-                        if (_enableAdKatsIntegration) {
+                    if (!String.IsNullOrEmpty(rejectionMessage))
+                    {
+                        if (_enableAdKatsIntegration)
+                        {
                             String action = "player_kill";
-                            if (_UseAdKatsPunishments) {
+                            if (_UseAdKatsPunishments)
+                            {
                                 action = "player_punish";
                             }
-                            else if (killer.Punished) {
+                            else if (killer.Punished)
+                            {
                                 action = "player_kick";
-                            } else {
+                            }
+                            else
+                            {
                                 killer.Punished = true;
                             }
                             var requestHashtable = new Hashtable {
@@ -1134,13 +1172,18 @@ namespace PRoConEvents
                             };
                             Log.Info("Sending backup AutoAdmin " + action + " to AdKats for " + killer.GetVerboseName());
                             ExecuteCommand("procon.protected.plugins.call", "AdKats", "IssueCommand", "AdKatsLRT", JSON.JsonEncode(requestHashtable));
-                        } else {
+                        }
+                        else
+                        {
                             //Weapon is invalid, perform kill or kick based on previous actions
-                            if (killer.Punished) {
+                            if (killer.Punished)
+                            {
                                 Log.Info("Kicking " + killer.GetVerboseName() + " for using restricted item. [" + rejectionMessage + "].");
                                 AdminSayMessage(killer.GetVerboseName() + " was KICKED by LoadoutEnforcer for " + rejectionMessage + ".");
                                 ExecuteCommand("procon.protected.send", "admin.kickPlayer", killer.Name, GenerateKickReason(rejectionMessage, "LoadoutEnforcer"));
-                            } else {
+                            }
+                            else
+                            {
                                 killer.Punished = true;
                                 PlayerTellMessage(killer.Name, rejectionMessage);
                                 AdminSayMessage(killer.GetVerboseName() + " was KILLED by LoadoutEnforcer for " + rejectionMessage + ".");
@@ -1157,7 +1200,8 @@ namespace PRoConEvents
             Log.Debug("Exiting OnPlayerKilled", 7);
         }
 
-        public String GenerateKickReason(String reason, String source) {
+        public String GenerateKickReason(String reason, String source)
+        {
             String sourceNameString = "[" + source + "]";
 
             //Create the full message
@@ -1165,7 +1209,8 @@ namespace PRoConEvents
 
             //Trim the kick message if necessary
             Int32 cutLength = fullMessage.Length - 80;
-            if (cutLength > 0) {
+            if (cutLength > 0)
+            {
                 String cutReason = reason.Substring(0, reason.Length - cutLength);
                 fullMessage = cutReason + " " + sourceNameString;
             }
@@ -1373,7 +1418,8 @@ namespace PRoConEvents
                             continue;
                         }
                         //Ready to parse
-                        var aPlayer = new AdKatsSubscribedPlayer {
+                        var aPlayer = new AdKatsSubscribedPlayer
+                        {
                             ID = 0,
                             GUID = cPlayer.GUID,
                             PBGUID = null,
@@ -1481,14 +1527,16 @@ namespace PRoConEvents
                     foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
-                        if (_playerDictionary.TryGetValue(playerName, out aPlayer)) {
+                        if (_playerDictionary.TryGetValue(playerName, out aPlayer))
+                        {
                             Log.Debug(aPlayer.Name + " removed from player list.", 6);
                             _playerDictionary.Remove(aPlayer.Name);
                             aPlayer.LastUsage = DateTime.UtcNow;
                             _playerLeftDictionary[aPlayer.GUID] = aPlayer;
                             aPlayer.LoadoutChecks = 0;
                         }
-                        else {
+                        else
+                        {
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
@@ -1539,7 +1587,8 @@ namespace PRoConEvents
                         else
                         {
                             var waitTime = TimeSpan.FromSeconds(5 - _loadoutProcessingQueue.Count);
-                            if (waitTime.TotalSeconds <= 0.1) {
+                            if (waitTime.TotalSeconds <= 0.1)
+                            {
                                 waitTime = TimeSpan.FromSeconds(5);
                             }
                             Log.Debug("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 5);
@@ -1601,8 +1650,8 @@ namespace PRoConEvents
 
                 var decodedCommand = (Hashtable)JSON.JsonDecode(unparsedCommandJson);
 
-                var playerName = (String) decodedCommand["player_name"];
-                var loadoutCheckReason = (String) decodedCommand["loadoutCheck_reason"];
+                var playerName = (String)decodedCommand["player_name"];
+                var loadoutCheckReason = (String)decodedCommand["loadoutCheck_reason"];
 
                 if (_threadsReady && _pluginEnabled && _firstPlayerListComplete)
                 {
@@ -1682,9 +1731,9 @@ namespace PRoConEvents
                 }
                 lock (_loadoutProcessingQueue)
                 {
-                    if (_loadoutProcessingQueue.Any(obj => 
-                        obj != null && 
-                        obj.ProcessPlayer != null && 
+                    if (_loadoutProcessingQueue.Any(obj =>
+                        obj != null &&
+                        obj.ProcessPlayer != null &&
                         obj.ProcessPlayer.GUID == processObject.ProcessPlayer.GUID))
                     {
                         Log.Debug(processObject.ProcessPlayer.Name + " queue cancelled. Player already in queue.", 4);
@@ -1720,7 +1769,8 @@ namespace PRoConEvents
                             break;
                         }
 
-                        if (_battlelogFetchQueue.Count() >= 5) {
+                        if (_battlelogFetchQueue.Count() >= 5)
+                        {
                             Log.Debug("loadout checks waiting on battlelog info fetches to complete.", 4);
                             _threadMasterWaitHandle.WaitOne(TimeSpan.FromSeconds(10));
                             continue;
@@ -1768,7 +1818,8 @@ namespace PRoConEvents
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
-                            if (processObject.ProcessReason == "fetch") {
+                            if (processObject.ProcessReason == "fetch")
+                            {
                                 reason = "[fetch] ";
                                 fetchOnly = true;
                             }
@@ -1814,18 +1865,22 @@ namespace PRoConEvents
 
                             Log.Debug("Processing " + reason + aPlayer.GetVerboseName(), 4);
 
-                            if (!fetchOnly) {
+                            if (!fetchOnly)
+                            {
                                 //Process is not fetch only, check to see if we can skip this player
                                 Boolean fetch = true;
                                 String rejectFetchReason = "Loadout fetches cancelled. No reason given.";
-                                if (!trigger) {
+                                if (!trigger)
+                                {
                                     if (fetch &&
-                                        (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                        (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers))
+                                    {
                                         rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is reputable.";
                                         fetch = false;
                                     }
                                     if (fetch &&
-                                        (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                        (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins))
+                                    {
                                         rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is admin.";
                                         fetch = false;
                                     }
@@ -1834,7 +1889,8 @@ namespace PRoConEvents
                                         !_highRequestVolume &&
                                         aPlayer.LoadoutChecks > ((aPlayer.Reputation > 0) ? (0) : (3)) &&
                                         aPlayer.LoadoutValid &&
-                                        aPlayer.SkippedChecks < 4) {
+                                        aPlayer.SkippedChecks < 4)
+                                    {
                                         aPlayer.SkippedChecks++;
                                         rejectFetchReason = aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
                                         fetch = false;
@@ -1844,12 +1900,15 @@ namespace PRoConEvents
                                     (_Whitelist.Contains(aPlayer.Name) ||
                                     _Whitelist.Contains(aPlayer.GUID) ||
                                     _Whitelist.Contains(aPlayer.PBGUID) ||
-                                    _Whitelist.Contains(aPlayer.IP))) {
+                                    _Whitelist.Contains(aPlayer.IP)))
+                                {
                                     rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player on whitelist.";
                                     fetch = false;
                                 }
-                                if (!fetch) {
-                                    if (_enableAdKatsIntegration) {
+                                if (!fetch)
+                                {
+                                    if (_enableAdKatsIntegration)
+                                    {
                                         //Inform AdKats of the check rejection
                                         StartAndLogThread(new Thread(new ThreadStart(delegate {
                                             Thread.CurrentThread.Name = "AdKatsInform";
@@ -1894,7 +1953,8 @@ namespace PRoConEvents
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             Log.Debug(loadoutLongMessage, 4);
 
-                            if (fetchOnly) {
+                            if (fetchOnly)
+                            {
                                 //Inform AdKats of the loadout
                                 StartAndLogThread(new Thread(new ThreadStart(delegate {
                                     Thread.CurrentThread.Name = "AdKatsInform";
@@ -1920,8 +1980,11 @@ namespace PRoConEvents
                             //Action taken?
                             Boolean acted = false;
 
+                            HashSet<String> specificKeys = new HashSet<String>();
                             HashSet<String> specificMessages = new HashSet<String>();
+                            HashSet<String> spawnSpecificKeys = new HashSet<String>();
                             HashSet<String> spawnSpecificMessages = new HashSet<String>();
+                            HashSet<String> vehicleSpecificKeys = new HashSet<String>();
                             HashSet<String> vehicleSpecificMessages = new HashSet<String>();
                             Boolean loadoutValid = true;
                             Boolean spawnLoadoutValid = true;
@@ -1938,6 +2001,9 @@ namespace PRoConEvents
                                         if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                         {
                                             loadoutValid = false;
+                                            if (!specificKeys.Contains(warsawDeniedIDMessage.Key)) {
+                                                specificKeys.Add(warsawDeniedIDMessage.Key);
+                                            }
                                             if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
                                             {
                                                 specificMessages.Add(warsawDeniedIDMessage.Value);
@@ -1950,6 +2016,9 @@ namespace PRoConEvents
                                         if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                         {
                                             spawnLoadoutValid = false;
+                                            if (!spawnSpecificKeys.Contains(warsawDeniedID)) {
+                                                spawnSpecificKeys.Add(warsawDeniedID);
+                                            }
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
@@ -1957,11 +2026,17 @@ namespace PRoConEvents
                                         }
                                     }
 
-                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
-                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys)
+                                    {
+                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID))
+                                        {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
+                                            if (!spawnSpecificKeys.Contains(searchDeniedID)) {
+                                                spawnSpecificKeys.Add(searchDeniedID);
+                                            }
+                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID]))
+                                            {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
                                             }
                                         }
@@ -1975,6 +2050,9 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
+                                            if (!spawnSpecificKeys.Contains(warsawDeniedID)) {
+                                                spawnSpecificKeys.Add(warsawDeniedID);
+                                            }
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
@@ -1982,11 +2060,17 @@ namespace PRoConEvents
                                         }
                                     }
 
-                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
-                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
+                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys)
+                                    {
+                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID))
+                                        {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
+                                            if (!spawnSpecificKeys.Contains(searchDeniedID)) {
+                                                spawnSpecificKeys.Add(searchDeniedID);
+                                            }
+                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID]))
+                                            {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
                                             }
                                         }
@@ -2001,6 +2085,9 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
+                                            if (!vehicleSpecificKeys.Contains(warsawDeniedIDMessage.Key)) {
+                                                vehicleSpecificKeys.Add(warsawDeniedIDMessage.Key);
+                                            }
                                             if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                             {
                                                 vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
@@ -2029,6 +2116,9 @@ namespace PRoConEvents
                                             {
                                                 loadoutValid = false;
                                                 vehicleLoadoutValid = false;
+                                                if (!vehicleSpecificKeys.Contains(warsawDeniedIDMessage.Key)) {
+                                                    vehicleSpecificKeys.Add(warsawDeniedIDMessage.Key);
+                                                }
                                                 if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                                 {
                                                     vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
@@ -2038,19 +2128,30 @@ namespace PRoConEvents
                                     }
                                 }
 
-                                foreach (var searchDeniedIDMessage in _searchInvalidLoadoutIDMessages) {
-                                    if (_spawnEnforceAllVehicles) {
-                                        if (loadout.VehicleItems.ContainsKey(searchDeniedIDMessage.Key)) {
+                                foreach (var searchDeniedIDMessage in _searchInvalidLoadoutIDMessages)
+                                {
+                                    if (_spawnEnforceAllVehicles)
+                                    {
+                                        if (loadout.VehicleItems.ContainsKey(searchDeniedIDMessage.Key))
+                                        {
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
-                                            if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
+                                            if (!vehicleSpecificKeys.Contains(searchDeniedIDMessage.Key)) {
+                                                vehicleSpecificKeys.Add(searchDeniedIDMessage.Key);
+                                            }
+                                            if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value))
+                                            {
                                                 vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
                                             }
                                         }
-                                    } else {
-                                        foreach (String category in aPlayer.WatchedVehicles) {
+                                    }
+                                    else
+                                    {
+                                        foreach (String category in aPlayer.WatchedVehicles)
+                                        {
                                             WarsawVehicle vehicle;
-                                            if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle)) {
+                                            if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle))
+                                            {
                                                 Log.Error("Could not fetch used vehicle " + category + " from player loadout, skipping.");
                                                 continue;
                                             }
@@ -2061,10 +2162,15 @@ namespace PRoConEvents
                                                 (vehicle.AssignedUpgrade != null && vehicle.AssignedUpgrade.WarsawID == searchDeniedIDMessage.Key) ||
                                                 (vehicle.AssignedSecondaryGunner != null && vehicle.AssignedSecondaryGunner.WarsawID == searchDeniedIDMessage.Key) ||
                                                 (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == searchDeniedIDMessage.Key)) {
+                                                (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == searchDeniedIDMessage.Key))
+                                            {
                                                 loadoutValid = false;
                                                 vehicleLoadoutValid = false;
-                                                if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
+                                                if (!vehicleSpecificKeys.Contains(searchDeniedIDMessage.Key)) {
+                                                    vehicleSpecificKeys.Add(searchDeniedIDMessage.Key);
+                                                }
+                                                if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value))
+                                                {
                                                     vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
                                                 }
                                             }
@@ -2074,13 +2180,15 @@ namespace PRoConEvents
                             }
 
                             Boolean act = true;
-                            if (!trigger && !spawnLoadoutValid) 
+                            if (!trigger && !spawnLoadoutValid)
                             {
-                                if (act && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                if (act && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers))
+                                {
                                     Log.Debug(processObject.ProcessPlayer.Name + " spawn loadout enforcement cancelled. Player is reputable.", 4);
                                     act = false;
                                 }
-                                if (act && (processObject.ProcessPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
+                                if (act && (processObject.ProcessPlayer.IsAdmin && !_spawnEnforcementActOnAdmins))
+                                {
                                     Log.Debug(processObject.ProcessPlayer.Name + " spawn loadout enforcement cancelled. Player is admin.", 4);
                                     act = false;
                                 }
@@ -2088,12 +2196,15 @@ namespace PRoConEvents
                             if (act && (_Whitelist.Contains(processObject.ProcessPlayer.Name) ||
                                 _Whitelist.Contains(processObject.ProcessPlayer.GUID) ||
                                 _Whitelist.Contains(processObject.ProcessPlayer.PBGUID) ||
-                                _Whitelist.Contains(processObject.ProcessPlayer.IP))) {
+                                _Whitelist.Contains(processObject.ProcessPlayer.IP)))
+                            {
                                 Log.Debug(processObject.ProcessPlayer.Name + " loadout enforcement cancelled. Player on whitelist.", 4);
                                 act = false;
                             }
-                            if (!act) {
-                                if (_enableAdKatsIntegration) {
+                            if (!act)
+                            {
+                                if (_enableAdKatsIntegration)
+                                {
                                     //Inform AdKats of the loadout
                                     StartAndLogThread(new Thread(new ThreadStart(delegate {
                                         Thread.CurrentThread.Name = "AdKatsInform";
@@ -2176,37 +2287,44 @@ namespace PRoConEvents
                                     spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
                                 }
                                 //Fill the search spawn denied messages
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemPrimary.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemPrimary.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
                                 }
                                 spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemSidearm.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemSidearm.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
                                 }
                                 spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget1.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget1.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
                                 }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget2.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget2.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
                                 }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGrenade.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGrenade.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
                                 }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitKnife.WarsawID)) {
+                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitKnife.WarsawID))
+                                {
                                     spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
                                 }
+
                                 //Trim the messages
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');
                                 spawnDeniedWeapons = spawnDeniedWeapons.Trim().TrimEnd(',');
 
                                 //Decide whether to kill the player
                                 Boolean adminsOnline = AdminsOnline();
-                                if (!vehicleLoadoutValid || !spawnLoadoutValid || killOverride || (!adminsOnline && trigger)) 
+                                if (!vehicleLoadoutValid || !spawnLoadoutValid || killOverride || (!adminsOnline && trigger))
                                 {
                                     //Player will be killed
                                     acted = true;
-                                    Log.Debug(loadout.Name + ((processObject.ProcessReason == "listing")?(" JOIN"):(" SPAWN")) + " KILLED for invalid loadout.", 1);
+                                    Log.Debug(loadout.Name + ((processObject.ProcessReason == "listing") ? (" JOIN") : (" SPAWN")) + " KILLED for invalid loadout.", 1);
                                     if (processObject.ProcessReason != "listing")
                                     {
                                         aPlayer.LoadoutKills++;
@@ -2237,6 +2355,10 @@ namespace PRoConEvents
                                     HashSet<String> tellMessages = new HashSet<String>();
                                     if (trigger && (killOverride || !adminsOnline))
                                     {
+                                        if (deniedWeapons.Length == 0) {
+                                            // This should not happen, we should have weapon names here
+                                            Log.Error("Denied warsaw for " + loadout.Name + " are " + specificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                        }
                                         //Manual trigger or no admins online, enforce all denied weapons
                                         adminMessage += "denied items [" + deniedWeapons + "]";
                                         PlayerSayMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
@@ -2250,6 +2372,10 @@ namespace PRoConEvents
                                     }
                                     else if (!spawnLoadoutValid)
                                     {
+                                        if (spawnDeniedWeapons.Length == 0) {
+                                            // This should not happen, we should have weapon names here
+                                            Log.Error("Denied warsaw for " + loadout.Name + " are " + spawnSpecificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                        }
                                         //Loadout enforcement was not triggered, enforce spawn denied weapons only
                                         PlayerSayMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                         foreach (var spawnSpecificMessage in spawnSpecificMessages)
@@ -2282,7 +2408,7 @@ namespace PRoConEvents
                                         OnlineAdminSayMessage(adminMessage);
                                     }
                                     //Set max denied items if player has been killed
-                                    if (tellMessages.Count > aPlayer.MaxDeniedItems && aPlayer.LoadoutKills > 0) 
+                                    if (tellMessages.Count > aPlayer.MaxDeniedItems && aPlayer.LoadoutKills > 0)
                                     {
                                         aPlayer.MaxDeniedItems = tellMessages.Count;
                                     }
@@ -2301,13 +2427,16 @@ namespace PRoConEvents
                             }
                             else
                             {
-                                if (!aPlayer.LoadoutValid) {
+                                if (!aPlayer.LoadoutValid)
+                                {
                                     PlayerSayMessage(aPlayer.Name, aPlayer.GetVerboseName() + " thank you for fixing your loadout.");
-                                    if (killOverride) {
+                                    if (killOverride)
+                                    {
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " fixed their loadout.");
                                     }
                                 }
-                                else if (processObject.ProcessManual) {
+                                else if (processObject.ProcessManual)
+                                {
                                     OnlineAdminSayMessage(aPlayer.GetVerboseName() + "'s has no banned items.");
                                 }
                             }
@@ -2352,9 +2481,9 @@ namespace PRoConEvents
                                 Double percentKilled = Math.Round((countKilled / (Double)totalPlayerCount) * 100.0);
                                 Double percentFixed = Math.Round((countFixed / (Double)countKilled) * 100.0);
                                 Double percentRaged = Math.Round((countQuit / (Double)countKilled) * 100.0);
-                                Double denialKpm = Math.Round(countKills/(DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
+                                Double denialKpm = Math.Round(countKills / (DateTime.UtcNow - _pluginStartTime).TotalMinutes, 2);
                                 Double killsPerDenial = Math.Round(countKills / (Double)countKilled, 2);
-                                Double avgDeniedItems = Math.Round((_playerDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems) + _playerLeftDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems)) / (Double) countKilled, 2);
+                                Double avgDeniedItems = Math.Round((_playerDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems) + _playerLeftDictionary.Values.Sum(dPlayer => dPlayer.MaxDeniedItems)) / (Double)countKilled, 2);
                                 if (displayStats)
                                 {
                                     Log.Debug("(" + countEnforced + "/" + totalPlayerCount + ") " + percentEnforced + "% enforced. " + "(" + countKilled + "/" + totalPlayerCount + ") " + percentKilled + "% killed. " + "(" + countFixed + "/" + countKilled + ") " + percentFixed + "% fixed. " + "(" + countQuit + "/" + countKilled + ") " + percentRaged + "% quit. " + denialKpm + " denial KPM. " + killsPerDenial + " kills per denial. " + avgDeniedItems + " AVG denied items.", 2);
@@ -2543,8 +2672,10 @@ namespace PRoConEvents
                             }
                         }
                     }
-                    catch (Exception e) {
-                        if (e is WebException) {
+                    catch (Exception e)
+                    {
+                        if (e is WebException)
+                        {
                             Log.Warn("Issue connecting to battlelog.");
                             _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
                         }
@@ -2586,25 +2717,26 @@ namespace PRoConEvents
                     var validPlayers = new List<String>();
                     foreach (Hashtable soldierHashtable in decodedSoldierList)
                     {
-                        var aPlayer = new AdKatsSubscribedPlayer {
-                            ID = Convert.ToInt64((Double) soldierHashtable["player_id"]),
-                            GUID = (String) soldierHashtable["player_guid"],
-                            PBGUID = (String) soldierHashtable["player_pbguid"],
-                            IP = (String) soldierHashtable["player_ip"],
-                            Name = (String) soldierHashtable["player_name"],
-                            PersonaID = (String) soldierHashtable["player_personaID"],
-                            ClanTag = (String) soldierHashtable["player_clanTag"],
-                            Online = (Boolean) soldierHashtable["player_online"],
-                            AA = (Boolean) soldierHashtable["player_aa"],
-                            Ping = (Double) soldierHashtable["player_ping"],
-                            Reputation = (Double) soldierHashtable["player_reputation"],
-                            InfractionPoints = Convert.ToInt32((Double) soldierHashtable["player_infractionPoints"]),
-                            Role = (String) soldierHashtable["player_role"],
-                            Type = (String) soldierHashtable["player_type"],
-                            IsAdmin = (Boolean) soldierHashtable["player_isAdmin"],
-                            Reported = (Boolean) soldierHashtable["player_reported"],
-                            Punished = (Boolean) soldierHashtable["player_punished"],
-                            LoadoutForced = (Boolean) soldierHashtable["player_loadout_forced"]
+                        var aPlayer = new AdKatsSubscribedPlayer
+                        {
+                            ID = Convert.ToInt64((Double)soldierHashtable["player_id"]),
+                            GUID = (String)soldierHashtable["player_guid"],
+                            PBGUID = (String)soldierHashtable["player_pbguid"],
+                            IP = (String)soldierHashtable["player_ip"],
+                            Name = (String)soldierHashtable["player_name"],
+                            PersonaID = (String)soldierHashtable["player_personaID"],
+                            ClanTag = (String)soldierHashtable["player_clanTag"],
+                            Online = (Boolean)soldierHashtable["player_online"],
+                            AA = (Boolean)soldierHashtable["player_aa"],
+                            Ping = (Double)soldierHashtable["player_ping"],
+                            Reputation = (Double)soldierHashtable["player_reputation"],
+                            InfractionPoints = Convert.ToInt32((Double)soldierHashtable["player_infractionPoints"]),
+                            Role = (String)soldierHashtable["player_role"],
+                            Type = (String)soldierHashtable["player_type"],
+                            IsAdmin = (Boolean)soldierHashtable["player_isAdmin"],
+                            Reported = (Boolean)soldierHashtable["player_reported"],
+                            Punished = (Boolean)soldierHashtable["player_punished"],
+                            LoadoutForced = (Boolean)soldierHashtable["player_loadout_forced"]
                         };
                         var lastPunishment = (Double)soldierHashtable["player_lastPunishment"];
                         if (lastPunishment > 0)
@@ -2720,9 +2852,11 @@ namespace PRoConEvents
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4) {
+                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4)
+                    {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
-                        if (loadoutPlayers.Any()) {
+                        if (loadoutPlayers.Any())
+                        {
                             var loadoutPlayers1 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 1);
                             var loadoutPlayers2 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 2);
 
@@ -2753,8 +2887,9 @@ namespace PRoConEvents
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
                             _lastCategoryListing = DateTime.UtcNow;
-                            if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null) {
-                                String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory1.Count / (Double) loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double) highestCategory2.Count / (Double) loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
+                            if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null)
+                            {
+                                String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory1.Count / (Double)loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory2.Count / (Double)loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
                                 AdminSayMessage(message);
                                 Log.Info(message);
                             }
@@ -3077,7 +3212,8 @@ namespace PRoConEvents
                             //Reject the entry
                             continue;
                         }
-                        var item = new WarsawItem {
+                        var item = new WarsawItem
+                        {
                             WarsawID = warsawID.ToString(CultureInfo.InvariantCulture)
                         };
 
@@ -3165,7 +3301,8 @@ namespace PRoConEvents
                             //Reject the entry
                             continue;
                         }
-                        var kitItem = new WarsawItem {
+                        var kitItem = new WarsawItem
+                        {
                             WarsawID = warsawID.ToString(CultureInfo.InvariantCulture)
                         };
 
@@ -3179,7 +3316,7 @@ namespace PRoConEvents
                         //Grab category------------------------------------------------------------------------------
                         if (!weaponAccessoryData.ContainsKey("category"))
                         {
-                            if(_displayLoadoutDebug)
+                            if (_displayLoadoutDebug)
                                 Log.Error("Rejecting kit item '" + warsawID + "'. Element did not contain 'category'.");
                             continue;
                         }
@@ -3254,7 +3391,8 @@ namespace PRoConEvents
                             //Reject the entry
                             continue;
                         }
-                        var itemAccessory = new WarsawItemAccessory {
+                        var itemAccessory = new WarsawItemAccessory
+                        {
                             WarsawID = warsawID.ToString(CultureInfo.InvariantCulture)
                         };
 
@@ -3315,9 +3453,9 @@ namespace PRoConEvents
                     }
 
                     library.Vehicles.Clear();
-                    foreach (DictionaryEntry entry in compactVehicles) 
+                    foreach (DictionaryEntry entry in compactVehicles)
                     {
-                        String category = (String) entry.Key;
+                        String category = (String)entry.Key;
                         if (!category.StartsWith("WARSAW_ID"))
                         {
                             //Reject the entry
@@ -3326,7 +3464,8 @@ namespace PRoConEvents
                             continue;
                         }
 
-                        var vehicle = new WarsawVehicle {
+                        var vehicle = new WarsawVehicle
+                        {
                             Category = category
                         };
                         vehicle.CategoryReadable = vehicle.Category.Split('_').Last().Replace('_', ' ').ToUpper();
@@ -3415,7 +3554,8 @@ namespace PRoConEvents
                             //Reject the entry
                             continue;
                         }
-                        var vehicleUnlock = new WarsawItem {
+                        var vehicleUnlock = new WarsawItem
+                        {
                             WarsawID = warsawID.ToString(CultureInfo.InvariantCulture)
                         };
 
@@ -3528,7 +3668,8 @@ namespace PRoConEvents
                             }
                             var category = (String)slotTable["sid"];
                             //Reject all paint categories
-                            if (category.Contains("PAINT")) {
+                            if (category.Contains("PAINT"))
+                            {
                                 continue;
                             }
                             //Grab items------------------------------------------------------------------------------
@@ -3540,11 +3681,13 @@ namespace PRoConEvents
                             }
                             var items = (ArrayList)slotTable["items"];
                             Dictionary<String, WarsawItemAccessory> allowedItems;
-                            if (weapon.AccessoriesAllowed.ContainsKey(category)) {
+                            if (weapon.AccessoriesAllowed.ContainsKey(category))
+                            {
                                 //Existing list, add to it
                                 allowedItems = weapon.AccessoriesAllowed[category];
                             }
-                            else {
+                            else
+                            {
                                 //New list, add it
                                 allowedItems = new Dictionary<String, WarsawItemAccessory>();
                                 weapon.AccessoriesAllowed[category] = allowedItems;
@@ -3553,7 +3696,8 @@ namespace PRoConEvents
                             {
                                 //Attempt to fetch accessory from library
                                 WarsawItemAccessory accessory;
-                                if (library.ItemAccessories.TryGetValue(accessoryID, out accessory)) {
+                                if (library.ItemAccessories.TryGetValue(accessoryID, out accessory))
+                                {
                                     allowedItems[accessoryID] = accessory;
                                 }
                                 else
@@ -3577,7 +3721,8 @@ namespace PRoConEvents
                         var kitKey = (String)entry["sid"];
 
                         WarsawKit kit;
-                        switch (kitKey) {
+                        switch (kitKey)
+                        {
                             case "WARSAW_ID_M_ASSAULT":
                                 kit = library.KitAssault;
                                 break;
@@ -3685,7 +3830,7 @@ namespace PRoConEvents
                         //Get the kit key
                         if (!entry.ContainsKey("sid"))
                         {
-                            if(_displayLoadoutDebug)
+                            if (_displayLoadoutDebug)
                                 Log.Warn("Vehicle entry did not contain 'sid' element, skipping.");
                             continue;
                         }
@@ -3800,10 +3945,12 @@ namespace PRoConEvents
                                 {
                                     allowedUnlocks[unlockID] = item;
                                     //Assign the vehicle
-                                    if (item.AssignedVehicle == null) {
+                                    if (item.AssignedVehicle == null)
+                                    {
                                         item.AssignedVehicle = vehicle;
                                     }
-                                    else {
+                                    else
+                                    {
                                         Log.Warn(unlockID + " already assigned to a vehicle, " + item.AssignedVehicle.CategoryType);
                                     }
                                 }
@@ -3816,8 +3963,8 @@ namespace PRoConEvents
                             slotIndex++;
                         }
                         if (_displayLoadoutDebug)
-                            Log.Info(vehicle.CategoryType + " parsed. Allowed: " + 
-                                vehicle.AllowedPrimaries.Count + " primary weapons, " + 
+                            Log.Info(vehicle.CategoryType + " parsed. Allowed: " +
+                                vehicle.AllowedPrimaries.Count + " primary weapons, " +
                                 vehicle.AllowedSecondaries.Count + " secondary weapons, " +
                                 vehicle.AllowedCountermeasures.Count + " countermeasures, " +
                                 vehicle.AllowedOptics.Count + " optics, " +
@@ -3995,13 +4142,15 @@ namespace PRoConEvents
                     }
 
                     //Parse vehicles
-                    for (Int32 index = 0; index < currentLoadoutVehicles.Count; index++) {
+                    for (Int32 index = 0; index < currentLoadoutVehicles.Count; index++)
+                    {
                         WarsawVehicle libraryVehicle;
                         switch (index)
                         {
                             case 0:
                                 //MBT
-                                if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEMBT", out libraryVehicle)) {
+                                if (!_warsawLibrary.Vehicles.TryGetValue("WARSAW_ID_EOR_SCORINGBUCKET_VEHICLEMBT", out libraryVehicle))
+                                {
                                     Log.Error("Failed to fetch MBT vehicle, unable to parse player loadout.");
                                     return null;
                                 }
@@ -4066,7 +4215,8 @@ namespace PRoConEvents
                                 continue;
                         }
                         //Duplicate the vehicle
-                        var vehicle = new WarsawVehicle() {
+                        var vehicle = new WarsawVehicle()
+                        {
                             Category = libraryVehicle.Category,
                             CategoryReadable = libraryVehicle.CategoryReadable,
                             CategoryType = libraryVehicle.CategoryType,
@@ -4076,11 +4226,13 @@ namespace PRoConEvents
                         //Fetch the vehicle items
                         var vehicleItems = (ArrayList)currentLoadoutVehicles[index];
                         //Assign the primary
-                        if (libraryVehicle.SlotIndexPrimary >= 0) {
+                        if (libraryVehicle.SlotIndexPrimary >= 0)
+                        {
                             var itemID = (String)vehicleItems[libraryVehicle.SlotIndexPrimary];
-                            if (!libraryVehicle.AllowedPrimaries.TryGetValue(itemID, out vehicle.AssignedPrimary)) {
+                            if (!libraryVehicle.AllowedPrimaries.TryGetValue(itemID, out vehicle.AssignedPrimary))
+                            {
                                 var defaultItem = libraryVehicle.AllowedPrimaries.Values.First();
-                                if(_displayLoadoutDebug)
+                                if (_displayLoadoutDebug)
                                     Log.Warn("Unable to fetch valid vehicle primary " + itemID + " for " + vehicle.Category + ", defaulting to " + defaultItem.Slug + ".");
                                 vehicle.AssignedPrimary = defaultItem;
                             }
@@ -4178,10 +4330,11 @@ namespace PRoConEvents
                             loadout.VehicleItems[vehicle.AssignedUpgradeGunner.WarsawID] = vehicle.AssignedUpgradeGunner;
                         }
                         loadout.LoadoutVehicles[vehicle.Category] = vehicle;
-                        foreach (String rconCode in vehicle.LinkedRCONCodes) {
+                        foreach (String rconCode in vehicle.LinkedRCONCodes)
+                        {
                             loadout.LoadoutRCONVehicles[rconCode] = vehicle;
                         }
-                        if(_displayLoadoutDebug)
+                        if (_displayLoadoutDebug)
                             Log.Info(loadout.Name + ": " +
                                 vehicle.CategoryType + ": " +
                                 ((vehicle.AssignedPrimary == null) ? ("No Primary") : (vehicle.AssignedPrimary.Slug)) + ", " +
@@ -4208,7 +4361,7 @@ namespace PRoConEvents
                             currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[0];
                             break;
                         case "1":
-                            loadout.SelectedKit= _warsawLibrary.KitEngineer;
+                            loadout.SelectedKit = _warsawLibrary.KitEngineer;
                             currentLoadoutList = (ArrayList)((ArrayList)currentLoadoutHashtable["kits"])[1];
                             break;
                         case "2":
@@ -4545,11 +4698,16 @@ namespace PRoConEvents
                         DoBattlelogWait();
                         String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
-                    } catch (Exception e) {
-                        if (e is WebException) {
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is WebException)
+                        {
                             Log.Warn("Issue connecting to battlelog.");
                             _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
-                        } else {
+                        }
+                        else
+                        {
                             Log.Exception("Error while loading player loadout.", e);
                         }
                     }
@@ -4772,31 +4930,40 @@ namespace PRoConEvents
             return result;
         }
 
-        private void DoBattlelogWait() {
-            try {
+        private void DoBattlelogWait()
+        {
+            try
+            {
 
-                lock (_battlelogLocker) {
+                lock (_battlelogLocker)
+                {
                     var now = DateTime.UtcNow;
                     var timeSinceLast = (now - _lastBattlelogAction);
                     var requiredWait = _battlelogWaitDuration;
                     //Reduce required wait time based on how many players are in the queue
-                    if (_highRequestVolume) {
+                    if (_highRequestVolume)
+                    {
                         requiredWait -= TimeSpan.FromSeconds(2);
                     }
                     //Wait between battlelog actions
-                    if ((now - _lastBattlelogAction) < requiredWait) {
+                    if ((now - _lastBattlelogAction) < requiredWait)
+                    {
                         var remainingWait = requiredWait - timeSinceLast;
                         Thread.Sleep(remainingWait);
                     }
                     //Log the request frequency
                     now = DateTime.UtcNow;
-                    lock (_BattlelogActionTimes) {
+                    lock (_BattlelogActionTimes)
+                    {
                         _BattlelogActionTimes.Enqueue(now);
-                        while (NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes > 4) {
+                        while (NowDuration(_BattlelogActionTimes.Peek()).TotalMinutes > 4)
+                        {
                             _BattlelogActionTimes.Dequeue();
                         }
-                        if (_BattlelogActionTimes.Any() && NowDuration(_lastBattlelogFrequencyMessage).TotalSeconds > 30) {
-                            if (_isTestingAuthorized) {
+                        if (_BattlelogActionTimes.Any() && NowDuration(_lastBattlelogFrequencyMessage).TotalSeconds > 30)
+                        {
+                            if (_isTestingAuthorized)
+                            {
                                 var frequency = Math.Round(_BattlelogActionTimes.Count() / 4.0, 2);
                                 Log.Info("Average battlelog request frequency: " + frequency + " r/m");
                             }
@@ -4806,13 +4973,15 @@ namespace PRoConEvents
                     _lastBattlelogAction = now;
                 }
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 Log.Exception("Error while performing battlelog wait.", e);
                 Thread.Sleep(_battlelogWaitDuration);
             }
         }
 
-        public TimeSpan NowDuration(DateTime diff) {
+        public TimeSpan NowDuration(DateTime diff)
+        {
             return (DateTime.UtcNow - diff).Duration();
         }
 
@@ -4842,7 +5011,7 @@ namespace PRoConEvents
                     client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
                 }
             }
-            catch (Exception) 
+            catch (Exception)
             {
                 //Ignore errors
             }
@@ -4903,7 +5072,7 @@ namespace PRoConEvents
             public WarsawItem KitKnife;
             public readonly Dictionary<String, WarsawItem> LoadoutItems;
             public readonly Dictionary<String, WarsawVehicle> LoadoutVehicles;
-            public readonly Dictionary<String, WarsawVehicle> LoadoutRCONVehicles; 
+            public readonly Dictionary<String, WarsawVehicle> LoadoutRCONVehicles;
             public readonly Dictionary<String, WarsawItem> VehicleItems;
             public String Name;
             public String PersonaID;
@@ -4919,7 +5088,7 @@ namespace PRoConEvents
             }
         }
 
-        public class ProcessObject 
+        public class ProcessObject
         {
             public String ProcessReason;
             public Boolean ProcessManual;
@@ -4970,7 +5139,8 @@ namespace PRoConEvents
             public Int32 LoadoutChecks;
             public Int32 SkippedChecks;
 
-            public AdKatsSubscribedPlayer() {
+            public AdKatsSubscribedPlayer()
+            {
                 WatchedVehicles = new HashSet<String>();
                 LastUsage = DateTime.UtcNow;
             }
@@ -4981,14 +5151,16 @@ namespace PRoConEvents
             }
         }
 
-        public class MapMode {
+        public class MapMode
+        {
             public Int32 MapModeID;
             public String ModeKey;
             public String MapKey;
             public String ModeName;
             public String MapName;
 
-            public MapMode(Int32 mapModeID, String modeKey, String mapKey, String modeName, String mapName) {
+            public MapMode(Int32 mapModeID, String modeKey, String mapKey, String modeName, String mapName)
+            {
                 MapModeID = mapModeID;
                 ModeKey = modeKey;
                 MapKey = mapKey;
@@ -4997,7 +5169,8 @@ namespace PRoConEvents
             }
         }
 
-        public void PopulateMapModes() {
+        public void PopulateMapModes()
+        {
             _availableMapModes = new List<MapMode> {
                 new MapMode(1, "ConquestLarge0", "MP_Abandoned", "Conquest Large", "Zavod 311"),
                 new MapMode(2, "ConquestLarge0", "MP_Damage", "Conquest Large", "Lancang Dam"),
@@ -5302,7 +5475,8 @@ namespace PRoConEvents
             };
         }
 
-        private void PopulateWarsawRCONCodes() {
+        private void PopulateWarsawRCONCodes()
+        {
             //Load in all knowns WARSAW to RCON mappings for use with the autoadmin
             _WarsawRCONMappings.Clear();
             _RCONWarsawMappings.Clear();
@@ -5459,25 +5633,25 @@ namespace PRoConEvents
             _WarsawRCONMappings["2324320899"] = (new string[] { "U_Repairtool" }).ToList();
             _WarsawRCONMappings["312950893"] = (new string[] { "U_BallisticShield" }).ToList();
             _WarsawRCONMappings["3416970831"] = (new string[] { "Death", "EODBot" }).ToList();
-//            _WarsawRCONMappings["3881213532"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3913003056"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["1278769027"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3214146841"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2930902275"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3981629339"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2833476239"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2765835967"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2358565358"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2130832595"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2065907307"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["4098378714"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["714992459"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3154558973"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3194673210"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["3332841661"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["27972285"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["2709653572"] = (new string[] { "Melee" }).ToList();
-//            _WarsawRCONMappings["6240291"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3881213532"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3913003056"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["1278769027"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3214146841"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2930902275"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3981629339"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2833476239"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2765835967"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2358565358"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2130832595"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2065907307"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["4098378714"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["714992459"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3154558973"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3194673210"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["3332841661"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["27972285"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["2709653572"] = (new string[] { "Melee" }).ToList();
+            //            _WarsawRCONMappings["6240291"] = (new string[] { "Melee" }).ToList();
 
             //Grenades
             _WarsawRCONMappings["3767777089"] = (new string[] { "U_Grenade_RGO" }).ToList();
@@ -5498,17 +5672,21 @@ namespace PRoConEvents
             _WarsawRCONMappings["1782193877"] = (new string[] { "U_SMAW" }).ToList();
 
             //Populate the reverse mapping dictionary
-            foreach (KeyValuePair<String, List<String>> warsawRCON in _WarsawRCONMappings) {
+            foreach (KeyValuePair<String, List<String>> warsawRCON in _WarsawRCONMappings)
+            {
                 String warsawID = warsawRCON.Key;
                 List<String> matchingRCONCodes = warsawRCON.Value;
 
-                foreach (String RCONCode in matchingRCONCodes) {
+                foreach (String RCONCode in matchingRCONCodes)
+                {
                     List<String> warsawIDs;
-                    if (!_RCONWarsawMappings.TryGetValue(RCONCode, out warsawIDs)) {
+                    if (!_RCONWarsawMappings.TryGetValue(RCONCode, out warsawIDs))
+                    {
                         warsawIDs = new List<String>();
                         _RCONWarsawMappings[RCONCode] = warsawIDs;
                     }
-                    if (!warsawIDs.Contains(warsawID)) {
+                    if (!warsawIDs.Contains(warsawID))
+                    {
                         warsawIDs.Add(warsawID);
                     }
                 }
@@ -5542,7 +5720,8 @@ namespace PRoConEvents
             }
         }
 
-        public class WarsawVehicle {
+        public class WarsawVehicle
+        {
             public String CategoryReadable;
             public String Category;
             public String CategoryTypeReadable;
@@ -5666,47 +5845,61 @@ namespace PRoConEvents
             }
         }
 
-        public class Logger {
+        public class Logger
+        {
             private readonly AdKatsLRT _plugin;
             public Int32 DebugLevel { get; set; }
             public Boolean VerboseErrors { get; set; }
 
-            public Logger(AdKatsLRT plugin) {
+            public Logger(AdKatsLRT plugin)
+            {
                 _plugin = plugin;
             }
 
-            private void WriteConsole(String msg) {
+            private void WriteConsole(String msg)
+            {
                 _plugin.ExecuteCommand("procon.protected.pluginconsole.write", "[^b" + _plugin.GetType().Name + "^n] " + msg);
             }
 
-            private void WriteChat(String msg) {
+            private void WriteChat(String msg)
+            {
                 _plugin.ExecuteCommand("procon.protected.chat.write", _plugin.GetType().Name + " > " + msg);
             }
 
-            public void Debug(String msg, Int32 level) {
-                if (DebugLevel >= level) {
-                    if (DebugLevel >= 8) {
+            public void Debug(String msg, Int32 level)
+            {
+                if (DebugLevel >= level)
+                {
+                    if (DebugLevel >= 8)
+                    {
                         WriteConsole("[" + level + "-" + new StackFrame(1).GetMethod().Name + "-" + ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId + "] " + msg);
-                    } else {
+                    }
+                    else
+                    {
                         WriteConsole(msg);
                     }
                 }
             }
 
-            public void Write(String msg) {
+            public void Write(String msg)
+            {
                 WriteConsole(msg);
             }
 
-            public void Info(String msg) {
+            public void Info(String msg)
+            {
                 WriteConsole("^b^0INFO^n^0: " + msg);
             }
 
-            public void Warn(String msg) {
+            public void Warn(String msg)
+            {
                 WriteConsole("^b^3WARNING^n^0: " + msg);
             }
 
-            public void Error(String msg) {
-                if (VerboseErrors) {
+            public void Error(String msg)
+            {
+                if (VerboseErrors)
+                {
                     //Opening
                     WriteConsole("^b^1ERROR-" +//Plugin version
                                  Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) + "-" +//Method name
@@ -5714,7 +5907,9 @@ namespace PRoConEvents
                                  ((String.IsNullOrEmpty(Thread.CurrentThread.Name)) ? ("Main") : (Thread.CurrentThread.Name)) + Thread.CurrentThread.ManagedThreadId +//Closing
                                  "^n^0: " +//Error Message
                                  "[" + msg + "]");
-                } else {
+                }
+                else
+                {
                     //Opening
                     WriteConsole("^b^1ERROR-" +//Plugin version
                                  Int32.Parse(_plugin.GetPluginVersion().Replace(".", "")) +//Closing
@@ -5723,32 +5918,42 @@ namespace PRoConEvents
                 }
             }
 
-            public void Success(String msg) {
+            public void Success(String msg)
+            {
                 WriteConsole("^b^2SUCCESS^n^0: " + msg);
             }
 
-            public void Exception(String msg, Exception e) {
+            public void Exception(String msg, Exception e)
+            {
                 this.Exception(msg, e, 1);
             }
 
-            public void Exception(String msg, Exception e, Int32 level) {
+            public void Exception(String msg, Exception e, Int32 level)
+            {
                 //Opening
                 string exceptionMessage = "^b^8EXCEPTION-" +//Plugin version
                                           Int32.Parse(_plugin.GetPluginVersion().Replace(".", ""));
-                if (e != null) {
+                if (e != null)
+                {
                     exceptionMessage += "-";
                     Int64 impericalLineNumber = 0;
                     Int64 parsedLineNumber = 0;
                     StackTrace stack = new StackTrace(e, true);
-                    if (stack.FrameCount > 0) {
+                    if (stack.FrameCount > 0)
+                    {
                         impericalLineNumber = stack.GetFrame(0).GetFileLineNumber();
                     }
                     Int64.TryParse(e.ToString().Split(' ').Last(), out parsedLineNumber);
-                    if (impericalLineNumber != 0) {
+                    if (impericalLineNumber != 0)
+                    {
                         exceptionMessage += impericalLineNumber;
-                    } else if (parsedLineNumber != 0) {
+                    }
+                    else if (parsedLineNumber != 0)
+                    {
                         exceptionMessage += parsedLineNumber;
-                    } else {
+                    }
+                    else
+                    {
                         exceptionMessage += "D";
                     }
                 }
@@ -5761,52 +5966,64 @@ namespace PRoConEvents
                 WriteConsole(exceptionMessage);
             }
 
-            public void Chat(String msg) {
+            public void Chat(String msg)
+            {
                 msg = msg.Replace(Environment.NewLine, String.Empty);
                 WriteChat(msg);
             }
 
-            public String FBold(String msg) {
+            public String FBold(String msg)
+            {
                 return "^b" + msg + "^n";
             }
 
-            public String FItalic(String msg) {
+            public String FItalic(String msg)
+            {
                 return "^i" + msg + "^n";
             }
 
-            public String CMaroon(String msg) {
+            public String CMaroon(String msg)
+            {
                 return "^1" + msg + "^0";
             }
 
-            public String CGreen(String msg) {
+            public String CGreen(String msg)
+            {
                 return "^2" + msg + "^0";
             }
 
-            public String COrange(String msg) {
+            public String COrange(String msg)
+            {
                 return "^3" + msg + "^0";
             }
 
-            public String CBlue(String msg) {
+            public String CBlue(String msg)
+            {
                 return "^4" + msg + "^0";
             }
 
-            public String CBlueLight(String msg) {
+            public String CBlueLight(String msg)
+            {
                 return "^5" + msg + "^0";
             }
 
-            public String CViolet(String msg) {
+            public String CViolet(String msg)
+            {
                 return "^6" + msg + "^0";
             }
 
-            public String CPink(String msg) {
+            public String CPink(String msg)
+            {
                 return "^7" + msg + "^0";
             }
 
-            public String CRed(String msg) {
+            public String CRed(String msg)
+            {
                 return "^8" + msg + "^0";
             }
 
-            public String CGrey(String msg) {
+            public String CGrey(String msg)
+            {
                 return "^9" + msg + "^0";
             }
         }
