@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.7
+ * Version 2.0.7.8
  * 1-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.7.7</version_code>
+ * <version_code>2.0.7.8</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ namespace PRoConEvents
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface
     {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.7";
+        private const String PluginVersion = "2.0.7.8";
 
         public readonly Logger Log;
 
@@ -1980,11 +1980,10 @@ namespace PRoConEvents
                             //Action taken?
                             Boolean acted = false;
 
-                            HashSet<String> specificKeys = new HashSet<String>();
+                            List<String> specificKeys = new List<String>();
                             HashSet<String> specificMessages = new HashSet<String>();
-                            HashSet<String> spawnSpecificKeys = new HashSet<String>();
+                            List<String> spawnSpecificKeys = new List<String>();
                             HashSet<String> spawnSpecificMessages = new HashSet<String>();
-                            HashSet<String> vehicleSpecificKeys = new HashSet<String>();
                             HashSet<String> vehicleSpecificMessages = new HashSet<String>();
                             Boolean loadoutValid = true;
                             Boolean spawnLoadoutValid = true;
@@ -2001,9 +2000,8 @@ namespace PRoConEvents
                                         if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                         {
                                             loadoutValid = false;
-                                            if (!specificKeys.Contains(warsawDeniedIDMessage.Key)) {
-                                                specificKeys.Add(warsawDeniedIDMessage.Key);
-                                            }
+                                            specificKeys.Add(warsawDeniedIDMessage.Key);
+                                            Log.Info(loadout.Name + " invalid " + warsawDeniedIDMessage.Key);
                                             if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
                                             {
                                                 specificMessages.Add(warsawDeniedIDMessage.Value);
@@ -2016,9 +2014,8 @@ namespace PRoConEvents
                                         if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                         {
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificKeys.Contains(warsawDeniedID)) {
-                                                spawnSpecificKeys.Add(warsawDeniedID);
-                                            }
+                                            spawnSpecificKeys.Add(warsawDeniedID);
+                                            Log.Info(loadout.Name + " spawn invalid " + warsawDeniedID);
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
@@ -2032,9 +2029,8 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificKeys.Contains(searchDeniedID)) {
-                                                spawnSpecificKeys.Add(searchDeniedID);
-                                            }
+                                            spawnSpecificKeys.Add(searchDeniedID);
+                                            Log.Info(loadout.Name + " spawn invalid " + searchDeniedID);
                                             if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
@@ -2050,9 +2046,8 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificKeys.Contains(warsawDeniedID)) {
-                                                spawnSpecificKeys.Add(warsawDeniedID);
-                                            }
+                                            spawnSpecificKeys.Add(warsawDeniedID);
+                                            Log.Info(loadout.Name + " spawn invalid " + warsawDeniedID);
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
@@ -2066,9 +2061,8 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             spawnLoadoutValid = false;
-                                            if (!spawnSpecificKeys.Contains(searchDeniedID)) {
-                                                spawnSpecificKeys.Add(searchDeniedID);
-                                            }
+                                            spawnSpecificKeys.Add(searchDeniedID);
+                                            Log.Info(loadout.Name + " spawn invalid " + searchDeniedID);
                                             if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID]))
                                             {
                                                 spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
@@ -2085,9 +2079,7 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
-                                            if (!vehicleSpecificKeys.Contains(warsawDeniedIDMessage.Key)) {
-                                                vehicleSpecificKeys.Add(warsawDeniedIDMessage.Key);
-                                            }
+                                            Log.Info(loadout.Name + " vehicle invalid ");
                                             if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                             {
                                                 vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
@@ -2116,9 +2108,7 @@ namespace PRoConEvents
                                             {
                                                 loadoutValid = false;
                                                 vehicleLoadoutValid = false;
-                                                if (!vehicleSpecificKeys.Contains(warsawDeniedIDMessage.Key)) {
-                                                    vehicleSpecificKeys.Add(warsawDeniedIDMessage.Key);
-                                                }
+                                                Log.Info(loadout.Name + " vehicle invalid ");
                                                 if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
                                                 {
                                                     vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
@@ -2136,9 +2126,7 @@ namespace PRoConEvents
                                         {
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
-                                            if (!vehicleSpecificKeys.Contains(searchDeniedIDMessage.Key)) {
-                                                vehicleSpecificKeys.Add(searchDeniedIDMessage.Key);
-                                            }
+                                            Log.Info(loadout.Name + " vehicle invalid ");
                                             if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value))
                                             {
                                                 vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
@@ -2166,9 +2154,7 @@ namespace PRoConEvents
                                             {
                                                 loadoutValid = false;
                                                 vehicleLoadoutValid = false;
-                                                if (!vehicleSpecificKeys.Contains(searchDeniedIDMessage.Key)) {
-                                                    vehicleSpecificKeys.Add(searchDeniedIDMessage.Key);
-                                                }
+                                                Log.Info(loadout.Name + " vehicle invalid ");
                                                 if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value))
                                                 {
                                                     vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
@@ -2357,7 +2343,12 @@ namespace PRoConEvents
                                     {
                                         if (deniedWeapons.Length == 0) {
                                             // This should not happen, we should have weapon names here
-                                            Log.Error("Denied warsaw for " + loadout.Name + " are " + specificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                            if (specificKeys.Count == 0) {
+                                                Log.Error("No specific keys found, but we're still killing the player. Why?");
+                                            }
+                                            else {
+                                                Log.Error("Denied warsaw for " + loadout.Name + " are " + specificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                            }
                                         }
                                         //Manual trigger or no admins online, enforce all denied weapons
                                         adminMessage += "denied items [" + deniedWeapons + "]";
@@ -2374,7 +2365,11 @@ namespace PRoConEvents
                                     {
                                         if (spawnDeniedWeapons.Length == 0) {
                                             // This should not happen, we should have weapon names here
-                                            Log.Error("Denied warsaw for " + loadout.Name + " are " + spawnSpecificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                            if (spawnSpecificKeys.Count == 0) {
+                                                Log.Error("No specific keys found, but we're still killing the player. Why?");
+                                            } else {
+                                                Log.Error("Denied warsaw for " + loadout.Name + " are " + spawnSpecificKeys.Aggregate((a, b) => a + ", " + b).Trim().TrimEnd(',') + " but no messages found.");
+                                            }
                                         }
                                         //Loadout enforcement was not triggered, enforce spawn denied weapons only
                                         PlayerSayMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
