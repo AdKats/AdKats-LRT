@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.0
+ * Version 2.0.8.1
  * 12-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.0</version_code>
+ * <version_code>2.0.8.1</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.0";
+        private const String PluginVersion = "2.0.8.1";
 
         public readonly Logger Log;
 
@@ -873,19 +873,6 @@ namespace PRoConEvents {
                     }
                 } else {
                     return;
-                }
-
-                WarsawItem warsawItem = null;
-                List<String> matchingWarsaw;
-                if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
-                    foreach (String warsawID in matchingWarsaw) {
-                        if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem)) {
-                            break;
-                        }
-                    }
-                }
-                if (warsawItem == null) {
-                    Log.Warn("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
                 }
 
                 WarsawVehicle vehicle;
@@ -2281,14 +2268,16 @@ namespace PRoConEvents {
                                 .OrderByDescending(listing => listing.Count)
                                 .FirstOrDefault();
 
-                            var highestWeapon = loadoutPlayers
+                            var weaponCounts = loadoutPlayers
                                 .GroupBy(aPlayer => aPlayer.Loadout.KitItemPrimary.Slug)
                                 .Select(listing => new {
                                     weaponSlug = listing.Key,
                                     Count = listing.Count()
-                                })
-                                .OrderByDescending(listing => listing.Count)
-                                .FirstOrDefault();
+                                });
+                            var highestCount = weaponCounts.Max(listing => listing.Count);
+                            var highestWeapons = weaponCounts.Where(listing => listing.Count >= highestCount);
+                            var highestWeapon = highestWeapons.ElementAt(new Random(Environment.TickCount).Next(highestWeapons.Count()));
+
                             _lastCategoryListing = DateTime.UtcNow;
                             if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null) {
                                 String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory1.Count / (Double)loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory2.Count / (Double)loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
