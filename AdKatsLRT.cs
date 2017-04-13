@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.1
+ * Version 2.0.8.2
  * 12-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.1</version_code>
+ * <version_code>2.0.8.2</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.1";
+        private const String PluginVersion = "2.0.8.2";
 
         public readonly Logger Log;
 
@@ -1482,13 +1482,21 @@ namespace PRoConEvents {
                                 if (!trigger) {
                                     if (fetch &&
                                         (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
-                                        rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is reputable.";
-                                        fetch = false;
+                                        rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player is reputable.";
+                                        if (_displayWeaponPopularity) {
+                                            fetchOnly = true;
+                                        } else {
+                                            fetch = false;
+                                        }
                                     }
                                     if (fetch &&
                                         (aPlayer.IsAdmin && !_spawnEnforcementActOnAdmins)) {
-                                        rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player is admin.";
-                                        fetch = false;
+                                        rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player is admin.";
+                                        if (_displayWeaponPopularity) {
+                                            fetchOnly = true;
+                                        } else {
+                                            fetch = false;
+                                        }
                                     }
                                     //Special case for large servers to reduce request frequency
                                     if (fetch &&
@@ -1497,7 +1505,7 @@ namespace PRoConEvents {
                                         aPlayer.LoadoutValid &&
                                         aPlayer.SkippedChecks < 4) {
                                         aPlayer.SkippedChecks++;
-                                        rejectFetchReason = aPlayer.Name + " loadout fetch cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
+                                        rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player clean after " + aPlayer.LoadoutChecks + " checks. " + aPlayer.SkippedChecks + " current skips.";
                                         fetch = false;
                                     }
                                 }
@@ -1506,8 +1514,12 @@ namespace PRoConEvents {
                                     _Whitelist.Contains(aPlayer.GUID) ||
                                     _Whitelist.Contains(aPlayer.PBGUID) ||
                                     _Whitelist.Contains(aPlayer.IP))) {
-                                    rejectFetchReason = aPlayer.Name + " loadout fetches cancelled. Player on whitelist.";
-                                    fetch = false;
+                                    rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player on whitelist.";
+                                    if (_displayWeaponPopularity) {
+                                        fetchOnly = true;
+                                    } else {
+                                        fetch = false;
+                                    }
                                 }
                                 if (!fetch) {
                                     if (_enableAdKatsIntegration) {
