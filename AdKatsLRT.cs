@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.7.9
- * 2-APR-2017
+ * Version 2.0.8.0
+ * 12-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.7.9</version_code>
+ * <version_code>2.0.8.0</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.7.9";
+        private const String PluginVersion = "2.0.8.0";
 
         public readonly Logger Log;
 
@@ -86,6 +86,7 @@ namespace PRoConEvents {
         private Boolean _spawnEnforcementOnly;
         private Boolean _spawnEnforcementActOnAdmins;
         private Boolean _spawnEnforcementActOnReputablePlayers;
+        private Boolean _displayWeaponPopularity;
         private Boolean _useWeaponCatchingBackup = true;
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
@@ -199,6 +200,7 @@ namespace PRoConEvents {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Display Weapon Popularity Periodically", typeof(Boolean), _displayWeaponPopularity));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
                 if (_enableAdKatsIntegration && _UseBackupAutoadmin) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
@@ -335,6 +337,7 @@ namespace PRoConEvents {
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Admins", typeof(Boolean), _spawnEnforcementActOnAdmins));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforce Reputable Players", typeof(Boolean), _spawnEnforcementActOnReputablePlayers));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Display Weapon Popularity Periodically", typeof(Boolean), _displayWeaponPopularity));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
@@ -460,6 +463,8 @@ namespace PRoConEvents {
                     _spawnEnforcementActOnAdmins = Boolean.Parse(strValue);
                 } else if (Regex.Match(strVariable, @"Spawn Enforce Reputable Players").Success) {
                     _spawnEnforcementActOnReputablePlayers = Boolean.Parse(strValue);
+                } else if (Regex.Match(strVariable, @"Display Weapon Popularity Periodically").Success) {
+                    _displayWeaponPopularity = Boolean.Parse(strValue);
                 } else if (Regex.Match(strVariable, @"Spawn Enforce all Vehicles").Success) {
                     _spawnEnforceAllVehicles = Boolean.Parse(strValue);
                 } else if (Regex.Match(strVariable, @"Enforce on Specific Maps/Modes Only").Success) {
@@ -869,20 +874,20 @@ namespace PRoConEvents {
                 } else {
                     return;
                 }
-                if (_isTestingAuthorized) {
-                    WarsawItem warsawItem = null;
-                    List<String> matchingWarsaw;
-                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
-                        foreach (String warsawID in matchingWarsaw) {
-                            if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem)) {
-                                break;
-                            }
+
+                WarsawItem warsawItem = null;
+                List<String> matchingWarsaw;
+                if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
+                    foreach (String warsawID in matchingWarsaw) {
+                        if (_warsawLibrary.Items.TryGetValue(warsawID, out warsawItem)) {
+                            break;
                         }
                     }
-                    if (warsawItem == null) {
-                        Log.Warn("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
-                    }
                 }
+                if (warsawItem == null) {
+                    Log.Warn("Weapon Missing: " + killer.GetVerboseName() + " [" + kill.DamageType + "] " + victim.GetVerboseName());
+                }
+
                 WarsawVehicle vehicle;
                 //Check for vehicle restrictions
                 if (killer.Loadout != null &&
@@ -903,9 +908,9 @@ namespace PRoConEvents {
                            (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map))) {
                     String rejectionMessage = null;
 
-                    List<String> matchingWarsaw;
-                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingWarsaw)) {
-                        foreach (String warsawID in matchingWarsaw) {
+                    List<String> matchingKillWarsaw;
+                    if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingKillWarsaw)) {
+                        foreach (String warsawID in matchingKillWarsaw) {
                             if (_searchInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
                                 rejectionMessage = _searchInvalidLoadoutIDMessages[warsawID];
                                 break;
@@ -2252,7 +2257,7 @@ namespace PRoConEvents {
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_isTestingAuthorized && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4) {
+                    if (_displayWeaponPopularity && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4) {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
                         if (loadoutPlayers.Any()) {
                             var loadoutPlayers1 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 1);
