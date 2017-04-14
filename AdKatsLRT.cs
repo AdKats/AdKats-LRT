@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.2
- * 12-APR-2017
+ * Version 2.0.8.3
+ * 13-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.2</version_code>
+ * <version_code>2.0.8.3</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.2";
+        private const String PluginVersion = "2.0.8.3";
 
         public readonly Logger Log;
 
@@ -1442,6 +1442,7 @@ namespace PRoConEvents {
 
                             //Parse the reason for enforcement
                             Boolean fetchOnly = false;
+                            Boolean fetchOnlyNotify = true;
                             Boolean trigger = false;
                             Boolean killOverride = false;
                             String reason = "";
@@ -1485,6 +1486,7 @@ namespace PRoConEvents {
                                         rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player is reputable.";
                                         if (_displayWeaponPopularity) {
                                             fetchOnly = true;
+                                            fetchOnlyNotify = false;
                                         } else {
                                             fetch = false;
                                         }
@@ -1494,6 +1496,7 @@ namespace PRoConEvents {
                                         rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player is admin.";
                                         if (_displayWeaponPopularity) {
                                             fetchOnly = true;
+                                            fetchOnlyNotify = false;
                                         } else {
                                             fetch = false;
                                         }
@@ -1517,6 +1520,7 @@ namespace PRoConEvents {
                                     rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player on whitelist.";
                                     if (_displayWeaponPopularity) {
                                         fetchOnly = true;
+                                        fetchOnlyNotify = false;
                                     } else {
                                         fetch = false;
                                     }
@@ -1566,7 +1570,7 @@ namespace PRoConEvents {
                             String loadoutShortMessage = "Primary [" + loadout.KitItemPrimary.Slug + "] sidearm [" + loadout.KitItemSidearm.Slug + "] gadgets " + gadgetMessage + " grenade " + grenadeMessage + " and knife " + knifeMessage;
                             Log.Debug(loadoutLongMessage, 4);
 
-                            if (fetchOnly) {
+                            if (fetchOnly && fetchOnlyNotify) {
                                 //Inform AdKats of the loadout
                                 StartAndLogThread(new Thread(new ThreadStart(delegate {
                                     Thread.CurrentThread.Name = "AdKatsInform";
