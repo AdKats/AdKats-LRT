@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.3
- * 13-APR-2017
+ * Version 2.0.8.4
+ * 14-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.3</version_code>
+ * <version_code>2.0.8.4</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.3";
+        private const String PluginVersion = "2.0.8.4";
 
         public readonly Logger Log;
 
@@ -87,6 +87,7 @@ namespace PRoConEvents {
         private Boolean _spawnEnforcementActOnAdmins;
         private Boolean _spawnEnforcementActOnReputablePlayers;
         private Boolean _displayWeaponPopularity;
+        private Int32 _weaponPopularityDisplayMinutes = 6;
         private Boolean _useWeaponCatchingBackup = true;
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
@@ -201,6 +202,9 @@ namespace PRoConEvents {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Display Weapon Popularity Periodically", typeof(Boolean), _displayWeaponPopularity));
+                if (_displayWeaponPopularity) {
+                    lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Weapon Popularity Display Frequency Minutes", typeof(Int32), _weaponPopularityDisplayMinutes));
+                }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
                 if (_enableAdKatsIntegration && _UseBackupAutoadmin) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
@@ -340,6 +344,7 @@ namespace PRoConEvents {
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Display Weapon Popularity Periodically", typeof(Boolean), _displayWeaponPopularity));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Weapon Popularity Display Frequency Minutes", typeof(Int32), _weaponPopularityDisplayMinutes));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
@@ -477,6 +482,15 @@ namespace PRoConEvents {
                             triggerEnforcementMinimumInfractionPoints = 1;
                         }
                         _triggerEnforcementMinimumInfractionPoints = triggerEnforcementMinimumInfractionPoints;
+                    }
+                } else if (Regex.Match(strVariable, @"Weapon Popularity Display Frequency Minutes").Success) {
+                    Int32 weaponPopularityDisplayMinutes;
+                    if (int.TryParse(strValue, out weaponPopularityDisplayMinutes)) {
+                        if (weaponPopularityDisplayMinutes < 2) {
+                            Log.Error("Frequency cannot be less than every 2 minutes.");
+                            weaponPopularityDisplayMinutes = 2;
+                        }
+                        _weaponPopularityDisplayMinutes = weaponPopularityDisplayMinutes;
                     }
                 } else if (Regex.Match(strVariable, @"Action Whitelist").Success) {
                     _Whitelist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
@@ -2260,7 +2274,7 @@ namespace PRoConEvents {
                             Log.Error("Unable to find " + playerName + " in online players when requesting removal.");
                         }
                     }
-                    if (_displayWeaponPopularity && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > 4) {
+                    if (_displayWeaponPopularity && (DateTime.UtcNow - _lastCategoryListing).TotalMinutes > _weaponPopularityDisplayMinutes) {
                         var loadoutPlayers = _playerDictionary.Values.Where(aPlayer => aPlayer.Loadout != null);
                         if (loadoutPlayers.Any()) {
                             var loadoutPlayers1 = loadoutPlayers.Where(aPlayer => aPlayer.Team == 1);
