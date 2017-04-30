@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.4
- * 14-APR-2017
+ * Version 2.0.8.5
+ * 30-APR-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.4</version_code>
+ * <version_code>2.0.8.5</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.4";
+        private const String PluginVersion = "2.0.8.5";
 
         public readonly Logger Log;
 
@@ -2310,7 +2310,7 @@ namespace PRoConEvents {
 
                             _lastCategoryListing = DateTime.UtcNow;
                             if (highestWeapon != null && highestCategory1 != null && highestCategory2 != null) {
-                                String message = "US: " + highestCategory1.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory1.Count / (Double)loadoutPlayers1.Count() * 100.0) + "%) / RU: " + highestCategory2.weaponCategory.ToLower() + " (" + Math.Round((Double)highestCategory2.Count / (Double)loadoutPlayers2.Count() * 100.0) + "%) / Top Weapon: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players.";
+                                String message = "US " + highestCategory1.weaponCategory.ToLower() + " " + Math.Round((Double)highestCategory1.Count / (Double)loadoutPlayers1.Count() * 100.0) + "% / RU " + highestCategory2.weaponCategory.ToLower() + " " + Math.Round((Double)highestCategory2.Count / (Double)loadoutPlayers2.Count() * 100.0) + "% / Top Weap: " + highestWeapon.weaponSlug + ", " + highestWeapon.Count + " players";
                                 AdminSayMessage(message);
                                 Log.Info(message);
                             }
