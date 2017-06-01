@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.5
- * 30-APR-2017
+ * Version 2.0.8.6
+ * 1-JUN-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.5</version_code>
+ * <version_code>2.0.8.6</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.5";
+        private const String PluginVersion = "2.0.8.6";
 
         public readonly Logger Log;
 
@@ -73,7 +73,6 @@ namespace PRoConEvents {
         private readonly Dictionary<String, String> _warsawInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private readonly Dictionary<String, String> _warsawInvalidVehicleLoadoutIDMessages = new Dictionary<String, String>();
         private readonly HashSet<String> _warsawSpawnDeniedIDs = new HashSet<String>();
-        private Dictionary<String, String> _searchInvalidLoadoutIDMessages = new Dictionary<String, String>();
         private Int32 _countKilled;
         private Int32 _countFixed;
         private Int32 _countQuit;
@@ -92,7 +91,7 @@ namespace PRoConEvents {
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
         private String[] _Whitelist = { };
-        private String[] _ItemSearchBlacklist = { };
+        private String[] _ItemFilter = { };
 
         //Display
         private Boolean _displayMapsModes;
@@ -209,8 +208,7 @@ namespace PRoConEvents {
                 if (_enableAdKatsIntegration && _UseBackupAutoadmin) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
                 }
-                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
-                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Item Search Results (Display)", typeof(String[]), _searchInvalidLoadoutIDMessages.Select(item => item.Key + ": " + item.Value).ToArray()));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
                 if (!_warsawLibraryLoaded) {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
                     return lstReturn;
@@ -232,11 +230,10 @@ namespace PRoConEvents {
                 //Run removals
                 _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID) && !_warsawInvalidVehicleLoadoutIDMessages.ContainsKey(spawnID));
 
-                if (_displayWeapons) {
+                if (_displayWeapons || _ItemFilter.Any()) {
                     if (_warsawLibrary.Items.Any()) {
                         foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable != "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug)) {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID)) {
-                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
+                            if (_ItemFilter.Any() && !_ItemFilter.Any(item => weapon.Slug.ToLower().Contains(item.ToLower()))) {
                                 continue;
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly) {
@@ -250,11 +247,10 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayWeaponAccessories) {
+                if (_displayWeaponAccessories || _ItemFilter.Any()) {
                     if (_warsawLibrary.ItemAccessories.Any()) {
                         foreach (WarsawItemAccessory weaponAccessory in _warsawLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.Slug).ThenBy(weaponAccessory => weaponAccessory.CategoryReadable)) {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)) {
-                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|" + weaponAccessory.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
+                            if (_ItemFilter.Any() && !_ItemFilter.Any(item => weaponAccessory.Slug.ToLower().Contains(item.ToLower()))) {
                                 continue;
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly) {
@@ -268,14 +264,13 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayGadgets) {
+                if (_displayGadgets || _ItemFilter.Any()) {
                     if (_warsawLibrary.Items.Any()) {
                         foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable == "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug)) {
                             if (String.IsNullOrEmpty(weapon.CategoryTypeReadable)) {
                                 Log.Error(weapon.WarsawID + " did not have a category type.");
                             }
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID)) {
-                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|" + weapon.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH"));
+                            if (_ItemFilter.Any() && !_ItemFilter.Any(item => weapon.Slug.ToLower().Contains(item.ToLower()))) {
                                 continue;
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly) {
@@ -289,19 +284,19 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayVehicles) {
+                if (_displayVehicles || _ItemFilter.Any()) {
                     lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
                     if (_warsawLibrary.Vehicles.Any()) {
                         foreach (var vehicle in _warsawLibrary.Vehicles.Values.OrderBy(vec => vec.CategoryType)) {
                             String currentPrefix = SettingsVehiclePrefix + " - " + vehicle.CategoryType + "|";
-                            lstReturn.AddRange(vehicle.AllowedPrimaries.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedSecondaries.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedCountermeasures.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedOptics.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedUpgrades.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedSecondariesGunner.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedOpticsGunner.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
-                            lstReturn.AddRange(vehicle.AllowedUpgradesGunner.Values.Select(unlock => _searchInvalidLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? new CPluginVariable(currentPrefix + unlock.Slug + separator + "SPAWN DENIED BY SEARCH", typeof(String), "SPAWN DENIED BY SEARCH") : new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedPrimaries.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedSecondaries.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedCountermeasures.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedOptics.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedUpgrades.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedSecondariesGunner.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedOpticsGunner.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
+                            lstReturn.AddRange(vehicle.AllowedUpgradesGunner.Values.Where(unlock => !_ItemFilter.Any() || _ItemFilter.Any(item => unlock.Slug.ToLower().Contains(item.ToLower()))).Select(unlock => new CPluginVariable(currentPrefix + "ALWK" + unlock.WarsawID + separator + unlock.Slug + separator + "Allow on " + ((_spawnEnforceAllVehicles) ? ("spawn") : ("kill")) + "?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidVehicleLoadoutIDMessages.ContainsKey(unlock.WarsawID) ? ("Deny") : ("Allow"))));
                         }
                     }
                 }
@@ -345,7 +340,7 @@ namespace PRoConEvents {
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Action Whitelist", typeof(String[]), _Whitelist));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Weapon Popularity Display Frequency Minutes", typeof(Int32), _weaponPopularityDisplayMinutes));
-            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Search Blacklist", typeof(String[]), _ItemSearchBlacklist));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
@@ -369,13 +364,6 @@ namespace PRoConEvents {
             try {
                 if (strVariable == "UpdateSettings") {
                     //Settings page will be updated after return.
-
-                    //Update the search results
-                    _searchInvalidLoadoutIDMessages =
-                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
-                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
-                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
-                        .ToDictionary(item => item.Key, item => item.Value);
                 } else if (Regex.Match(strVariable, @"Debug level").Success) {
                     Int32 tmp;
                     if (int.TryParse(strValue, out tmp)) {
@@ -494,13 +482,8 @@ namespace PRoConEvents {
                     }
                 } else if (Regex.Match(strVariable, @"Action Whitelist").Success) {
                     _Whitelist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
-                } else if (Regex.Match(strVariable, @"Global Item Search Blacklist").Success) {
-                    _ItemSearchBlacklist = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
-                    _searchInvalidLoadoutIDMessages =
-                        _warsawLibrary.ItemAccessories.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.").Union(
-                        _warsawLibrary.Items.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your loadout.")).Union(
-                        _warsawLibrary.VehicleUnlocks.Values.Where(acc => _ItemSearchBlacklist.Select(item => item.ToUpper()).Any(acc.Slug.ToUpper().Contains)).ToDictionary(acc => acc.WarsawID, acc => "Please remove " + acc.Slug + " from your " + acc.AssignedVehicle.CategoryType + "."))
-                        .ToDictionary(item => item.Key, item => item.Value);
+                } else if (Regex.Match(strVariable, @"Global Item Search Blacklist").Success || Regex.Match(strVariable, @"Global Item Filter").Success) {
+                    _ItemFilter = CPluginVariable.DecodeStringArray(strValue).Where(entry => !String.IsNullOrEmpty(entry)).ToArray();
                 } else if (strVariable.StartsWith("ALWT")) {
                     //Trim off all but the warsaw ID
                     //ALWT3495820391
@@ -912,10 +895,6 @@ namespace PRoConEvents {
                     List<String> matchingKillWarsaw;
                     if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingKillWarsaw)) {
                         foreach (String warsawID in matchingKillWarsaw) {
-                            if (_searchInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
-                                rejectionMessage = _searchInvalidLoadoutIDMessages[warsawID];
-                                break;
-                            }
                             if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID)) {
                                 rejectionMessage = _warsawInvalidLoadoutIDMessages[warsawID];
                                 break;
@@ -1638,16 +1617,6 @@ namespace PRoConEvents {
                                             }
                                         }
                                     }
-
-                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
-                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
-                                            loadoutValid = false;
-                                            spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
-                                                spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
-                                            }
-                                        }
-                                    }
                                 } else {
                                     foreach (var warsawDeniedID in _warsawSpawnDeniedIDs) {
                                         if (loadout.AllKitItemIDs.Contains(warsawDeniedID)) {
@@ -1655,16 +1624,6 @@ namespace PRoConEvents {
                                             spawnLoadoutValid = false;
                                             if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID])) {
                                                 spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
-                                            }
-                                        }
-                                    }
-
-                                    foreach (var searchDeniedID in _searchInvalidLoadoutIDMessages.Keys) {
-                                        if (loadout.AllKitItemIDs.Contains(searchDeniedID)) {
-                                            loadoutValid = false;
-                                            spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_searchInvalidLoadoutIDMessages[searchDeniedID])) {
-                                                spawnSpecificMessages.Add(_searchInvalidLoadoutIDMessages[searchDeniedID]);
                                             }
                                         }
                                     }
@@ -1699,40 +1658,6 @@ namespace PRoConEvents {
                                                 vehicleLoadoutValid = false;
                                                 if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value)) {
                                                     vehicleSpecificMessages.Add(warsawDeniedIDMessage.Value);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                foreach (var searchDeniedIDMessage in _searchInvalidLoadoutIDMessages) {
-                                    if (_spawnEnforceAllVehicles) {
-                                        if (loadout.VehicleItems.ContainsKey(searchDeniedIDMessage.Key)) {
-                                            loadoutValid = false;
-                                            vehicleLoadoutValid = false;
-                                            if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
-                                                vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
-                                            }
-                                        }
-                                    } else {
-                                        foreach (String category in aPlayer.WatchedVehicles) {
-                                            WarsawVehicle vehicle;
-                                            if (!loadout.LoadoutVehicles.TryGetValue(category, out vehicle)) {
-                                                Log.Error("Could not fetch used vehicle " + category + " from player loadout, skipping.");
-                                                continue;
-                                            }
-                                            if ((vehicle.AssignedPrimary != null && vehicle.AssignedPrimary.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedSecondary != null && vehicle.AssignedSecondary.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedOptic != null && vehicle.AssignedOptic.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedCountermeasure != null && vehicle.AssignedCountermeasure.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedUpgrade != null && vehicle.AssignedUpgrade.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedSecondaryGunner != null && vehicle.AssignedSecondaryGunner.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == searchDeniedIDMessage.Key) ||
-                                                (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == searchDeniedIDMessage.Key)) {
-                                                loadoutValid = false;
-                                                vehicleLoadoutValid = false;
-                                                if (!vehicleSpecificMessages.Contains(searchDeniedIDMessage.Value)) {
-                                                    vehicleSpecificMessages.Add(searchDeniedIDMessage.Value);
                                                 }
                                             }
                                         }
@@ -1826,27 +1751,6 @@ namespace PRoConEvents {
                                     spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
                                 }
                                 if (_warsawSpawnDeniedIDs.Contains(loadout.KitKnife.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
-                                }
-                                //Fill the search spawn denied messages
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemPrimary.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
-                                }
-                                spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitItemSidearm.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
-                                }
-                                spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _searchInvalidLoadoutIDMessages.Keys.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget1.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
-                                }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGadget2.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
-                                }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitGrenade.WarsawID)) {
-                                    spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
-                                }
-                                if (_searchInvalidLoadoutIDMessages.Keys.Contains(loadout.KitKnife.WarsawID)) {
                                     spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
                                 }
                                 //Trim the messages
