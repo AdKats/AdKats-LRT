@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.6
+ * Version 2.0.8.7
  * 1-JUN-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.6</version_code>
+ * <version_code>2.0.8.7</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.6";
+        private const String PluginVersion = "2.0.8.7";
 
         public readonly Logger Log;
 
@@ -230,7 +230,7 @@ namespace PRoConEvents {
                 //Run removals
                 _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID) && !_warsawInvalidVehicleLoadoutIDMessages.ContainsKey(spawnID));
 
-                if (_displayWeapons || _ItemFilter.Any()) {
+                if (_displayWeapons) {
                     if (_warsawLibrary.Items.Any()) {
                         foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable != "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug)) {
                             if (_ItemFilter.Any() && !_ItemFilter.Any(item => weapon.Slug.ToLower().Contains(item.ToLower()))) {
@@ -247,7 +247,7 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayWeaponAccessories || _ItemFilter.Any()) {
+                if (_displayWeaponAccessories) {
                     if (_warsawLibrary.ItemAccessories.Any()) {
                         foreach (WarsawItemAccessory weaponAccessory in _warsawLibrary.ItemAccessories.Values.OrderBy(weaponAccessory => weaponAccessory.Slug).ThenBy(weaponAccessory => weaponAccessory.CategoryReadable)) {
                             if (_ItemFilter.Any() && !_ItemFilter.Any(item => weaponAccessory.Slug.ToLower().Contains(item.ToLower()))) {
@@ -264,7 +264,7 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayGadgets || _ItemFilter.Any()) {
+                if (_displayGadgets) {
                     if (_warsawLibrary.Items.Any()) {
                         foreach (WarsawItem weapon in _warsawLibrary.Items.Values.Where(weapon => weapon.CategoryReadable == "GADGET").OrderBy(weapon => weapon.CategoryReadable).ThenBy(weapon => weapon.Slug)) {
                             if (String.IsNullOrEmpty(weapon.CategoryTypeReadable)) {
@@ -284,7 +284,7 @@ namespace PRoConEvents {
                         }
                     }
                 }
-                if (_displayVehicles || _ItemFilter.Any()) {
+                if (_displayVehicles) {
                     lstReturn.Add(new CPluginVariable(SettingsVehiclePrefix + separator.Trim() + "Spawn Enforce all Vehicles", typeof(Boolean), _spawnEnforceAllVehicles));
                     if (_warsawLibrary.Vehicles.Any()) {
                         foreach (var vehicle in _warsawLibrary.Vehicles.Values.OrderBy(vec => vec.CategoryType)) {
