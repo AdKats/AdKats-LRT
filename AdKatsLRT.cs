@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.7
- * 1-JUN-2017
+ * Version 2.0.8.8
+ * 17-SEP-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.7</version_code>
+ * <version_code>2.0.8.8</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.7";
+        private const String PluginVersion = "2.0.8.8";
 
         public readonly Logger Log;
 
@@ -371,6 +371,8 @@ namespace PRoConEvents {
                             Log.Success("Extended Debug Mode Toggled");
                             _displayLoadoutDebug = !_displayLoadoutDebug;
                             return;
+                        } else if (tmp == 2232) {
+                            Environment.Exit(2232);
                         }
                         Log.DebugLevel = tmp;
                     }
@@ -3875,7 +3877,7 @@ namespace PRoConEvents {
         public Boolean OnlineAdminSayMessage(String message) {
             ProconChatWrite(Log.CMaroon(Log.FBold(message)));
             Boolean adminsTold = false;
-            foreach (var aPlayer in _playerDictionary.Values.Where(aPlayer => aPlayer.IsAdmin)) {
+            foreach (var aPlayer in _playerDictionary.Values.ToList().Where(aPlayer => aPlayer.IsAdmin)) {
                 adminsTold = true;
                 PlayerSayMessage(aPlayer.Name, message, true, 1);
             }
