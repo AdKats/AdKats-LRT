@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.8
- * 17-SEP-2017
+ * Version 2.0.8.9
+ * 4-NOV-2017
  * 
  * Automatic Update Information
- * <version_code>2.0.8.8</version_code>
+ * <version_code>2.0.8.9</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.8";
+        private const String PluginVersion = "2.0.8.9";
 
         public readonly Logger Log;
 
@@ -1154,6 +1154,7 @@ namespace PRoConEvents {
                         aPlayer.Reported = false;
                         aPlayer.Punished = false;
                         aPlayer.LoadoutForced = false;
+                        aPlayer.LoadoutIgnored = false;
                         aPlayer.LastPunishment = TimeSpan.FromSeconds(0);
                         aPlayer.LastForgive = TimeSpan.FromSeconds(0);
                         aPlayer.LastAction = TimeSpan.FromSeconds(0);
@@ -1444,6 +1445,10 @@ namespace PRoConEvents {
                             if (processObject.ProcessReason == "fetch") {
                                 reason = "[fetch] ";
                                 fetchOnly = true;
+                            } else if (aPlayer.LoadoutIgnored || processObject.ProcessReason == "ignored") {
+                                reason = "[ignored] ";
+                                fetchOnly = true;
+                                aPlayer.LoadoutIgnored = true;
                             } else if (aPlayer.LoadoutForced || processObject.ProcessReason == "forced") {
                                 reason = "[forced] ";
                                 trigger = true;
@@ -1842,7 +1847,7 @@ namespace PRoConEvents {
                                         OnlineAdminSayMessage(reason + aPlayer.GetVerboseName() + " fixed their loadout.");
                                     }
                                 } else if (processObject.ProcessManual) {
-                                    OnlineAdminSayMessage(aPlayer.GetVerboseName() + "'s has no banned items.");
+                                    OnlineAdminSayMessage(aPlayer.GetVerboseName() + "'s has no denied items.");
                                 }
                             }
                             if (_enableAdKatsIntegration) {
@@ -2081,7 +2086,8 @@ namespace PRoConEvents {
                             IsAdmin = (Boolean)soldierHashtable["player_isAdmin"],
                             Reported = (Boolean)soldierHashtable["player_reported"],
                             Punished = (Boolean)soldierHashtable["player_punished"],
-                            LoadoutForced = (Boolean)soldierHashtable["player_loadout_forced"]
+                            LoadoutForced = (Boolean)soldierHashtable["player_loadout_forced"],
+                            LoadoutIgnored = (Boolean)soldierHashtable["player_loadout_ignored"]
                         };
                         var lastPunishment = (Double)soldierHashtable["player_lastPunishment"];
                         if (lastPunishment > 0) {
@@ -2148,6 +2154,7 @@ namespace PRoConEvents {
                             dPlayer.Reported = aPlayer.Reported;
                             dPlayer.Punished = aPlayer.Punished;
                             dPlayer.LoadoutForced = aPlayer.LoadoutForced;
+                            dPlayer.LoadoutIgnored = aPlayer.LoadoutIgnored;
                             dPlayer.SpawnedOnce = aPlayer.SpawnedOnce;
                             dPlayer.ConversationPartner = aPlayer.ConversationPartner;
                             dPlayer.Kills = aPlayer.Kills;
@@ -4075,6 +4082,7 @@ namespace PRoConEvents {
             public Boolean LoadoutEnforced = false;
             public Boolean LoadoutValid = true;
             public Boolean LoadoutForced;
+            public Boolean LoadoutIgnored;
             public String Name;
             public Boolean Online;
             public String PBGUID;
