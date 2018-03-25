@@ -10,11 +10,11 @@
  * Development by Daniel J. Gradinjan (ColColonCleaner)
  * 
  * AdKatsLRT.cs
- * Version 2.0.8.9
- * 4-NOV-2017
+ * Version 2.0.9.0
+ * 25-MAR-2018
  * 
  * Automatic Update Information
- * <version_code>2.0.8.9</version_code>
+ * <version_code>2.0.9.0</version_code>
  */
 
 using System;
@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.8.9";
+        private const String PluginVersion = "2.0.9.0";
 
         public readonly Logger Log;
 
@@ -833,9 +833,6 @@ namespace PRoConEvents {
                             if (!wasADK && _isTestingAuthorized) {
                                 Log.Info("LRT is testing authorized.");
                             }
-                            if (haveServerName && !hadServerName) {
-                                PostVersionTracking();
-                            }
                         } else {
                             Log.Error("Server info was null");
                         }
@@ -859,7 +856,7 @@ namespace PRoConEvents {
                 AdKatsSubscribedPlayer victim;
                 if (kill.Killer != null && !String.IsNullOrEmpty(kill.Killer.SoldierName)) {
                     if (!_playerDictionary.TryGetValue(kill.Killer.SoldierName, out killer)) {
-                        Log.Error("Unable to fetch killer on kill.");
+                        Log.Error("Unable to fetch killer " + kill.Killer.SoldierName + " on kill.");
                         return;
                     }
                 } else {
@@ -867,7 +864,7 @@ namespace PRoConEvents {
                 }
                 if (kill.Victim != null && !String.IsNullOrEmpty(kill.Victim.SoldierName)) {
                     if (!_playerDictionary.TryGetValue(kill.Victim.SoldierName, out victim)) {
-                        Log.Error("Unable to fetch victim on kill.");
+                        Log.Error("Unable to fetch victim " + kill.Victim.SoldierName + " on kill.");
                         return;
                     }
                 } else {
@@ -1011,12 +1008,6 @@ namespace PRoConEvents {
                                     {"response_method", "ReceiveAdminList"},
                                     {"user_subset", "admin"}
                                 }));
-                            }
-
-                            //Post usage stats at interval
-                            if ((DateTime.UtcNow - _lastVersionTrackingUpdate).TotalMinutes > 20 &&
-                                (_threadsReady || (DateTime.UtcNow - _proconStartTime).TotalSeconds > 60)) {
-                                PostVersionTracking();
                             }
 
                             //Sleep 1 second between loops
@@ -1482,7 +1473,7 @@ namespace PRoConEvents {
                                 String rejectFetchReason = "Loadout fetches cancelled. No reason given.";
                                 if (!trigger) {
                                     if (fetch &&
-                                        (aPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                        (aPlayer.Reputation >= 50 && !_spawnEnforcementActOnReputablePlayers)) {
                                         rejectFetchReason = aPlayer.Name + " loadout actions cancelled. Player is reputable.";
                                         if (_displayWeaponPopularity) {
                                             fetchOnly = true;
@@ -1674,7 +1665,7 @@ namespace PRoConEvents {
 
                             Boolean act = true;
                             if (!trigger && !spawnLoadoutValid) {
-                                if (act && (processObject.ProcessPlayer.Reputation >= 15 && !_spawnEnforcementActOnReputablePlayers)) {
+                                if (act && (processObject.ProcessPlayer.Reputation >= 50 && !_spawnEnforcementActOnReputablePlayers)) {
                                     Log.Debug(processObject.ProcessPlayer.Name + " spawn loadout enforcement cancelled. Player is reputable.", 4);
                                     act = false;
                                 }
@@ -3966,33 +3957,6 @@ namespace PRoConEvents {
 
         public TimeSpan NowDuration(DateTime diff) {
             return (DateTime.UtcNow - diff).Duration();
-        }
-
-        private void PostVersionTracking() {
-            if (String.IsNullOrEmpty(_serverInfo.ServerIP)) {
-                return;
-            }
-            try {
-                using (var client = new WebClient()) {
-                    String serverIP = _serverInfo.ServerIP;
-                    String serverName = _serverInfo.ServerName;
-                    String adkatslrtEnabled = _pluginEnabled.ToString().ToLower();
-                    String adkatslrtUptime = (_threadsReady) ? (Math.Round((DateTime.UtcNow - _startTime).TotalSeconds).ToString(CultureInfo.InvariantCulture)) : ("0");
-                    String updatesDisabled = false.ToString().ToLower();
-                    var data = new NameValueCollection {
-                        {"server_ip", serverIP},
-                        {"server_name", serverName},
-                        {"adkatslrt_version_current", PluginVersion},
-                        {"adkatslrt_enabled", adkatslrtEnabled},
-                        {"adkatslrt_uptime", adkatslrtUptime},
-                        {"updates_disabled", updatesDisabled}
-                    };
-                    client.UploadValues("http://api.gamerethos.net/adkats/lrt/usage", data);
-                }
-            } catch (Exception) {
-                //Ignore errors
-            }
-            _lastVersionTrackingUpdate = DateTime.UtcNow;
         }
 
         public class AdKatsServer {
