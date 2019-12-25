@@ -1,6 +1,6 @@
-[//]: # "<latest_stable_release>2.0.8.9</latest_stable_release>"
+[//]: # "<latest_stable_release>2.0.9.0</latest_stable_release>"
 <p>
-    <a href="https://forum.myrcon.com/showthread.php?9180" name=thread>
+    <a href="https://myrcon.net/files/file/32-on-spawn-loadout-enforcer-for-infantryvehicles-adkatslrt/" name=thread>
         <img src="https://raw.githubusercontent.com/AdKats/AdKats/master/images/AdKats_Docs_Loadout.jpg" alt="AdKatsLRT - On-Spawn Loadout Enforcer">
     </a>
 </p>
@@ -90,7 +90,7 @@
     </li>
     <li>
         <b>Download and install AdKatsLRT.</b>
-        Download the plugin from here: https://github.com/AdKats/AdKats-LRT/archive/master.zip. 
+        Download the plugin from here: https://myrcon.net/files/file/32-on-spawn-loadout-enforcer-for-infantryvehicles-adkatslrt/ 
         The plugin is installed like any other procon plugin.
     </li>
     <li>
