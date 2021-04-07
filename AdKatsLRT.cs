@@ -34,7 +34,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.9.0";
+        private const String PluginVersion = "2.0.9.1";
 
         public readonly Logger Log;
 
@@ -81,6 +81,8 @@ namespace PRoConEvents {
 
         //Settings
         private Boolean _highRequestVolume;
+        private Boolean _useProxy = false;
+        private String _proxyURL = "";
         private Boolean _enableAdKatsIntegration;
         private Boolean _spawnEnforcementOnly;
         private Boolean _spawnEnforcementActOnAdmins;
@@ -192,6 +194,10 @@ namespace PRoConEvents {
                 const string separator = " | ";
 
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
+                if (_useProxy) {
+                   lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL)); 
+                }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
                 if (_enableAdKatsIntegration) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
@@ -330,6 +336,8 @@ namespace PRoConEvents {
             const string separator = " | ";
 
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
@@ -380,6 +388,23 @@ namespace PRoConEvents {
                     Boolean highRequestVolume = Boolean.Parse(strValue);
                     if (highRequestVolume != _highRequestVolume) {
                         _highRequestVolume = highRequestVolume;
+                    }
+                } else if (Regex.Match(strVariable, @"Use Proxy for Battlelog").Success) {
+                    Boolean useProxy = Boolean.Parse(strValue);
+                    if (useProxy != _useProxy) {
+                        _useProxy = useProxy;
+                    } 
+                } else if (Regex.Match(strVariable, @"Proxy URL").Success) {
+                    try {
+                        Uri uri = new Uri(strValue);
+                        Log.Debug("Proxy URL set to " + strValue + ".", 1);
+                    }
+                    catch (UriFormatException) {
+                        strValue = _proxyURL;
+                        Log.Warn("Invalid Proxy URL! Make sure that the URI is valid!");
+                    }
+                    if (!_proxyURL.Equals(strValue)) {
+                        _proxyURL = strValue;
                     }
                 } else if (Regex.Match(strVariable, @"Integrate with AdKats").Success) {
                     Boolean enableAdKatsIntegration = Boolean.Parse(strValue);
@@ -1991,6 +2016,9 @@ namespace PRoConEvents {
                     return;
                 }
                 using (var client = new WebClient()) {
+                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) {
+                        client.Proxy = new WebProxy(_proxyURL, true); 
+                    }
                     try {
                         DoBattlelogWait();
                         String personaResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
@@ -3726,7 +3754,10 @@ namespace PRoConEvents {
         private Hashtable FetchPlayerLoadout(String personaID) {
             Hashtable loadout = null;
             try {
-                using (var client = new WebClient()) {
+                using (var client = new WebClient()) { 
+                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) { 
+                        client.Proxy = new WebProxy(_proxyURL, true); 
+                    }
                     try {
                         DoBattlelogWait();
                         String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
