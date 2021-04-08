@@ -2015,7 +2015,7 @@ namespace PRoConEvents {
                     Log.Error("Attempted to get battlelog information of nameless player.");
                     return;
                 }
-                using (var client = new WebClient()) {
+                using (var client = new GZipWebClient()) {
                     if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) {
                         client.Proxy = new WebProxy(_proxyURL, true); 
                     }
@@ -3182,7 +3182,7 @@ namespace PRoConEvents {
         private Hashtable FetchWarsawLibrary() {
             Hashtable library = null;
             try {
-                using (var client = new WebClient()) {
+                using (var client = new GZipWebClient()) {
                     String response;
                     try {
                         response = client.DownloadString("https://raw.githubusercontent.com/AdKats/AdKats/master/lib/WarsawCodeBook.json");
@@ -3754,7 +3754,7 @@ namespace PRoConEvents {
         private Hashtable FetchPlayerLoadout(String personaID) {
             Hashtable loadout = null;
             try {
-                using (var client = new WebClient()) { 
+                using (var client = new GZipWebClient()) { 
                     if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) { 
                         client.Proxy = new WebProxy(_proxyURL, true); 
                     }
@@ -4928,6 +4928,24 @@ namespace PRoConEvents {
             public String CGrey(String msg) {
                 return "^9" + msg + "^0";
             }
+        }
+    }
+    
+    public class GZipWebClient : WebClient
+    {
+        private String ua;
+    
+        public GZipWebClient(String ua = "Mozilla/5.0 (compatible; PRoCon 1; AdKatsLRT)")
+        {
+            this.ua = ua;
+        }
+        
+        protected override WebRequest GetWebRequest(Uri address)
+        {
+            HttpWebRequest request = (HttpWebRequest)base.GetWebRequest(address);
+            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+            request.UserAgent = ua;
+            return request;
         }
     }
 }
