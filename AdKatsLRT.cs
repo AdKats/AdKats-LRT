@@ -396,8 +396,10 @@ namespace PRoConEvents {
                     } 
                 } else if (Regex.Match(strVariable, @"Proxy URL").Success) {
                     try {
-                        Uri uri = new Uri(strValue);
-                        Log.Debug("Proxy URL set to " + strValue + ".", 1);
+                        if (!String.IsNullOrEmpty(strValue)) {
+                            Uri uri = new Uri(strValue);
+                            Log.Debug("Proxy URL set to " + strValue + ".", 1);
+                        }
                     }
                     catch (UriFormatException) {
                         strValue = _proxyURL;
