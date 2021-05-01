@@ -23,6 +23,8 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -2019,11 +2021,11 @@ namespace PRoConEvents {
                 }
                 using (var client = new GZipWebClient()) {
                     if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) {
-                        client.Proxy = new WebProxy(_proxyURL, true); 
+                        client.SetProxy(_proxyURL);
                     }
                     try {
                         DoBattlelogWait();
-                        String personaResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
+                        String personaResponse = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
                         Match pid = Regex.Match(personaResponse, @"bf4/soldier/" + aPlayer.Name + @"/stats/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
                         if (!pid.Success) {
                             Log.Error("Could not find persona ID for " + aPlayer.Name);
@@ -2037,7 +2039,7 @@ namespace PRoConEvents {
                             ProcessTime = DateTime.UtcNow
                         });
                         DoBattlelogWait();
-                        String overviewResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/");
+                        String overviewResponse = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/");
 
                         Hashtable json = (Hashtable)JSON.JsonDecode(overviewResponse);
                         Hashtable data = (Hashtable)json["data"];
@@ -3184,7 +3186,7 @@ namespace PRoConEvents {
         private Hashtable FetchWarsawLibrary() {
             Hashtable library = null;
             try {
-                using (var client = new GZipWebClient()) {
+                using (var client = new WebClient()) {
                     String response;
                     try {
                         response = client.DownloadString("https://raw.githubusercontent.com/AdKats/AdKats/master/lib/WarsawCodeBook.json");
@@ -3758,11 +3760,11 @@ namespace PRoConEvents {
             try {
                 using (var client = new GZipWebClient()) { 
                     if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) { 
-                        client.Proxy = new WebProxy(_proxyURL, true); 
+                        client.SetProxy(_proxyURL);
                     }
                     try {
                         DoBattlelogWait();
-                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
+                        String response = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
                     } catch (Exception e) {
                         if (e is WebException) {
@@ -4932,22 +4934,67 @@ namespace PRoConEvents {
             }
         }
     }
-    
-    public class GZipWebClient : WebClient
-    {
+   
+    public class GZipWebClient : WebClient {
         private String ua;
-    
-        public GZipWebClient(String ua = "Mozilla/5.0 (compatible; PRoCon 1; AdKatsLRT)")
-        {
+        private bool compress;
+
+        public GZipWebClient(String ua = "Mozilla/5.0 (compatible; PRoCon 1; AdKats)", bool compress = true) {
             this.ua = ua;
+            this.compress = compress;
+            base.Headers["User-Agent"] = ua;
+        }
+
+        public string GZipDownloadString(string address) {
+            return this.GZipDownloadString(new Uri(address));
         }
         
-        protected override WebRequest GetWebRequest(Uri address)
-        {
-            HttpWebRequest request = (HttpWebRequest)base.GetWebRequest(address);
-            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-            request.UserAgent = ua;
-            return request;
+        public string GZipDownloadString(Uri address) {
+            base.Headers[HttpRequestHeader.UserAgent] = ua;
+                
+            if (compress == false)
+                return base.DownloadString(address);
+                
+            base.Headers[HttpRequestHeader.AcceptEncoding] = "gzip";
+            var stream = this.OpenRead(address);
+            if (stream == null)
+                return "";
+                
+            var contentEncoding = ResponseHeaders[HttpResponseHeader.ContentEncoding];
+            base.Headers.Remove(HttpRequestHeader.AcceptEncoding);
+
+            Stream decompressedStream = null;
+            StreamReader reader = null;
+            if (!string.IsNullOrEmpty(contentEncoding) && contentEncoding.ToLower().Contains("gzip")) {
+                decompressedStream = new GZipStream(stream, CompressionMode.Decompress);
+                reader = new StreamReader(decompressedStream);
+            }
+            else {
+                reader = new StreamReader(stream);
+            }
+            var data =  reader.ReadToEnd();
+            reader.Close();
+            decompressedStream?.Close();
+            stream.Close();
+            return data;
         }
+
+        public void SetProxy(String proxyURL)
+        {
+            if(!String.IsNullOrEmpty(proxyURL))
+            {
+                Uri uri = new Uri(proxyURL);
+                this.Proxy = new WebProxy(proxyURL, true); 
+                if (!String.IsNullOrEmpty(uri.UserInfo))
+                {
+                    string[] parameters = uri.UserInfo.Split(':');
+                    if (parameters.Length < 2) 
+                    {
+                        return;
+                    }
+                    this.Proxy.Credentials = new NetworkCredential(parameters[0], parameters[1]);
+                }
+            }
+        } 
     }
 }
