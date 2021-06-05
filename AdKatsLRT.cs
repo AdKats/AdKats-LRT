@@ -23,6 +23,8 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -34,7 +36,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.9.0";
+        private const String PluginVersion = "2.0.9.1";
 
         public readonly Logger Log;
 
@@ -81,6 +83,8 @@ namespace PRoConEvents {
 
         //Settings
         private Boolean _highRequestVolume;
+        private Boolean _useProxy = false;
+        private String _proxyURL = "";
         private Boolean _enableAdKatsIntegration;
         private Boolean _spawnEnforcementOnly;
         private Boolean _spawnEnforcementActOnAdmins;
@@ -192,6 +196,10 @@ namespace PRoConEvents {
                 const string separator = " | ";
 
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
+                if (_useProxy) {
+                   lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL)); 
+                }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
                 if (_enableAdKatsIntegration) {
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
@@ -330,6 +338,8 @@ namespace PRoConEvents {
             const string separator = " | ";
 
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Backup AutoAdmin", typeof(Boolean), _UseBackupAutoadmin));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Spawn Enforcement Only", typeof(Boolean), _spawnEnforcementOnly));
@@ -380,6 +390,25 @@ namespace PRoConEvents {
                     Boolean highRequestVolume = Boolean.Parse(strValue);
                     if (highRequestVolume != _highRequestVolume) {
                         _highRequestVolume = highRequestVolume;
+                    }
+                } else if (Regex.Match(strVariable, @"Use Proxy for Battlelog").Success) {
+                    Boolean useProxy = Boolean.Parse(strValue);
+                    if (useProxy != _useProxy) {
+                        _useProxy = useProxy;
+                    } 
+                } else if (Regex.Match(strVariable, @"Proxy URL").Success) {
+                    try {
+                        if (!String.IsNullOrEmpty(strValue)) {
+                            Uri uri = new Uri(strValue);
+                            Log.Debug("Proxy URL set to " + strValue + ".", 1);
+                        }
+                    }
+                    catch (UriFormatException) {
+                        strValue = _proxyURL;
+                        Log.Warn("Invalid Proxy URL! Make sure that the URI is valid!");
+                    }
+                    if (!_proxyURL.Equals(strValue)) {
+                        _proxyURL = strValue;
                     }
                 } else if (Regex.Match(strVariable, @"Integrate with AdKats").Success) {
                     Boolean enableAdKatsIntegration = Boolean.Parse(strValue);
@@ -1990,10 +2019,13 @@ namespace PRoConEvents {
                     Log.Error("Attempted to get battlelog information of nameless player.");
                     return;
                 }
-                using (var client = new WebClient()) {
+                using (var client = new GZipWebClient()) {
+                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) {
+                        client.SetProxy(_proxyURL);
+                    }
                     try {
                         DoBattlelogWait();
-                        String personaResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
+                        String personaResponse = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/user/" + aPlayer.Name);
                         Match pid = Regex.Match(personaResponse, @"bf4/soldier/" + aPlayer.Name + @"/stats/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
                         if (!pid.Success) {
                             Log.Error("Could not find persona ID for " + aPlayer.Name);
@@ -2007,7 +2039,7 @@ namespace PRoConEvents {
                             ProcessTime = DateTime.UtcNow
                         });
                         DoBattlelogWait();
-                        String overviewResponse = client.DownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/");
+                        String overviewResponse = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/warsawoverviewpopulate/" + aPlayer.PersonaID + "/1/");
 
                         Hashtable json = (Hashtable)JSON.JsonDecode(overviewResponse);
                         Hashtable data = (Hashtable)json["data"];
@@ -3726,10 +3758,13 @@ namespace PRoConEvents {
         private Hashtable FetchPlayerLoadout(String personaID) {
             Hashtable loadout = null;
             try {
-                using (var client = new WebClient()) {
+                using (var client = new GZipWebClient()) { 
+                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) { 
+                        client.SetProxy(_proxyURL);
+                    }
                     try {
                         DoBattlelogWait();
-                        String response = client.DownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
+                        String response = client.GZipDownloadString("http://battlelog.battlefield.com/bf4/loadout/get/PLAYER/" + personaID + "/1/?cacherand=" + Environment.TickCount);
                         loadout = (Hashtable)JSON.JsonDecode(response);
                     } catch (Exception e) {
                         if (e is WebException) {
@@ -4898,5 +4933,72 @@ namespace PRoConEvents {
                 return "^9" + msg + "^0";
             }
         }
+    }
+   
+    public class GZipWebClient : WebClient {
+        private String ua;
+        private bool compress;
+        
+        public GZipWebClient() {
+            this.ua = "Mozilla/5.0 (compatible; PRoCon 1; AdKatsLRT)";
+            base.Headers["User-Agent"] = ua;
+            compress = true;
+        }
+
+        public GZipWebClient(bool compress) : this() {
+            this.compress = compress;
+        }
+
+        public string GZipDownloadString(string address) {
+            return this.GZipDownloadString(new Uri(address));
+        }
+        
+        public string GZipDownloadString(Uri address) {
+            base.Headers[HttpRequestHeader.UserAgent] = ua;
+                
+            if (compress == false)
+                return base.DownloadString(address);
+                
+            base.Headers[HttpRequestHeader.AcceptEncoding] = "gzip";
+            var stream = this.OpenRead(address);
+            if (stream == null)
+                return "";
+                
+            var contentEncoding = ResponseHeaders[HttpResponseHeader.ContentEncoding];
+            base.Headers.Remove(HttpRequestHeader.AcceptEncoding);
+
+            Stream decompressedStream = null;
+            StreamReader reader = null;
+            if (!string.IsNullOrEmpty(contentEncoding) && contentEncoding.ToLower().Contains("gzip")) {
+                decompressedStream = new GZipStream(stream, CompressionMode.Decompress);
+                reader = new StreamReader(decompressedStream);
+            }
+            else {
+                reader = new StreamReader(stream);
+            }
+            var data =  reader.ReadToEnd();
+            reader.Close();
+            decompressedStream?.Close();
+            stream.Close();
+            return data;
+        }
+
+        public void SetProxy(String proxyURL)
+        {
+            if(!String.IsNullOrEmpty(proxyURL))
+            {
+                Uri uri = new Uri(proxyURL);
+                this.Proxy = new WebProxy(proxyURL, true); 
+                if (!String.IsNullOrEmpty(uri.UserInfo))
+                {
+                    string[] parameters = uri.UserInfo.Split(':');
+                    if (parameters.Length < 2) 
+                    {
+                        return;
+                    }
+                    this.Proxy.Credentials = new NetworkCredential(parameters[0], parameters[1]);
+                }
+            }
+        } 
     }
 }
