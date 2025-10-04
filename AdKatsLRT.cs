@@ -1,20 +1,20 @@
-/* 
+/*
  * AdKatsLRT - On-Spawn Loadout Enforcer
- * 
- * AdKats and respective extensions are inspired by the gaming community A Different Kind (ADK). 
+ *
+ * AdKats and respective extensions are inspired by the gaming community A Different Kind (ADK).
  * Visit http://www.ADKGamers.com/ for more information.
  *
- * The AdKats Frostbite Plugin is open source, and under public domain, but certain extensions are not. 
+ * The AdKats Frostbite Plugin is open source, and under public domain, but certain extensions are not.
  * The AdKatsLRT extension is not open for free distribution, copyright Daniel J. Gradinjan, with all rights reserved.
- * 
+ *
  * Development by Daniel J. Gradinjan (ColColonCleaner)
- * 
+ *
  * AdKatsLRT.cs
- * Version 2.0.9.0
- * 25-MAR-2018
- * 
+ * Version 2.0.9.2
+ * 04-OCT-2025
+ *
  * Automatic Update Information
- * <version_code>2.0.9.0</version_code>
+ * <version_code>2.0.9.2</version_code>
  */
 
 using System;
@@ -36,7 +36,7 @@ using PRoCon.Core.Plugin;
 namespace PRoConEvents {
     public class AdKatsLRT : PRoConPluginAPI, IPRoConPluginInterface {
         //Current Plugin Version
-        private const String PluginVersion = "2.0.9.1";
+        private const String PluginVersion = "2.0.9.2";
 
         public readonly Logger Log;
 
@@ -198,7 +198,7 @@ namespace PRoConEvents {
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
                 if (_useProxy) {
-                   lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL)); 
+                   lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Proxy URL", typeof(String), _proxyURL));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Integrate with AdKats", typeof(Boolean), _enableAdKatsIntegration));
                 if (_enableAdKatsIntegration) {
@@ -395,7 +395,7 @@ namespace PRoConEvents {
                     Boolean useProxy = Boolean.Parse(strValue);
                     if (useProxy != _useProxy) {
                         _useProxy = useProxy;
-                    } 
+                    }
                 } else if (Regex.Match(strVariable, @"Proxy URL").Success) {
                     try {
                         if (!String.IsNullOrEmpty(strValue)) {
@@ -1054,7 +1054,7 @@ namespace PRoConEvents {
         }
 
         public void InitWaitHandles() {
-            //Initializes all wait handles 
+            //Initializes all wait handles
             _threadMasterWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             _loadoutProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             _playerProcessingWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -3192,7 +3192,7 @@ namespace PRoConEvents {
                         response = client.DownloadString("https://raw.githubusercontent.com/AdKats/AdKats/master/lib/WarsawCodeBook.json");
                     } catch (Exception) {
                         try {
-                            response = client.DownloadString("http://api.gamerethos.net/adkats/fetch/warsaw");
+                            response = client.DownloadString("https://api.myrcon.net/api/plugins/adkats/warsaw");
                         } catch (Exception e) {
                             Log.Exception("Error while downloading raw WARSAW library.", e);
                             return null;
@@ -3758,8 +3758,8 @@ namespace PRoConEvents {
         private Hashtable FetchPlayerLoadout(String personaID) {
             Hashtable loadout = null;
             try {
-                using (var client = new GZipWebClient()) { 
-                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) { 
+                using (var client = new GZipWebClient()) {
+                    if (_useProxy && !String.IsNullOrEmpty(_proxyURL)) {
                         client.SetProxy(_proxyURL);
                     }
                     try {
@@ -4934,11 +4934,11 @@ namespace PRoConEvents {
             }
         }
     }
-   
+
     public class GZipWebClient : WebClient {
         private String ua;
         private bool compress;
-        
+
         public GZipWebClient() {
             this.ua = "Mozilla/5.0 (compatible; PRoCon 1; AdKatsLRT)";
             base.Headers["User-Agent"] = ua;
@@ -4952,18 +4952,18 @@ namespace PRoConEvents {
         public string GZipDownloadString(string address) {
             return this.GZipDownloadString(new Uri(address));
         }
-        
+
         public string GZipDownloadString(Uri address) {
             base.Headers[HttpRequestHeader.UserAgent] = ua;
-                
+
             if (compress == false)
                 return base.DownloadString(address);
-                
+
             base.Headers[HttpRequestHeader.AcceptEncoding] = "gzip";
             var stream = this.OpenRead(address);
             if (stream == null)
                 return "";
-                
+
             var contentEncoding = ResponseHeaders[HttpResponseHeader.ContentEncoding];
             base.Headers.Remove(HttpRequestHeader.AcceptEncoding);
 
@@ -4988,17 +4988,17 @@ namespace PRoConEvents {
             if(!String.IsNullOrEmpty(proxyURL))
             {
                 Uri uri = new Uri(proxyURL);
-                this.Proxy = new WebProxy(proxyURL, true); 
+                this.Proxy = new WebProxy(proxyURL, true);
                 if (!String.IsNullOrEmpty(uri.UserInfo))
                 {
                     string[] parameters = uri.UserInfo.Split(':');
-                    if (parameters.Length < 2) 
+                    if (parameters.Length < 2)
                     {
                         return;
                     }
                     this.Proxy.Credentials = new NetworkCredential(parameters[0], parameters[1]);
                 }
             }
-        } 
+        }
     }
 }
