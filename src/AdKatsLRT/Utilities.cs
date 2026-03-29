@@ -134,9 +134,9 @@ namespace PRoConEvents
             return timeString;
         }
 
-        public string TrimStart(string target, string trimString)
+        public String TrimStart(String target, String trimString)
         {
-            string result = target;
+            String result = target;
             while (result.StartsWith(trimString))
             {
                 result = result.Substring(trimString.Length);

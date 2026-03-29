@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 
 namespace PRoConEvents
 {
@@ -24,7 +23,7 @@ namespace PRoConEvents
                 {
                     ProconChatWrite("Say > " + message);
                 }
-                string[] lineSplit = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                String[] lineSplit = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (String line in lineSplit)
                 {
                     ExecuteCommand("procon.protected.send", "admin.say", line, "all");
@@ -56,9 +55,9 @@ namespace PRoConEvents
                 {
                     ProconChatWrite("Say > " + target + " > " + message);
                 }
-                for (int count = 0; count < spamCount; count++)
+                for (Int32 count = 0; count < spamCount; count++)
                 {
-                    string[] lineSplit = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                    String[] lineSplit = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
                     foreach (String line in lineSplit)
                     {
                         ExecuteCommand("procon.protected.send", "admin.say", line, "player", target);
@@ -120,7 +119,7 @@ namespace PRoConEvents
                 {
                     ProconChatWrite("Yell[" + YellDuration + "s] > " + target + " > " + message);
                 }
-                for (int count = 0; count < spamCount; count++)
+                for (Int32 count = 0; count < spamCount; count++)
                 {
                     ExecuteCommand("procon.protected.send", "admin.yell", ((_gameVersion == GameVersion.BF4) ? (Environment.NewLine) : ("")) + message.ToUpper(), YellDuration + "", "player", target);
                     _threadMasterWaitHandle.WaitOne(50);

@@ -330,7 +330,7 @@ namespace PRoConEvents
                     {
                         Log.Warn(removeNames.Count() + " left players removed, " + _playerLeftDictionary.Count() + " still in cache.");
                     }
-                    foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
+                    foreach (String playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer))
@@ -397,7 +397,7 @@ namespace PRoConEvents
                             {
                                 waitTime = TimeSpan.FromSeconds(5);
                             }
-                            Log.Debug("Waiting " + ((int)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 5);
+                            Log.Debug("Waiting " + ((Int32)waitTime.TotalSeconds) + " seconds to process " + aPlayer.GetVerboseName() + " spawn.", 5);
                             //Start a delay thread
                             StartAndLogThread(new Thread(new ThreadStart(delegate
                             {
@@ -669,7 +669,7 @@ namespace PRoConEvents
                         }
                         Log.Debug(aPlayer.Name + " online after listing: " + _playerDictionary.ContainsKey(aPlayer.Name), 7);
                     }
-                    foreach (string playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
+                    foreach (String playerName in _playerDictionary.Keys.Where(playerName => !validPlayers.Contains(playerName)).ToList())
                     {
                         AdKatsSubscribedPlayer aPlayer;
                         if (_playerDictionary.TryGetValue(playerName, out aPlayer))

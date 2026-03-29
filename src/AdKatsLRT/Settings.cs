@@ -15,7 +15,7 @@ namespace PRoConEvents
             var lstReturn = new List<CPluginVariable>();
             try
             {
-                const string separator = " | ";
+                const String separator = " | ";
 
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
@@ -189,7 +189,7 @@ namespace PRoConEvents
                         lstReturn.Add(new CPluginVariable(SettingsDeniedVehicleItemMessagePrefix + "VMSG" + deniedVehicleUnlock.WarsawID + separator + deniedVehicleUnlock.Slug + separator + "Kill Message", typeof(String), pair.Value));
                     }
                 }
-                lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), Log.DebugLevel));
+                lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(Int32), Log.DebugLevel));
             }
             catch (Exception e)
             {
@@ -201,7 +201,7 @@ namespace PRoConEvents
         public List<CPluginVariable> GetPluginVariables()
         {
             var lstReturn = new List<CPluginVariable>();
-            const string separator = " | ";
+            const String separator = " | ";
 
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Enable High Request Volume", typeof(Boolean), _highRequestVolume));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Use Proxy for Battlelog", typeof(Boolean), _useProxy));
@@ -229,7 +229,7 @@ namespace PRoConEvents
             _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID));
             lstReturn.AddRange(_warsawSpawnDeniedIDs.Select(deniedSpawnID => new CPluginVariable("ALWS" + deniedSpawnID, typeof(String), "Deny")));
             lstReturn.AddRange(_restrictedMapModes.Values.Select(restrictedMapMode => new CPluginVariable("RMM" + restrictedMapMode.MapModeID, typeof(String), "Enforce")));
-            lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(int), Log.DebugLevel));
+            lstReturn.Add(new CPluginVariable("D99. Debugging|Debug level", typeof(Int32), Log.DebugLevel));
             return lstReturn;
         }
 
@@ -248,7 +248,7 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Debug level").Success)
                 {
                     Int32 tmp;
-                    if (int.TryParse(strValue, out tmp))
+                    if (Int32.TryParse(strValue, out tmp))
                     {
                         if (tmp == 269)
                         {
@@ -426,7 +426,7 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Trigger Enforce Minimum Infraction Points").Success)
                 {
                     Int32 triggerEnforcementMinimumInfractionPoints;
-                    if (int.TryParse(strValue, out triggerEnforcementMinimumInfractionPoints))
+                    if (Int32.TryParse(strValue, out triggerEnforcementMinimumInfractionPoints))
                     {
                         if (triggerEnforcementMinimumInfractionPoints < 1)
                         {
@@ -439,7 +439,7 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Weapon Popularity Display Frequency Minutes").Success)
                 {
                     Int32 weaponPopularityDisplayMinutes;
-                    if (int.TryParse(strValue, out weaponPopularityDisplayMinutes))
+                    if (Int32.TryParse(strValue, out weaponPopularityDisplayMinutes))
                     {
                         if (weaponPopularityDisplayMinutes < 2)
                         {

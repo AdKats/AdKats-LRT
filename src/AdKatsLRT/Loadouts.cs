@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -2036,26 +2035,26 @@ namespace PRoConEvents
                         return null;
                     }
                     //Pull the specifics
-                    string loadoutPrimaryID = currentLoadoutList[0].ToString();
-                    const string defaultAssaultPrimary = "3590299697"; //ak-12
-                    const string defaultEngineerPrimary = "2021343793"; //mx4
-                    const string defaultSupportPrimary = "3179658801"; //u-100-mk5
-                    const string defaultReconPrimary = "3458855537"; //cs-lr4
+                    String loadoutPrimaryID = currentLoadoutList[0].ToString();
+                    const String defaultAssaultPrimary = "3590299697"; //ak-12
+                    const String defaultEngineerPrimary = "2021343793"; //mx4
+                    const String defaultSupportPrimary = "3179658801"; //u-100-mk5
+                    const String defaultReconPrimary = "3458855537"; //cs-lr4
 
-                    string loadoutSidearmID = currentLoadoutList[1].ToString();
-                    const string defaultSidearm = "944904529"; //p226
+                    String loadoutSidearmID = currentLoadoutList[1].ToString();
+                    const String defaultSidearm = "944904529"; //p226
 
-                    string loadoutGadget1ID = currentLoadoutList[2].ToString();
-                    const string defaultGadget1 = "1694579111"; //nogadget1
+                    String loadoutGadget1ID = currentLoadoutList[2].ToString();
+                    const String defaultGadget1 = "1694579111"; //nogadget1
 
-                    string loadoutGadget2ID = currentLoadoutList[3].ToString();
-                    const string defaultGadget2 = "3164552276"; //nogadget2
+                    String loadoutGadget2ID = currentLoadoutList[3].ToString();
+                    const String defaultGadget2 = "3164552276"; //nogadget2
 
-                    string loadoutGrenadeID = currentLoadoutList[4].ToString();
-                    const string defaultGrenade = "2670747868"; //m67-frag
+                    String loadoutGrenadeID = currentLoadoutList[4].ToString();
+                    const String defaultGrenade = "2670747868"; //m67-frag
 
-                    string loadoutKnifeID = currentLoadoutList[5].ToString();
-                    const string defaultKnife = "3214146841"; //bayonett
+                    String loadoutKnifeID = currentLoadoutList[5].ToString();
+                    const String defaultKnife = "3214146841"; //bayonett
 
                     //PRIMARY
                     WarsawItem loadoutPrimary;
