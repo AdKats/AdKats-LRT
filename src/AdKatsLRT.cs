@@ -191,7 +191,7 @@ namespace PRoConEvents
 
         public String GetPluginAuthor()
         {
-            return "[ADK]ColColonCleaner";
+            return "[ADK]ColColonCleaner (maintained by Prophet731)";
         }
 
         public String GetPluginWebsite()
