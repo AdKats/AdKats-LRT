@@ -9,6 +9,8 @@ using System.Threading;
 using Flurl;
 using Flurl.Http;
 
+using PRoCon.Core;
+
 namespace PRoConEvents
 {
     public partial class AdKatsLRT

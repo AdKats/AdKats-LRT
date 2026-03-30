@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+using PRoCon.Core;
 using PRoCon.Core.Plugin;
 
 namespace PRoConEvents
