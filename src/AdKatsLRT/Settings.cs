@@ -10,6 +10,8 @@ namespace PRoConEvents
 {
     public partial class AdKatsLRT
     {
+        private Int32 _minimumPlayersForEnforcement = 0;
+
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
             var lstReturn = new List<CPluginVariable>();
@@ -43,6 +45,7 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
+                lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
                 if (!_warsawLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
@@ -217,6 +220,7 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Weapon Popularity Display Frequency Minutes", typeof(Int32), _weaponPopularityDisplayMinutes));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
+            lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
@@ -447,6 +451,19 @@ namespace PRoConEvents
                             weaponPopularityDisplayMinutes = 2;
                         }
                         _weaponPopularityDisplayMinutes = weaponPopularityDisplayMinutes;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Minimum Players for Enforcement").Success)
+                {
+                    Int32 minimumPlayersForEnforcement;
+                    if (Int32.TryParse(strValue, out minimumPlayersForEnforcement))
+                    {
+                        if (minimumPlayersForEnforcement < 0)
+                        {
+                            Log.Error("Minimum players for enforcement cannot be negative.");
+                            minimumPlayersForEnforcement = 0;
+                        }
+                        _minimumPlayersForEnforcement = minimumPlayersForEnforcement;
                     }
                 }
                 else if (Regex.Match(strVariable, @"Action Whitelist").Success)

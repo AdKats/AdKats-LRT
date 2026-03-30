@@ -172,6 +172,22 @@ namespace PRoConEvents
 
                             Log.Debug("Processing " + reason + aPlayer.GetVerboseName(), 4);
 
+                            //Check minimum player threshold for enforcement
+                            if (_minimumPlayersForEnforcement > 0 && !fetchOnly)
+                            {
+                                Int32 playerCount;
+                                lock (_playerDictionary)
+                                {
+                                    playerCount = _playerDictionary.Count;
+                                }
+                                if (playerCount < _minimumPlayersForEnforcement)
+                                {
+                                    Log.Debug("Skipping enforcement for " + aPlayer.Name + ". Player count (" + playerCount + ") is below minimum threshold (" + _minimumPlayersForEnforcement + ").", 3);
+                                    fetchOnly = true;
+                                    fetchOnlyNotify = false;
+                                }
+                            }
+
                             if (!fetchOnly)
                             {
                                 //Process is not fetch only, check to see if we can skip this player
