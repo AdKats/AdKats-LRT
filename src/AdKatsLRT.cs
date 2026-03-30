@@ -99,6 +99,7 @@ namespace PRoConEvents
         private Boolean _useWeaponCatchingBackup = true;
         private Int32 _triggerEnforcementMinimumInfractionPoints = 6;
         private Boolean _spawnEnforceAllVehicles;
+        private Boolean _inverseEnforcementMode = false;
         private String[] _Whitelist = { };
         private String[] _ItemFilter = { };
 

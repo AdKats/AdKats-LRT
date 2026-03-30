@@ -115,12 +115,27 @@ namespace PRoConEvents
                     List<String> matchingKillWarsaw;
                     if (_RCONWarsawMappings.TryGetValue(kill.DamageType, out matchingKillWarsaw))
                     {
-                        foreach (String warsawID in matchingKillWarsaw)
+                        if (_inverseEnforcementMode)
                         {
-                            if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID))
+                            // Inverse mode: reject if weapon is NOT in the whitelist
+                            foreach (String warsawID in matchingKillWarsaw)
                             {
-                                rejectionMessage = _warsawInvalidLoadoutIDMessages[warsawID];
-                                break;
+                                if (!_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID))
+                                {
+                                    rejectionMessage = "Item not whitelisted in your loadout";
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            foreach (String warsawID in matchingKillWarsaw)
+                            {
+                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(warsawID))
+                                {
+                                    rejectionMessage = _warsawInvalidLoadoutIDMessages[warsawID];
+                                    break;
+                                }
                             }
                         }
                     }
