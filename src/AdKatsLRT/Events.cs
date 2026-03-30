@@ -771,5 +771,26 @@ namespace PRoConEvents
             }
             Log.Debug("ReceiveOnlineSoldiers finished!", 6);
         }
+
+        public Int32 CountTeamWeaponCategory(Int32 teamId, String category, String excludePlayerName)
+        {
+            Int32 count = 0;
+            lock (_playerDictionary)
+            {
+                foreach (AdKatsSubscribedPlayer player in _playerDictionary.Values)
+                {
+                    if (player.Team == teamId &&
+                        player.Online &&
+                        player.SpawnedOnce &&
+                        player.Loadout != null &&
+                        player.Name != excludePlayerName &&
+                        String.Equals(player.Loadout.KitItemPrimary.CategoryReadable, category, StringComparison.OrdinalIgnoreCase))
+                    {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
     }
 }

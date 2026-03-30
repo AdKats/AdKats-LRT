@@ -326,6 +326,41 @@ namespace PRoConEvents
                                 continue;
                             }
 
+                            //Check per-team weapon category limits
+                            if (!fetchOnly)
+                            {
+                                String primaryCategory = loadout.KitItemPrimary.CategoryReadable;
+                                Int32 teamLimit = 0;
+                                String categoryLabel = null;
+                                if (String.Equals(primaryCategory, "SNIPERRIFLE", StringComparison.OrdinalIgnoreCase) && _maxSnipersPerTeam > 0)
+                                {
+                                    teamLimit = _maxSnipersPerTeam;
+                                    categoryLabel = "snipers";
+                                }
+                                else if (String.Equals(primaryCategory, "DMR", StringComparison.OrdinalIgnoreCase) && _maxDMRsPerTeam > 0)
+                                {
+                                    teamLimit = _maxDMRsPerTeam;
+                                    categoryLabel = "DMR users";
+                                }
+                                else if (String.Equals(primaryCategory, "SHOTGUN", StringComparison.OrdinalIgnoreCase) && _maxShotgunsPerTeam > 0)
+                                {
+                                    teamLimit = _maxShotgunsPerTeam;
+                                    categoryLabel = "shotgun users";
+                                }
+                                if (teamLimit > 0 && categoryLabel != null)
+                                {
+                                    Int32 currentCount = CountTeamWeaponCategory(aPlayer.Team, primaryCategory, aPlayer.Name);
+                                    if (currentCount >= teamLimit)
+                                    {
+                                        Log.Info(aPlayer.GetVerboseName() + " denied spawn: too many " + categoryLabel + " on team " + aPlayer.Team + " (" + currentCount + "/" + teamLimit + ").");
+                                        String limitMessage = "[LRT] Too many " + categoryLabel + " on your team (max " + teamLimit + "). Please switch weapons.";
+                                        PlayerTellMessage(aPlayer.Name, limitMessage);
+                                        ExecuteCommand("procon.protected.send", "admin.killPlayer", aPlayer.Name);
+                                        continue;
+                                    }
+                                }
+                            }
+
                             //Action taken?
                             Boolean acted = false;
 
@@ -340,43 +375,91 @@ namespace PRoConEvents
                                 _serverInfo.InfoObject.GameMode != "GunMaster1" &&
                                 (!_restrictSpecificMapModes || _restrictedMapModes.ContainsKey(_serverInfo.InfoObject.GameMode + "|" + _serverInfo.InfoObject.Map)))
                             {
-                                if (trigger)
+                                if (_inverseEnforcementMode)
                                 {
-                                    foreach (var warsawDeniedIDMessage in _warsawInvalidLoadoutIDMessages)
+                                    // Inverse/whitelist mode: items in the lists are ALLOWED, everything else is DENIED
+                                    if (trigger)
                                     {
-                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
+                                        foreach (var kitItemID in loadout.AllKitItemIDs)
                                         {
-                                            loadoutValid = false;
-                                            if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
+                                            if (!_warsawInvalidLoadoutIDMessages.ContainsKey(kitItemID))
                                             {
-                                                specificMessages.Add(warsawDeniedIDMessage.Value);
+                                                loadoutValid = false;
+                                                String inverseMsg = "Item not whitelisted in your loadout";
+                                                if (!specificMessages.Contains(inverseMsg))
+                                                {
+                                                    specificMessages.Add(inverseMsg);
+                                                }
+                                            }
+                                            if (!_warsawSpawnDeniedIDs.Contains(kitItemID))
+                                            {
+                                                spawnLoadoutValid = false;
+                                                String inverseSpawnMsg = "Item not whitelisted in your loadout";
+                                                if (!spawnSpecificMessages.Contains(inverseSpawnMsg))
+                                                {
+                                                    spawnSpecificMessages.Add(inverseSpawnMsg);
+                                                }
                                             }
                                         }
                                     }
-
-                                    foreach (var warsawDeniedID in _warsawSpawnDeniedIDs)
+                                    else
                                     {
-                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                        foreach (var kitItemID in loadout.AllKitItemIDs)
                                         {
-                                            spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
+                                            if (!_warsawSpawnDeniedIDs.Contains(kitItemID))
                                             {
-                                                spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
+                                                loadoutValid = false;
+                                                spawnLoadoutValid = false;
+                                                String inverseSpawnMsg = "Item not whitelisted in your loadout";
+                                                if (!spawnSpecificMessages.Contains(inverseSpawnMsg))
+                                                {
+                                                    spawnSpecificMessages.Add(inverseSpawnMsg);
+                                                }
                                             }
                                         }
                                     }
                                 }
                                 else
                                 {
-                                    foreach (var warsawDeniedID in _warsawSpawnDeniedIDs)
+                                    // Normal deny-list mode: items in the lists are DENIED
+                                    if (trigger)
                                     {
-                                        if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                        foreach (var warsawDeniedIDMessage in _warsawInvalidLoadoutIDMessages)
                                         {
-                                            loadoutValid = false;
-                                            spawnLoadoutValid = false;
-                                            if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
+                                            if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                             {
-                                                spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
+                                                loadoutValid = false;
+                                                if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
+                                                {
+                                                    specificMessages.Add(warsawDeniedIDMessage.Value);
+                                                }
+                                            }
+                                        }
+
+                                        foreach (var warsawDeniedID in _warsawSpawnDeniedIDs)
+                                        {
+                                            if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                            {
+                                                spawnLoadoutValid = false;
+                                                if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
+                                                {
+                                                    spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        foreach (var warsawDeniedID in _warsawSpawnDeniedIDs)
+                                        {
+                                            if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
+                                            {
+                                                loadoutValid = false;
+                                                spawnLoadoutValid = false;
+                                                if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
+                                                {
+                                                    spawnSpecificMessages.Add(_warsawInvalidLoadoutIDMessages[warsawDeniedID]);
+                                                }
                                             }
                                         }
                                     }
@@ -1808,6 +1891,33 @@ namespace PRoConEvents
                         }
                     }
 
+                    //Supplement unlock cache with items found in the loadout response
+                    if (_checkUnlocksBeforeEnforcing)
+                    {
+                        lock (_playerUnlockedItems)
+                        {
+                            HashSet<String> unlockedItems;
+                            if (!_playerUnlockedItems.TryGetValue(personaID, out unlockedItems))
+                            {
+                                unlockedItems = new HashSet<String>();
+                                _playerUnlockedItems[personaID] = unlockedItems;
+                            }
+                            //Weapons appearing in the loadout response are unlocked
+                            foreach (String itemID in loadout.LoadoutItems.Keys)
+                            {
+                                unlockedItems.Add(itemID);
+                            }
+                            //Accessories listed on weapons are also unlocked
+                            foreach (WarsawItem item in loadout.LoadoutItems.Values)
+                            {
+                                foreach (String accID in item.AccessoriesAssigned.Keys)
+                                {
+                                    unlockedItems.Add(accID);
+                                }
+                            }
+                        }
+                    }
+
                     //Parse vehicles
                     for (Int32 index = 0; index < currentLoadoutVehicles.Count; index++)
                     {
@@ -2384,6 +2494,23 @@ namespace PRoConEvents
                 return null;
             }
             return loadout;
+        }
+        private Boolean IsItemUnlockedByPlayer(String personaID, String warsawID)
+        {
+            if (!_checkUnlocksBeforeEnforcing)
+            {
+                return true;
+            }
+            HashSet<String> unlockedItems;
+            lock (_playerUnlockedItems)
+            {
+                if (!_playerUnlockedItems.TryGetValue(personaID, out unlockedItems))
+                {
+                    //No unlock data available, fall back to enforcing
+                    return true;
+                }
+            }
+            return unlockedItems.Contains(warsawID);
         }
     }
 }

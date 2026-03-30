@@ -11,6 +11,9 @@ namespace PRoConEvents
     public partial class AdKatsLRT
     {
         private Int32 _minimumPlayersForEnforcement = 0;
+        private Int32 _maxSnipersPerTeam = 0;
+        private Int32 _maxDMRsPerTeam = 0;
+        private Int32 _maxShotgunsPerTeam = 0;
 
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
@@ -45,7 +48,11 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Backup AutoAdmin Use AdKats Punishments", typeof(Boolean), _UseAdKatsPunishments));
                 }
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
+                lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Inverse Mode (Whitelist)", typeof(Boolean), _inverseEnforcementMode));
                 lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
+                lstReturn.Add(new CPluginVariable("Weapon Limits|Max Snipers Per Team", typeof(Int32), _maxSnipersPerTeam));
+                lstReturn.Add(new CPluginVariable("Weapon Limits|Max DMRs Per Team", typeof(Int32), _maxDMRsPerTeam));
+                lstReturn.Add(new CPluginVariable("Weapon Limits|Max Shotguns Per Team", typeof(Int32), _maxShotgunsPerTeam));
                 if (!_warsawLibraryLoaded)
                 {
                     lstReturn.Add(new CPluginVariable("The WARSAW library must be loaded to view settings.", typeof(String), "Enable the plugin to fetch the library."));
@@ -70,6 +77,8 @@ namespace PRoConEvents
                 //Run removals
                 _warsawSpawnDeniedIDs.RemoveWhere(spawnID => !_warsawInvalidLoadoutIDMessages.ContainsKey(spawnID) && !_warsawInvalidVehicleLoadoutIDMessages.ContainsKey(spawnID));
 
+                String inverseSuffix = _inverseEnforcementMode ? " [Inverse mode]" : "";
+
                 if (_displayWeapons)
                 {
                     if (_warsawLibrary.Items.Any())
@@ -82,15 +91,15 @@ namespace PRoConEvents
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsWeaponPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
@@ -107,15 +116,15 @@ namespace PRoConEvents
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on trigger?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWS" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWS" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsAccessoryPrefix + weaponAccessory.CategoryReadable + "|ALWT" + weaponAccessory.WarsawID + separator + weaponAccessory.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
@@ -136,15 +145,15 @@ namespace PRoConEvents
                             }
                             if (_enableAdKatsIntegration && !_spawnEnforcementOnly)
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?", "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on trigger?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 if (_warsawInvalidLoadoutIDMessages.ContainsKey(weapon.WarsawID))
                                 {
-                                    lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                    lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWS" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                                 }
                             }
                             else
                             {
-                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?", "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
+                                lstReturn.Add(new CPluginVariable(SettingsGadgetPrefix + weapon.CategoryTypeReadable + "|ALWT" + weapon.WarsawID + separator + weapon.Slug + separator + "Allow on spawn?" + inverseSuffix, "enum.AllowItemEnum(Allow|Deny)", _warsawSpawnDeniedIDs.Contains(weapon.WarsawID) ? ("Deny") : ("Allow")));
                             }
                         }
                     }
@@ -220,7 +229,11 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Trigger Enforce Minimum Infraction Points", typeof(Int32), _triggerEnforcementMinimumInfractionPoints));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Weapon Popularity Display Frequency Minutes", typeof(Int32), _weaponPopularityDisplayMinutes));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
+            lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Inverse Mode (Whitelist)", typeof(Boolean), _inverseEnforcementMode));
             lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
+            lstReturn.Add(new CPluginVariable("Weapon Limits|Max Snipers Per Team", typeof(Int32), _maxSnipersPerTeam));
+            lstReturn.Add(new CPluginVariable("Weapon Limits|Max DMRs Per Team", typeof(Int32), _maxDMRsPerTeam));
+            lstReturn.Add(new CPluginVariable("Weapon Limits|Max Shotguns Per Team", typeof(Int32), _maxShotgunsPerTeam));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Map/Mode Settings", typeof(Boolean), _displayMapsModes));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Settings", typeof(Boolean), _displayWeapons));
             lstReturn.Add(new CPluginVariable(SettingsDisplayPrefix + "Display Weapon Accessory Settings", typeof(Boolean), _displayWeaponAccessories));
@@ -465,6 +478,49 @@ namespace PRoConEvents
                         }
                         _minimumPlayersForEnforcement = minimumPlayersForEnforcement;
                     }
+                }
+                else if (Regex.Match(strVariable, @"Max Snipers Per Team").Success)
+                {
+                    Int32 maxSnipersPerTeam;
+                    if (Int32.TryParse(strValue, out maxSnipersPerTeam))
+                    {
+                        if (maxSnipersPerTeam < 0)
+                        {
+                            Log.Error("Max snipers per team cannot be negative.");
+                            maxSnipersPerTeam = 0;
+                        }
+                        _maxSnipersPerTeam = maxSnipersPerTeam;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Max DMRs Per Team").Success)
+                {
+                    Int32 maxDMRsPerTeam;
+                    if (Int32.TryParse(strValue, out maxDMRsPerTeam))
+                    {
+                        if (maxDMRsPerTeam < 0)
+                        {
+                            Log.Error("Max DMRs per team cannot be negative.");
+                            maxDMRsPerTeam = 0;
+                        }
+                        _maxDMRsPerTeam = maxDMRsPerTeam;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Max Shotguns Per Team").Success)
+                {
+                    Int32 maxShotgunsPerTeam;
+                    if (Int32.TryParse(strValue, out maxShotgunsPerTeam))
+                    {
+                        if (maxShotgunsPerTeam < 0)
+                        {
+                            Log.Error("Max shotguns per team cannot be negative.");
+                            maxShotgunsPerTeam = 0;
+                        }
+                        _maxShotgunsPerTeam = maxShotgunsPerTeam;
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Inverse Mode \(Whitelist\)").Success)
+                {
+                    _inverseEnforcementMode = Boolean.Parse(strValue);
                 }
                 else if (Regex.Match(strVariable, @"Action Whitelist").Success)
                 {
