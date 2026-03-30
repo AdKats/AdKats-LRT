@@ -66,7 +66,6 @@ namespace PRoConEvents
         //State
         private GameVersion _gameVersion = GameVersion.BF3;
         private volatile Boolean _pluginEnabled;
-        private Boolean _userEnabled = false;
         private DateTime _pluginStartTime = DateTime.UtcNow;
         private WarsawLibrary _warsawLibrary = new WarsawLibrary();
         private Boolean _warsawLibraryLoaded;
@@ -236,7 +235,6 @@ namespace PRoConEvents
                     return;
                 }
                 Log.Info("Plugin enabled.");
-                _userEnabled = true;
                 //If the finalizer is still alive, inform the user and disable
                 if (_finalizer != null && _finalizer.IsAlive)
                 {
@@ -395,7 +393,6 @@ namespace PRoConEvents
                         Log.Info("Shutting down AdKatsLRT.");
                         //Disable settings
                         _pluginEnabled = false;
-                        _userEnabled = false;
                         _threadsReady = false;
 
                         if (_enableAdKatsIntegration)

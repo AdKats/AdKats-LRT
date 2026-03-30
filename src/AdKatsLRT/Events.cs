@@ -476,6 +476,13 @@ namespace PRoConEvents
                 if (_playerDictionary.TryGetValue(playerInfo.SoldierName, out aPlayer))
                 {
                     aPlayer.Online = false;
+                    if (!String.IsNullOrEmpty(aPlayer.PersonaID))
+                    {
+                        lock (_playerUnlockedItems)
+                        {
+                            _playerUnlockedItems.Remove(aPlayer.PersonaID);
+                        }
+                    }
                 }
             }
             catch (Exception e)

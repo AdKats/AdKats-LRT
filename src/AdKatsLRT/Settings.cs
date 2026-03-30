@@ -11,6 +11,7 @@ namespace PRoConEvents
     public partial class AdKatsLRT
     {
         private Int32 _minimumPlayersForEnforcement = 0;
+        private Boolean _checkUnlocksBeforeEnforcing = true;
         private Int32 _maxSnipersPerTeam = 0;
         private Int32 _maxDMRsPerTeam = 0;
         private Int32 _maxShotgunsPerTeam = 0;
@@ -50,6 +51,7 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
                 lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Inverse Mode (Whitelist)", typeof(Boolean), _inverseEnforcementMode));
                 lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
+                lstReturn.Add(new CPluginVariable("Server Settings|Check Unlocks Before Enforcing", typeof(enumBoolYesNo), _checkUnlocksBeforeEnforcing ? enumBoolYesNo.Yes : enumBoolYesNo.No));
                 lstReturn.Add(new CPluginVariable("Weapon Limits|Max Snipers Per Team", typeof(Int32), _maxSnipersPerTeam));
                 lstReturn.Add(new CPluginVariable("Weapon Limits|Max DMRs Per Team", typeof(Int32), _maxDMRsPerTeam));
                 lstReturn.Add(new CPluginVariable("Weapon Limits|Max Shotguns Per Team", typeof(Int32), _maxShotgunsPerTeam));
@@ -231,6 +233,7 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Global Item Filter", typeof(String[]), _ItemFilter));
             lstReturn.Add(new CPluginVariable(SettingsInstancePrefix + "Inverse Mode (Whitelist)", typeof(Boolean), _inverseEnforcementMode));
             lstReturn.Add(new CPluginVariable("Server Settings|Minimum Players for Enforcement", typeof(Int32), _minimumPlayersForEnforcement));
+            lstReturn.Add(new CPluginVariable("Server Settings|Check Unlocks Before Enforcing", typeof(enumBoolYesNo), _checkUnlocksBeforeEnforcing ? enumBoolYesNo.Yes : enumBoolYesNo.No));
             lstReturn.Add(new CPluginVariable("Weapon Limits|Max Snipers Per Team", typeof(Int32), _maxSnipersPerTeam));
             lstReturn.Add(new CPluginVariable("Weapon Limits|Max DMRs Per Team", typeof(Int32), _maxDMRsPerTeam));
             lstReturn.Add(new CPluginVariable("Weapon Limits|Max Shotguns Per Team", typeof(Int32), _maxShotgunsPerTeam));
@@ -478,6 +481,10 @@ namespace PRoConEvents
                         }
                         _minimumPlayersForEnforcement = minimumPlayersForEnforcement;
                     }
+                }
+                else if (Regex.Match(strVariable, @"Check Unlocks Before Enforcing").Success)
+                {
+                    _checkUnlocksBeforeEnforcing = strValue == "Yes";
                 }
                 else if (Regex.Match(strVariable, @"Max Snipers Per Team").Success)
                 {

@@ -14,7 +14,6 @@ namespace PRoConEvents
     public partial class AdKatsLRT
     {
         private readonly Dictionary<String, HashSet<String>> _playerUnlockedItems = new Dictionary<String, HashSet<String>>();
-        private Boolean _checkUnlocksBeforeEnforcing = true;
         private void QueuePlayerForBattlelogInfoFetch(AdKatsSubscribedPlayer aPlayer)
         {
             Log.Debug("Entering QueuePlayerForBattlelogInfoFetch", 6);
