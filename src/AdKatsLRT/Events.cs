@@ -375,7 +375,35 @@ namespace PRoConEvents
                             {
                                 QueuePlayerForBattlelogInfoFetch(aPlayer);
                             }
-                            Log.Debug("Spawn process for " + aPlayer.Name + " cancelled because their Persona ID is not loaded yet.", 3);
+                            Log.Debug("Spawn process for " + aPlayer.Name + " cancelled because their Persona ID is not loaded yet. Scheduling retry.", 3);
+                            //Schedule a delayed retry to check loadout once persona data arrives
+                            String playerName = aPlayer.Name;
+                            ThreadPool.QueueUserWorkItem(delegate
+                            {
+                                try
+                                {
+                                    Thread.Sleep(3000);
+                                    if (!_pluginEnabled || !_threadsReady)
+                                    {
+                                        return;
+                                    }
+                                    AdKatsSubscribedPlayer retryPlayer;
+                                    if (_playerDictionary.TryGetValue(playerName, out retryPlayer) && !String.IsNullOrEmpty(retryPlayer.PersonaID))
+                                    {
+                                        Log.Debug("Persona ID now available for " + retryPlayer.Name + ", queuing delayed loadout check.", 3);
+                                        QueueForProcessing(new ProcessObject()
+                                        {
+                                            ProcessPlayer = retryPlayer,
+                                            ProcessReason = "spawn",
+                                            ProcessTime = spawnTime
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Exception("Error in persona ID retry for " + playerName + ".", ex);
+                                }
+                            });
                             return;
                         }
                         //Create process object

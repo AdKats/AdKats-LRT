@@ -66,6 +66,7 @@ namespace PRoConEvents
         //State
         private GameVersion _gameVersion = GameVersion.BF3;
         private volatile Boolean _pluginEnabled;
+        private Boolean _userEnabled = false;
         private DateTime _pluginStartTime = DateTime.UtcNow;
         private WarsawLibrary _warsawLibrary = new WarsawLibrary();
         private Boolean _warsawLibraryLoaded;
@@ -227,6 +228,14 @@ namespace PRoConEvents
         {
             try
             {
+                //Guard against duplicate enable calls (e.g. Procon layer reconnect or external plugin calls)
+                if (_pluginEnabled || (_activator != null && _activator.IsAlive))
+                {
+                    Log.Warn("Plugin enable called while already enabled or activating. Ignoring duplicate enable.");
+                    return;
+                }
+                Log.Info("Plugin enabled.");
+                _userEnabled = true;
                 //If the finalizer is still alive, inform the user and disable
                 if (_finalizer != null && _finalizer.IsAlive)
                 {
@@ -328,6 +337,16 @@ namespace PRoConEvents
                                 InitThreads();
                                 StartThreads();
 
+                                //Warn if trigger-based enforcement settings exist without AdKats
+                                if (!_enableAdKatsIntegration)
+                                {
+                                    Int32 triggerOnlyCount = _warsawInvalidLoadoutIDMessages.Keys.Count(id => !_warsawSpawnDeniedIDs.Contains(id));
+                                    if (triggerOnlyCount > 0)
+                                    {
+                                        Log.Warn("Found " + triggerOnlyCount + " item(s) with trigger-based enforcement but AdKats integration is not enabled. Trigger-based enforcement requires AdKats. These items will not be enforced on kill.");
+                                    }
+                                }
+
                                 Log.Success("AdKatsLRT " + GetPluginVersion() + " startup complete [" + FormatTimeString(DateTime.UtcNow - _startTime, 3) + "]. Loadout restriction now online.");
                             }
                             else
@@ -375,6 +394,7 @@ namespace PRoConEvents
                         Log.Info("Shutting down AdKatsLRT.");
                         //Disable settings
                         _pluginEnabled = false;
+                        _userEnabled = false;
                         _threadsReady = false;
 
                         if (_enableAdKatsIntegration)
