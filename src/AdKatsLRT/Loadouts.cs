@@ -384,6 +384,11 @@ namespace PRoConEvents
                                         {
                                             if (!_warsawInvalidLoadoutIDMessages.ContainsKey(kitItemID))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, kitItemID))
+                                                {
+                                                    Log.Debug("Skipping inverse enforcement of " + kitItemID + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 loadoutValid = false;
                                                 String inverseMsg = "Item not whitelisted in your loadout";
                                                 if (!specificMessages.Contains(inverseMsg))
@@ -393,6 +398,11 @@ namespace PRoConEvents
                                             }
                                             if (!_warsawSpawnDeniedIDs.Contains(kitItemID))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, kitItemID))
+                                                {
+                                                    Log.Debug("Skipping inverse spawn enforcement of " + kitItemID + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 spawnLoadoutValid = false;
                                                 String inverseSpawnMsg = "Item not whitelisted in your loadout";
                                                 if (!spawnSpecificMessages.Contains(inverseSpawnMsg))
@@ -408,6 +418,11 @@ namespace PRoConEvents
                                         {
                                             if (!_warsawSpawnDeniedIDs.Contains(kitItemID))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, kitItemID))
+                                                {
+                                                    Log.Debug("Skipping inverse spawn enforcement of " + kitItemID + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 loadoutValid = false;
                                                 spawnLoadoutValid = false;
                                                 String inverseSpawnMsg = "Item not whitelisted in your loadout";
@@ -428,6 +443,11 @@ namespace PRoConEvents
                                         {
                                             if (loadout.AllKitItemIDs.Contains(warsawDeniedIDMessage.Key))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, warsawDeniedIDMessage.Key))
+                                                {
+                                                    Log.Debug("Skipping enforcement of " + warsawDeniedIDMessage.Key + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 loadoutValid = false;
                                                 if (!specificMessages.Contains(warsawDeniedIDMessage.Value))
                                                 {
@@ -440,6 +460,11 @@ namespace PRoConEvents
                                         {
                                             if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, warsawDeniedID))
+                                                {
+                                                    Log.Debug("Skipping spawn enforcement of " + warsawDeniedID + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 spawnLoadoutValid = false;
                                                 if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
                                                 {
@@ -454,6 +479,11 @@ namespace PRoConEvents
                                         {
                                             if (loadout.AllKitItemIDs.Contains(warsawDeniedID))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, warsawDeniedID))
+                                                {
+                                                    Log.Debug("Skipping spawn enforcement of " + warsawDeniedID + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 loadoutValid = false;
                                                 spawnLoadoutValid = false;
                                                 if (!spawnSpecificMessages.Contains(_warsawInvalidLoadoutIDMessages[warsawDeniedID]))
@@ -471,6 +501,11 @@ namespace PRoConEvents
                                     {
                                         if (loadout.VehicleItems.ContainsKey(warsawDeniedIDMessage.Key))
                                         {
+                                            if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, warsawDeniedIDMessage.Key))
+                                            {
+                                                Log.Debug("Skipping vehicle enforcement of " + warsawDeniedIDMessage.Key + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                continue;
+                                            }
                                             loadoutValid = false;
                                             vehicleLoadoutValid = false;
                                             if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
@@ -499,6 +534,11 @@ namespace PRoConEvents
                                                 (vehicle.AssignedOpticGunner != null && vehicle.AssignedOpticGunner.WarsawID == warsawDeniedIDMessage.Key) ||
                                                 (vehicle.AssignedUpgradeGunner != null && vehicle.AssignedUpgradeGunner.WarsawID == warsawDeniedIDMessage.Key))
                                             {
+                                                if (!IsItemUnlockedByPlayer(aPlayer.PersonaID, warsawDeniedIDMessage.Key))
+                                                {
+                                                    Log.Debug("Skipping vehicle enforcement of " + warsawDeniedIDMessage.Key + " for " + aPlayer.Name + ". Item not unlocked.", 3);
+                                                    continue;
+                                                }
                                                 loadoutValid = false;
                                                 vehicleLoadoutValid = false;
                                                 if (!vehicleSpecificMessages.Contains(warsawDeniedIDMessage.Value))
@@ -565,59 +605,119 @@ namespace PRoConEvents
                             String spawnDeniedWeapons = String.Empty;
                             if (!loadoutValid)
                             {
-                                //Fill the denied messages
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.WarsawID))
+                                if (_inverseEnforcementMode)
                                 {
-                                    deniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                    //Inverse mode: items NOT in the whitelist are denied
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => !_warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => !_warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                    }
+                                    //Fill the spawn denied messages (inverse)
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitItemPrimary.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                    }
+                                    spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => !_warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitItemSidearm.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
+                                    }
+                                    spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => !_warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitGadget1.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitGadget2.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitGrenade.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
+                                    }
+                                    if (!_warsawSpawnDeniedIDs.Contains(loadout.KitKnife.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                    }
                                 }
-                                deniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.WarsawID))
+                                else
                                 {
-                                    deniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
-                                }
-                                deniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.WarsawID))
-                                {
-                                    deniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.WarsawID))
-                                {
-                                    deniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.WarsawID))
-                                {
-                                    deniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.WarsawID))
-                                {
-                                    deniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
-                                }
-                                //Fill the spawn denied messages
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitItemPrimary.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
-                                }
-                                spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitItemSidearm.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
-                                }
-                                spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitGadget1.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitGadget2.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitGrenade.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
-                                }
-                                if (_warsawSpawnDeniedIDs.Contains(loadout.KitKnife.WarsawID))
-                                {
-                                    spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                    //Normal mode: items IN the deny list are denied
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemPrimary.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitItemSidearm.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
+                                    }
+                                    deniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawInvalidLoadoutIDMessages.ContainsKey(weaponAccessory.WarsawID)).Aggregate(deniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget1.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGadget2.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitGrenade.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawInvalidLoadoutIDMessages.ContainsKey(loadout.KitKnife.WarsawID))
+                                    {
+                                        deniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                    }
+                                    //Fill the spawn denied messages
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitItemPrimary.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitItemPrimary.Slug.ToUpper() + ", ";
+                                    }
+                                    spawnDeniedWeapons = loadout.KitItemPrimary.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitItemSidearm.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitItemSidearm.Slug.ToUpper() + ", ";
+                                    }
+                                    spawnDeniedWeapons = loadout.KitItemSidearm.AccessoriesAssigned.Values.Where(weaponAccessory => _warsawSpawnDeniedIDs.Contains(weaponAccessory.WarsawID)).Aggregate(spawnDeniedWeapons, (current, weaponAccessory) => current + (weaponAccessory.Slug.ToUpper() + ", "));
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitGadget1.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGadget1.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitGadget2.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGadget2.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitGrenade.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitGrenade.Slug.ToUpper() + ", ";
+                                    }
+                                    if (_warsawSpawnDeniedIDs.Contains(loadout.KitKnife.WarsawID))
+                                    {
+                                        spawnDeniedWeapons += loadout.KitKnife.Slug.ToUpper() + ", ";
+                                    }
                                 }
                                 //Trim the messages
                                 deniedWeapons = deniedWeapons.Trim().TrimEnd(',');

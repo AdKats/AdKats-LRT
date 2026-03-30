@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -12,6 +13,8 @@ namespace PRoConEvents
 {
     public partial class AdKatsLRT
     {
+        private readonly Dictionary<String, HashSet<String>> _playerUnlockedItems = new Dictionary<String, HashSet<String>>();
+        private Boolean _checkUnlocksBeforeEnforcing = true;
         private void QueuePlayerForBattlelogInfoFetch(AdKatsSubscribedPlayer aPlayer)
         {
             Log.Debug("Entering QueuePlayerForBattlelogInfoFetch", 6);
@@ -174,10 +177,169 @@ namespace PRoConEvents
                         _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
                     }
                 }
+                //Fetch unlock data for the player
+                if (_checkUnlocksBeforeEnforcing && !String.IsNullOrEmpty(aPlayer.PersonaID))
+                {
+                    FetchPlayerUnlocks(aPlayer);
+                }
             }
             catch (Exception e)
             {
                 Log.Exception("Error while fetching battlelog information for " + aPlayer.Name, e);
+            }
+        }
+
+        private void FetchPlayerUnlocks(AdKatsSubscribedPlayer aPlayer)
+        {
+            try
+            {
+                DoBattlelogWait();
+                String detailedResponse = ("http://battlelog.battlefield.com/bf4/warsawdetailedstatspopulate/" + aPlayer.PersonaID + "/1/")
+                    .GetStringAsync().Result;
+
+                Hashtable detailedJson = (Hashtable)JSON.JsonDecode(detailedResponse);
+                if (detailedJson == null || !detailedJson.ContainsKey("data"))
+                {
+                    Log.Debug("Could not parse detailed stats for " + aPlayer.Name + ". Unlock check will fall back to enforcing.", 3);
+                    return;
+                }
+                var detailedData = (Hashtable)detailedJson["data"];
+                if (detailedData == null)
+                {
+                    Log.Debug("Detailed stats data was null for " + aPlayer.Name + ". Unlock check will fall back to enforcing.", 3);
+                    return;
+                }
+
+                var unlockedIDs = new HashSet<String>();
+
+                //Parse weapon unlocks from statsTemplate
+                if (detailedData.ContainsKey("weaponUnlocks"))
+                {
+                    var weaponUnlocks = detailedData["weaponUnlocks"] as ArrayList;
+                    if (weaponUnlocks != null)
+                    {
+                        foreach (var entry in weaponUnlocks)
+                        {
+                            var unlockEntry = entry as Hashtable;
+                            if (unlockEntry == null)
+                            {
+                                continue;
+                            }
+                            //Each entry has a weaponAddonUnlocks array with individual unlock items
+                            var addonUnlocks = unlockEntry["weaponAddonUnlocks"] as ArrayList;
+                            if (addonUnlocks != null)
+                            {
+                                foreach (var addon in addonUnlocks)
+                                {
+                                    var addonHash = addon as Hashtable;
+                                    if (addonHash == null)
+                                    {
+                                        continue;
+                                    }
+                                    var unlockedBy = addonHash["unlockedBy"] as Hashtable;
+                                    if (unlockedBy != null && unlockedBy.ContainsKey("completion"))
+                                    {
+                                        var completion = unlockedBy["completion"].ToString();
+                                        if (completion == "1")
+                                        {
+                                            if (addonHash.ContainsKey("weaponAddonGuid"))
+                                            {
+                                                unlockedIDs.Add(addonHash["weaponAddonGuid"].ToString());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            //The weapon itself — check if it has a guid and is unlocked
+                            if (unlockEntry.ContainsKey("guid"))
+                            {
+                                unlockedIDs.Add(unlockEntry["guid"].ToString());
+                            }
+                        }
+                    }
+                }
+
+                //Parse kit item unlocks
+                if (detailedData.ContainsKey("kitItemUnlocks"))
+                {
+                    var kitItemUnlocks = detailedData["kitItemUnlocks"] as ArrayList;
+                    if (kitItemUnlocks != null)
+                    {
+                        foreach (var entry in kitItemUnlocks)
+                        {
+                            var unlockEntry = entry as Hashtable;
+                            if (unlockEntry == null)
+                            {
+                                continue;
+                            }
+                            var unlockedBy = unlockEntry["unlockedBy"] as Hashtable;
+                            if (unlockedBy != null && unlockedBy.ContainsKey("completion"))
+                            {
+                                var completion = unlockedBy["completion"].ToString();
+                                if (completion == "1" && unlockEntry.ContainsKey("guid"))
+                                {
+                                    unlockedIDs.Add(unlockEntry["guid"].ToString());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                //Parse vehicle unlocks
+                if (detailedData.ContainsKey("vehicleUnlocks"))
+                {
+                    var vehicleUnlocks = detailedData["vehicleUnlocks"] as ArrayList;
+                    if (vehicleUnlocks != null)
+                    {
+                        foreach (var entry in vehicleUnlocks)
+                        {
+                            var unlockEntry = entry as Hashtable;
+                            if (unlockEntry == null)
+                            {
+                                continue;
+                            }
+                            var addonUnlocks = unlockEntry["vehicleAddonUnlocks"] as ArrayList;
+                            if (addonUnlocks != null)
+                            {
+                                foreach (var addon in addonUnlocks)
+                                {
+                                    var addonHash = addon as Hashtable;
+                                    if (addonHash == null)
+                                    {
+                                        continue;
+                                    }
+                                    var unlockedBy = addonHash["unlockedBy"] as Hashtable;
+                                    if (unlockedBy != null && unlockedBy.ContainsKey("completion"))
+                                    {
+                                        var completion = unlockedBy["completion"].ToString();
+                                        if (completion == "1" && addonHash.ContainsKey("vehicleAddonGuid"))
+                                        {
+                                            unlockedIDs.Add(addonHash["vehicleAddonGuid"].ToString());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                lock (_playerUnlockedItems)
+                {
+                    _playerUnlockedItems[aPlayer.PersonaID] = unlockedIDs;
+                }
+                Log.Debug("Fetched " + unlockedIDs.Count + " unlocked items for " + aPlayer.Name, 3);
+            }
+            catch (Exception e)
+            {
+                if (e is HttpRequestException)
+                {
+                    Log.Warn("Issue connecting to battlelog while fetching unlocks for " + aPlayer.Name + ".");
+                    _lastBattlelogAction = DateTime.UtcNow.AddSeconds(30);
+                }
+                else
+                {
+                    Log.Debug("Error fetching unlocks for " + aPlayer.Name + ". Unlock check will fall back to enforcing. " + e.Message, 2);
+                }
             }
         }
 
