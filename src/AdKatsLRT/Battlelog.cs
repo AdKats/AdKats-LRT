@@ -391,10 +391,5 @@ namespace PRoConEvents
                 Thread.Sleep(_battlelogWaitDuration);
             }
         }
-
-        public TimeSpan NowDuration(DateTime diff)
-        {
-            return (DateTime.UtcNow - diff).Duration();
-        }
     }
 }
