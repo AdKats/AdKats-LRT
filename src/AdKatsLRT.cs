@@ -291,6 +291,10 @@ namespace PRoConEvents
                                     return;
                                 }
                                 Log.Success("WARSAW library loaded. " + _warsawLibrary.Items.Count + " items, " + _warsawLibrary.VehicleUnlocks.Count + " vehicle unlocks, and " + _warsawLibrary.ItemAccessories.Count + " accessories.");
+                                if (_restrictSpecificMapModes && _restrictedMapModes.Count == 0)
+                                {
+                                    Log.Warn("Map/Mode specific enforcement is enabled but no maps are selected. Enforcement will not trigger on any map.");
+                                }
                                 UpdateSettingPage();
 
                                 if (_enableAdKatsIntegration)

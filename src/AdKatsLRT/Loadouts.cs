@@ -563,7 +563,7 @@ namespace PRoConEvents
                                     {
                                         //Manual trigger or no admins online, enforce all denied weapons
                                         adminMessage += "denied items [" + deniedWeapons + "]";
-                                        PlayerSayMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
+                                        PlayerYellMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + deniedWeapons + "] from your loadout.");
                                         foreach (var specificMessage in specificMessages)
                                         {
                                             if (!tellMessages.Contains(specificMessage))
@@ -575,7 +575,7 @@ namespace PRoConEvents
                                     else if (!spawnLoadoutValid)
                                     {
                                         //Loadout enforcement was not triggered, enforce spawn denied weapons only
-                                        PlayerSayMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
+                                        PlayerYellMessage(aPlayer.Name, reason + aPlayer.GetVerboseName() + " please remove [" + spawnDeniedWeapons + "] from your loadout.");
                                         foreach (var spawnSpecificMessage in spawnSpecificMessages)
                                         {
                                             if (!tellMessages.Contains(spawnSpecificMessage))
@@ -980,10 +980,10 @@ namespace PRoConEvents
                             continue;
                         }
                         kitItem.CategoryReadable = kitItem.Category.Split('_').Last().Replace('_', ' ').ToUpper();
-                        if (kitItem.CategoryReadable != "GADGET" && kitItem.CategoryReadable != "GRENADE")
+                        if (kitItem.CategoryReadable != "GADGET" && kitItem.CategoryReadable != "GRENADE" && kitItem.CategoryReadable != "EQUIPMENT")
                         {
                             if (_displayLoadoutDebug)
-                                Log.Error("Rejecting kit item '" + warsawID + "'. 'category' not gadget or grenade.");
+                                Log.Error("Rejecting kit item '" + warsawID + "'. 'category' not gadget, grenade, or equipment.");
                             continue;
                         }
 
